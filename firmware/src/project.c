@@ -164,19 +164,21 @@ UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n
 UI_SMALL static uint32_t proj_sum(const project_t *p) { return proj_hash(p, sizeof *p - 4u); }
 UI_SMALL static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC && q->size == sizeof *q && q->sum == proj_sum(q); }
 
-/* (BONBLOOP 1.2) beside each project: the synth's extras (eng_wave.c synx: each oscillator's ENV and LFO, the FX chain)
+/* (BONBLOOP 1.2, 1.3) beside each project: the synth's extras (eng_wave.c synx: OSC 2 and 3's envelopes, each
+ * oscillator's LFO, the FX chain)
  * and the delay's FREE ms. Not in the project (format 6 is full, and SLOOP reads it as ever): in RAM one per section
  * A..D and one for any other copy (the working one's: the autosave), and in flash in the side record of the copy
  * (storage.c st_side). None, or not valid (a project of SLOOP or of 1.1): the synx 0 (the chain then shows the
  * effects that sound: ui.c syn_chain_fill), the ms at their default */
-#define BBX_MAGIC 0x31584242u                  /* "BBX1" */
+#define BBX_MAGIC 0x32584242u                  /* "BBX2" (1.3; 1.2's "BBX1" held other fields: none) */
 typedef struct {
     uint32_t magic;
     synx_t x[NPART];
     int16_t dms;
-    uint16_t sum;                              /* (44 bytes: .noinit is full to 4 bytes) */
+    uint16_t sum;
 } bbx_t;
-static bbx_t bbx_ram[5] __attribute__((section(".noinit")));   /* (as proj_slot: a warm reset keeps them) */
+static bbx_t bbx_ram[5];                       /* (not .noinit, it is full: after a warm reset persist_boot reads the
+                                                * sections' back from flash) */
 UI_SMALL static bbx_t *bbx_of(const project_t *p)
 {
     uintptr_t a = (uintptr_t)p, b = (uintptr_t)proj_slot;
@@ -521,6 +523,7 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
 static void proj_apply(const project_t *p, int all)
 {
     uint32_t i, k;
+    int xok;
     for (i = 0; i < PROJ_NG; i++)
         if (all ? i != G_SLOT && i != G_LOAD && i != G_SAVE && i != G_SYNC && i != G_MIDI && i != G_ROUTE && i != G_DRCH &&
                       i != G_INFO
@@ -531,14 +534,13 @@ static void proj_apply(const project_t *p, int all)
     proj_tx_get(p);                                     /* GLO > TEXTURE (2.6): a load and a section */
     drum_tw_get(p);                                     /* (2.7) the drum sounds' TUNE and DECAY: a load and a section */
     {
-        const bbx_t *x = bbx_of(p);                     /* (BONBLOOP 1.2) its extras, or none */
-        int ok = bbx_ok(x);
-        if (ok)
+        const bbx_t *x = bbx_of(p);                     /* (BONBLOOP 1.2) its extras, or none (after the tracks:
+                                                         * sx_default) */
+        xok = bbx_ok(x);
+        if (xok)
             memcpy(synx, x->x, sizeof synx);
-        else
-            memset(synx, 0, sizeof synx);
         if (all)
-            song.g[G_DMS] = (int16_t)clamp(ok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max);
+            song.g[G_DMS] = (int16_t)clamp(xok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max);
     }
     for (k = 0; k < NTRK; k++) {
         track_t *t = &trk[k];
@@ -593,6 +595,8 @@ static void proj_apply(const project_t *p, int all)
             }
         fm6_track_loaded(t);                            /* FM6: the project keeps PTCH, not the patch: its slot's */
     }
+    for (k = 0; !xok && k < NPART; k++)
+        sx_default(&trk[k]);                            /* (BONBLOOP 1.3: no extras: as the sounds start) */
 }
 
 #ifndef PROJ_HOST
@@ -916,6 +920,8 @@ UI_SMALL static void persist_boot(void)                    /* before settings_in
                 int n = st_load(OBJ_PROJECT0 + i, &proj_tmp, sizeof proj_tmp);
                 if (n != (int)sizeof proj_slot[i] || memcmp(&proj_tmp.v6, &proj_slot[i], sizeof proj_slot[i]))
                     sec_dirty |= (uint8_t)(1u << i);
+                else
+                    bbx_load(OBJ_PROJECT0 + i, &proj_slot[i]);   /* (BONBLOOP: its extras, as flash has them) */
             }
     }
     dsu_boot();                                    /* SLOOP 2.5: the SYN kits (after the settings) */

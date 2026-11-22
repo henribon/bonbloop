@@ -495,11 +495,12 @@ int main(void)
         bad += check("1.2: a song section: the synx with its tracks, the ms (a global) left", ok);
         bbx_of(pp)->sum ^= 1u;
         proj_apply(pp, 1);
-        ok = !synx[1].w[0] && !synx[1].w[2] && song.g[G_DMS] == GP[G_DMS].def;
-        bad += check("1.2: extras spoilt (or none: SLOOP, 1.1): synx 0, the ms at their default", ok);
+        ok = sx_get(1, SX_A2) == trk[1].p[P_ATK] && sx_get(1, SX_R3) == trk[1].p[P_REL] && !synx[1].w[2] && !synx[1].w[3] &&
+             song.g[G_DMS] == GP[G_DMS].def;
+        bad += check("1.3: extras spoilt (or none: SLOOP, 1.1, 1.2): no LFO, no chain, OSC 2 / 3's ENV as OSC 1's, the ms at their default", ok);
         bad += check("1.2: each section its own extras, any other copy the fifth",
                      bbx_of(&proj_slot[0]) == &bbx_ram[0] && bbx_of(&proj_slot[3]) == &bbx_ram[3] && bbx_of(&q) == &bbx_ram[4]);
-        bad += check("1.2: the extras fit a side record", sizeof(bbx_t) == 44u);
+        bad += check("1.3: the extras fit a side record", sizeof(bbx_t) == 56u && sizeof(bbx_t) <= 192u);
     }
     printf("%s\n", bad ? "PROJECT FORMAT TEST FAILED" : "project format test passed");
     return bad != 0;

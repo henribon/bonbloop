@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.2"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.3"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -505,7 +505,7 @@ UI_SMALL static void note_name(char *b, uint32_t n)
  * nothing of it is saved, the sound is the track's like any other */
 static uint8_t syn_mode;
 static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
-static const uint8_t SYN_GRP[5] = {0, 6, 11, 17, 27};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
+static const uint8_t SYN_GRP[5] = {0, 6, 10, 16, 26};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
 static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
 UI_SMALL static int syn_group_of(uint32_t fam)
 {
@@ -530,7 +530,7 @@ UI_SMALL static void syn_chain_fill(track_t *t)
     if (is_drum(t) || t->eng_req % NENGINES != ENGI_WAVE)
         return;
     for (fx = 1; fx < FXI_N; fx++)
-        for (s = 0; on[fx] && !sx_chain_has(part, fx) && s < 8u; s++)
+        for (s = 0; on[fx] && !sx_chain_has(part, fx) && s < SX_NSLOT; s++)
             if (!sx_get(part, SX_C1 + s))
                 sx_set(part, SX_C1 + s, (int32_t)fx);
 }
@@ -596,7 +596,7 @@ UI_SMALL static int page_walk(int32_t s)
     const page_t *pg = cur_page();
     uint32_t i, fam = pg->fam, n = 0;
     int32_t cur = -1, to;
-    uint8_t idx[32];                               /* (2.7: GLO has 9 pages with MIDI 3; BONBLOOP: the synth 27) */
+    uint8_t idx[32];                               /* (2.7: GLO has 9 pages with MIDI 3; BONBLOOP: the synth 26) */
     if (ui.home || pg->scope == SC_SONG || pg->scope == SC_DRUM)
         return 0;
     for (i = 0; i < NPAGES && n < 32u; i++) {

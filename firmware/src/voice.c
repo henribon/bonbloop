@@ -717,16 +717,20 @@ static __attribute__((noinline)) void esync_coef(const track_t *t)   /* (not inl
                                                                     * audio ISR's loop over the voices) */
 {
     const int16_t *p = t->p;
-    uint32_t *ek = esync_k[(uint32_t)(t - trk) % NTRK];
-    if (p[P_ESYNC]) {
-        uint32_t q = (uint32_t)FS * 60u / (uint32_t)clamp(song.g[G_BPM], 20, 300);   /* a beat (a quarter), samples */
-        ek[0] = esync_one(q, p[P_ATK], 0);
-        ek[1] = esync_one(q, p[P_DEC], 1);
-        ek[2] = esync_one(q, p[P_REL], 2);
-    } else {                                            /* OFF: the tables, as always */
-        ek[0] = ENV_LIN[p[P_ATK] & 127];
-        ek[1] = ENV_EXP[p[P_DEC] & 127];
-        ek[2] = ENV_EXP[p[P_REL] & 127];
+    uint32_t *ek = esync_k[(uint32_t)(t - trk) % NTRK], o, i;
+    uint32_t q = (uint32_t)FS * 60u / (uint32_t)clamp(song.g[G_BPM], 20, 300);   /* a beat (a quarter), samples */
+    wt_part_t *w = t->engine == ENGI_WAVE ? wt_of(t) : 0;   /* (BONBLOOP 1.3) WAVE: each oscillator's envelope, the same
+                                                         * way (eng_wave.c wave_amp; OSC 1's is this one) */
+    for (o = 0; o < WT_NOSC; o++) {
+        uint32_t *k = o ? w->ek[o] : ek;
+        for (i = 0; i < 3u; i++) {                      /* ATK, DEC, REL: ENV SYNC's, or OFF: the tables, as always */
+            int32_t x = wv_envp(t, o, i + (i == 2u));
+            k[i] = p[P_ESYNC] ? esync_one(q, x, i) : i ? ENV_EXP[x & 127] : ENV_LIN[x & 127];
+        }
+        if (!w)
+            return;
+        if (!o)
+            memcpy(w->ek[0], ek, sizeof w->ek[0]);
     }
 }
 

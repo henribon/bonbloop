@@ -8,10 +8,11 @@ cadeia de efeitos própria (drive estilo Decapitator, transient shaper, phaser, 
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.2** — cada oscilador com **envelope e LFO próprios**; uma **cadeia de efeitos** que você monta (todos
-começam desligados); DRIVE mais pesado; delay com **1/2, 1/2T** e tempo **livre em ms** (com **FIX**); **voicings**
-de acorde no SEL; e **REC + SAVE** segurados para limpar o synth.
-(1.1: 3 osciladores, 16 formas de onda, REV, efeitos do synth, o modo segura a tela.)
+**Versão 1.3** — no MODO SYNTH não existe mais o envelope da voz: **cada oscilador tem o seu envelope completo**
+(ATK · DEC · SUS · REL, igual ao do SLOOP).
+(1.2: LFO por oscilador, cadeia de efeitos que você monta, DRIVE mais pesado, delay 1/2, 1/2T, livre em ms e FIX,
+voicings de acorde no SEL, REC + SAVE para limpar o synth. 1.1: 3 osciladores, 16 formas de onda, REV, efeitos do
+synth, o modo segura a tela.)
 
 ---
 
@@ -58,15 +59,16 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | TUNE | SEMI2 · FINE2 · SEMI3 · FINE3 |
 | | FILTER | CUT · RES · TYPE (LP/BP/HP) · FLT (quanto o envelope abre o filtro) |
 | | VOICE | WARP · VCE (POLY/MONO/LEG/UNI) · DTUNE (abertura do unison) · GLD |
-| **ENV** | ENV | ATK · DEC · SUS · REL (o envelope da voz) |
-| | ENV DEST | FLT · PIT · **POS** · SYNC |
-| | OSC1 ENV · OSC2 ENV · OSC3 ENV | ENV (OFF/ON) · ATK · DEC · SUS — **o envelope de cada oscilador** (1.2) |
+| **ENV** | OSC1 ENV | ATK · DEC · SUS · REL — **o envelope do OSC 1** (1.3) |
+| | OSC2 ENV | ATK · DEC · SUS · REL — **o envelope do OSC 2** |
+| | OSC3 ENV | ATK · DEC · SUS · REL — **o envelope do OSC 3** |
+| | ENV DEST | FLT · PIT · **POS** · SYNC (o envelope do OSC 1 movendo filtro, pitch e POS; SYNC vale para os três) |
 | **LFO** | LFO | RATE · WAVE · PHS · FADE |
 | | LFO 2 | SYNC · TRIG · POL |
 | | LFO DEST | PIT · FLT · **POS** · AMP |
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
-| | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 · SLOT8 |
+| | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
 | | DJ FILT | FILT (filtro DJ do track) |
@@ -144,19 +146,32 @@ tracking; o envelope e o LFO (→ FLT) movem o CUT. Na mesma página, o **FILT**
 para a esquerda, passa-alta para a direita), depois de todos os efeitos de insert. O CC 74 de um teclado MIDI
 move o filtro DJ.
 
-### Envelope e LFO de cada oscilador (1.2)
+### Um envelope para cada oscilador (1.3)
 
-Além do ENV e do LFO da voz (que valem para todos), cada oscilador tem os seus:
+No MODO SYNTH **não existe envelope principal**: o ENV abre **OSC1 ENV**, **OSC2 ENV** e **OSC3 ENV**, cada um com
+**ATK · DEC · SUS · REL** e o desenho do envelope, exatamente como o ENV do SLOOP (mesmas faixas, mesmas curvas, e o
+**SYNC** da página ENV DEST vale para os três).
 
-- **OSCn ENV**: com **ENV ON**, o volume daquele oscilador segue o próprio ATK / DEC / SUS (0–15); o release é o
-  REL da voz. Um oscilador pode entrar devagar enquanto outro dá o ataque, ou só fazer um "clique" no começo.
-- **OSCn LFO**: **RATE** (0–15), **DEPTH** (−8 a +7; 0 desliga) e **DEST**: **POS** (varre a tabela só daquele
-  oscilador), **PITCH** (vibrato só nele) ou **LVL** (tremolo só nele).
+- O volume de cada oscilador segue **só o envelope dele**: um pad pode entrar devagar no OSC 2 enquanto o OSC 1 dá
+  o ataque, ou o OSC 3 soar só no começo, como um clique.
+- A nota dura até o **último** oscilador terminar o release: um REL longo no OSC 2 continua soando depois que o
+  OSC 1 já parou.
+- Um preset começa com os três envelopes iguais (o do preset); daí cada um vai para o seu lado.
+- O envelope do OSC 1 é o ENV do track (P_ATK … P_REL): fora do modo synth, a página ENV do SLOOP num track WAVE
+  mexe nele. É ele também que move filtro, pitch e POS (ENV DEST).
+- Com **REV**, o envelope daquele oscilador vira o swell ao contrário (sobe na velocidade do DEC dele até o topo e
+  cai no SUS dele).
+
+### LFO de cada oscilador (1.2)
+
+Além do LFO da voz (que vale para todos), cada oscilador tem o seu, na página **OSCn LFO**: **RATE** (0–15),
+**DEPTH** (−8 a +7; 0 desliga) e **DEST**: **POS** (varre a tabela só daquele oscilador), **PITCH** (vibrato só nele)
+ou **LVL** (tremolo só nele).
 
 ### A cadeia de efeitos (1.2)
 
-No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 8 slots (4 aqui, 4 em
-CHAIN 2), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, TRANS.
+No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 7 slots (4 aqui, 3 em
+CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, TRANS.
 
 - Escolher um efeito num slot **liga** o efeito (numa quantidade que já se ouve) e faz a página de detalhes dele
   aparecer depois de CHAIN 2. Voltar o slot para **--** desliga o efeito e esconde a página.
@@ -183,7 +198,7 @@ a divisão que está tocando no BPM de agora em ms e passa para FREE — mude o 
 
 No MODO SYNTH, segure **SAVE** e **REC** juntos: depois de ~0,7 s aparece o anel **clear / synth sound**; segure
 até ele fechar (~1,3 s) e o track volta ao **primeiro som do WAVE**, com todos os efeitos desligados, a cadeia
-vazia e sem envelope/LFO nos osciladores. **As notas do track ficam** (para apagar as notas, REC sozinho segurado,
+vazia, sem LFO nos osciladores e os três envelopes iguais ao do som. **As notas do track ficam** (para apagar as notas, REC sozinho segurado,
 como no SLOOP). Soltou antes: nada acontece.
 
 ### Sem gastar flash nem RAM
@@ -233,7 +248,10 @@ Funciona nas teclas, nos passos e com os modificadores das teclas pretas.
 - Sons WAVE salvos com o BONBLOOP 1.0 tocam diferente no 1.1 (os parâmetros do engine mudaram de significado).
 - Do 1.1 para o 1.2: os sons e projetos abrem iguais; os efeitos que estavam ligados aparecem sozinhos na cadeia.
   Os presets de fábrica WAVE agora começam sem efeitos (no 1.1 vinham com o phaser no INSERT).
-- Um projeto salvo no 1.2 aberto no 1.1 ou no SLOOP perde só os extras do 1.2 (envelope/LFO dos osciladores, cadeia, MS).
+- Do 1.2 para o 1.3: o envelope ON/OFF de 4 bits por oscilador virou um envelope completo; os extras salvos no 1.2
+  (LFO dos osciladores, cadeia, MS) não são lidos: o som abre com os três envelopes iguais e os efeitos ligados na cadeia.
+- Um projeto salvo no 1.3 aberto no SLOOP ou num BONBLOOP anterior perde só os extras (envelopes do OSC 2 e 3, LFO
+  dos osciladores, cadeia, MS): o OSC 1 segue o ENV do track.
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
 - A identidade do pacote continua `FM-1_900` (build de desenvolvimento), instalável pelo mesmo instalador.
@@ -256,7 +274,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.2: 580.964 de 581.564 bytes de flash (600 bytes livres); RAM 59.436 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.3: 580.400 de 581.564 bytes de flash (1,1 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 

@@ -2,7 +2,8 @@
 /* BONBLOOP 1.1 / 1.2: the SYNTH MODE and the WAVE engine on the real UI and audio (the ui_pages_test harness).
  *   ENV held 0.7 s: the mode on; the selected track plays WAVE, OSC 1 opens; again: off, the ENV page
  *   EDIT / ENV / LFO / FX tapped: their synth pages (again: the next of the group); SELECT walks those shown
- *   1.2: each oscillator's ENV and LFO; FX: the chain (every effect off at first), an effect's pages while it is in
+ *   1.2: each oscillator's LFO; 1.3: no ENV of the voice, a whole ENV per oscillator (OSC 1's the track's), the voice
+ *   sounding while one still releases; FX: the chain (every effect off at first), an effect's pages while it is in
  *   it; the delay's 1/2, FREE ms and FIX; REC + SAVE held: the synth's sound back to its start
  *   the mode keeps the screen: ARP, SEQ, SEL, GLO, SAVE tapped open nothing, HOME is OSC 1, ALGORITHM stays on the
  *   synth tracks, anything that took the screen gives it back
@@ -131,9 +132,10 @@ int main(int argc, char **argv)
 
     /* ENV, LFO, FX */
     tap(B_ENV);
-    check(on_syn_page() && str_eq(pg_title(), "ENV") && cur_btn() == B_ENV, "ENV tapped: the synth ENV page, ENV lit");
-    tap(B_ENV);
-    check(on_syn_page() && str_eq(pg_title(), "ENV DEST"), "ENV again: ENV DEST");
+    check(on_syn_page() && str_eq(pg_title(), "OSC1 ENV") && cur_btn() == B_ENV,
+          "ENV tapped: OSC1 ENV (1.3: no ENV of the voice), ENV lit");
+    tap(B_ENV); tap(B_ENV); tap(B_ENV);
+    check(on_syn_page() && str_eq(pg_title(), "ENV DEST"), "ENV three more: OSC2 ENV, OSC3 ENV, ENV DEST");
     {
         int16_t *vp;
         const param_desc_t *d = page_desc(cur_page(), 2, &vp);
@@ -141,22 +143,62 @@ int main(int argc, char **argv)
     }
     tap(B_LFO);
     check(on_syn_page() && str_eq(pg_title(), "LFO") && cur_btn() == B_LFO, "LFO tapped: the synth LFO page, LFO lit");
-    {   /* 1.2: each oscillator's ENV */
+    {   /* 1.3: an ENV per oscillator, each as SLOOP's; OSC 1's the track's */
         uint32_t part = (uint32_t)(TSEL - trk);
-        tap(B_ENV); tap(B_ENV); tap(B_ENV);
-        check(on_syn_page() && str_eq(pg_title(), "OSC1 ENV"), "ENV, ENV DEST, then OSC1 ENV");
-        turn(EN_K1, 1);
-        turn(EN_K2, 3);
-        turn(EN_K3, 5);
-        turn(EN_K4, -10);
-        check(sx_get(part, SX_EON1) == 1 && sx_get(part, SX_EA1) == 3 && sx_get(part, SX_ED1) == 5 &&
-              sx_get(part, SX_ES1) == 5 && TSEL->p[P_ATK] == ENG_WAVE.presets[TSEL->preset].env[0],
-              "OSC1 ENV: ON, ATK 3, DEC 5, SUS 5: its own, the voice's ENV as it was");
-        shot("synth-osc1-env");
+        int32_t a0, r0;
         tap(B_ENV);
-        check(on_syn_page() && str_eq(pg_title(), "OSC2 ENV"), "ENV again: OSC2 ENV");
-        tap(B_ENV); tap(B_ENV);
-        check(on_syn_page() && str_eq(pg_title(), "ENV"), "ENV round its group: ENV");
+        check(on_syn_page() && str_eq(pg_title(), "OSC1 ENV"), "ENV round its group: OSC1 ENV");
+        {
+            int16_t *vp;
+            const param_desc_t *d = page_desc(cur_page(), 0, &vp);
+            check(d == &TP[P_ATK] && vp == &TSEL->p[P_ATK], "OSC1 ENV: ATK is the track's ENV (P_ATK)");
+        }
+        check(sx_get(part, SX_A2) == TSEL->p[P_ATK] && sx_get(part, SX_S3) == TSEL->p[P_SUS] &&
+              sx_get(part, SX_R2) == TSEL->p[P_REL], "the sound's start: OSC 2 and 3's ENVs as OSC 1's");
+        tap(B_ENV);
+        check(on_syn_page() && str_eq(pg_title(), "OSC2 ENV") && cur_page()->graph == GR_ADSR, "ENV again: OSC2 ENV, its ADSR");
+        {
+            int16_t *vp;
+            const param_desc_t *d = page_desc(cur_page(), 3, &vp);
+            check(d == &TP[P_REL] && vp && *vp == sx_get(part, SX_R2), "OSC2 ENV: REL shown as SLOOP's, its own value");
+        }
+        a0 = sx_get(part, SX_A2), r0 = TSEL->p[P_ATK];
+        turn(EN_K1, 4);
+        turn(EN_K3, -3);
+        check(sx_get(part, SX_A2) > a0 && sx_get(part, SX_S2) < TSEL->p[P_SUS] && TSEL->p[P_ATK] == r0,
+              "OSC2 ENV: KNOB 1 its ATK up, KNOB 3 its SUS down; OSC 1's (the track's) as it was");
+        shot("synth-osc2-env");
+        {   /* the voice sounds while an oscillator still releases: OSC 2's REL long, OSC 1's short */
+            uint32_t i, on;
+            sx_set(part, SX_R2, 120);
+            sx_set(part, SX_R3, 0);
+            TSEL->p[P_REL] = 0;
+            fm1_in.notes |= 1u << 12;
+            frames(30);
+            fm1_in.notes &= ~(1u << 12);
+            frames(25);
+            for (i = on = 0; i < NVOICE; i++)
+                on |= TSEL->v[i].active;
+            {
+                int32_t pk = peak_of(20);
+                snprintf(b, sizeof b, "released, OSC 1 gone: OSC 2's long REL still sounds (peak %d)", pk);
+                check(on && pk > 50, b);
+            }
+            sx_set(part, SX_R2, 0);
+            fm1_in.notes |= 1u << 12;
+            frames(30);
+            fm1_in.notes &= ~(1u << 12);
+            frames(25);
+            for (i = on = 0; i < NVOICE; i++)
+                on |= TSEL->v[i].active;
+            check(!on, "every REL short: the voice ends");
+            sx_set(part, SX_R2, 40);                    /* (back to a usable release) */
+            TSEL->p[P_REL] = 40;
+        }
+        tap(B_ENV);
+        check(on_syn_page() && str_eq(pg_title(), "OSC3 ENV"), "ENV again: OSC3 ENV");
+        tap(B_ENV);
+        check(on_syn_page() && str_eq(pg_title(), "ENV DEST"), "ENV again: ENV DEST");
         /* 1.2: each oscillator's LFO */
         tap(B_LFO);
         check(on_syn_page() && str_eq(pg_title(), "LFO") && cur_btn() == B_LFO, "LFO tapped: the synth LFO page, LFO lit");
@@ -276,7 +318,7 @@ int main(int argc, char **argv)
             n += ui.page != was;
         }
         snprintf(b, sizeof b, "SELECT walks every synth page shown (%u), last CHORUS", n);
-        check(n == 21u && str_eq(pg_title(), "CHORUS") && on_syn_page(), b);
+        check(n == 20u && str_eq(pg_title(), "CHORUS") && on_syn_page(), b);
         for (i = 0; i < 40u; i++)
             turn(EN_SELECT, -1);
         check(str_eq(pg_title(), "OSC 1"), "SELECT back to OSC 1");
@@ -305,8 +347,9 @@ int main(int argc, char **argv)
         release(B_SAVE);
         frames(3);
         check(!sx_chain_has(part, FXI_CHORUS) && !sx_chain_has(part, FXI_TRANS) && !TSEL->p[P_CHOR] && !field(WV_TATK) &&
-              !sx_get(part, SX_EON1) && !sx_get(part, SX_LD1) && TSEL->eng_req == ENGI_WAVE && TSEL->preset == 0u,
-              "REC + SAVE held 2 s: the synth back to its first sound, every effect off, no ENV / LFO of the oscillators");
+              sx_get(part, SX_A2) == TSEL->p[P_ATK] && sx_get(part, SX_R3) == TSEL->p[P_REL] && !sx_get(part, SX_LD1) &&
+              TSEL->eng_req == ENGI_WAVE && TSEL->preset == 0u,
+              "REC + SAVE held 2 s: the synth back to its first sound, every effect off, no LFO, the ENVs as the sound's");
         snprintf(b, sizeof b, "... its notes kept (%d), REC as it was (%u %u), OSC 1 (%s)", !memcmp(&TSEL->step[0], &st0, sizeof st0),
                  (unsigned)song.rec, (unsigned)rec0, pg_title());
         check(!memcmp(&TSEL->step[0], &st0, sizeof st0) && song.rec == rec0 && syn_mode && str_eq(pg_title(), "OSC 1"), b);

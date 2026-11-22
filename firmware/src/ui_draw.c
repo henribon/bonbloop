@@ -192,8 +192,10 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
  * axis is the parameter value (the times themselves are exponential). */
 UI_SMALL static void graph_adsr(const track_t *t, uint16_t c)
 {
-    int32_t a = 4 + t->p[P_ATK] * 50 / 127, d = 6 + t->p[P_DEC] * 50 / 127, r = 6 + t->p[P_REL] * 60 / 127;
-    int32_t top = 8, bot = 90, sus = t->p[P_SUS] * 1000 / 127;          /* 0..1000 */
+    uint32_t id = cur_page()->id[0], o = id == VX0 + SX_A2 ? 1u : id == VX0 + SX_A3 ? 2u : 0u;   /* (BONBLOOP 1.3: a
+                                                         * synth oscillator's: OSC 2, 3; 0: the track's ENV, OSC 1's) */
+    int32_t a = 4 + wv_envp(t, o, 0) * 50 / 127, d = 6 + wv_envp(t, o, 1) * 50 / 127, r = 6 + wv_envp(t, o, 3) * 60 / 127;
+    int32_t top = 8, bot = 90, sus = wv_envp(t, o, 2) * 1000 / 127;     /* 0..1000 */
     int32_t x0 = 6, x1 = x0 + a, x3 = 232 - r, i, px, py;
     int32_t e = 32768;                                                  /* exp(-4.6 u), Q15 */
 #define EGY(lvl) (bot - (lvl) * (bot - top) / 1000)

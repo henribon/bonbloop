@@ -471,11 +471,11 @@ static const page_t PAGES[] = {
     {"TUNE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_S2, VP0 + WV_F2, VP0 + WV_S3, VP0 + WV_F3}},
     {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_CUT, VP0 + WV_RES, P_FTYPE, P_ED_FLT}},   /* the voice's filter */
     {"VOICE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_WARP, P_VOICE, P_DETUNE, P_GLIDE}},
-    {"ENV", FAM_SYN, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},       /* ENV */
-    {"ENV DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (SHP: POS) */
-    {"OSC1 ENV", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_EON1, VX0 + SX_EA1, VX0 + SX_ED1, VX0 + SX_ES1}},
-    {"OSC2 ENV", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_EON2, VX0 + SX_EA2, VX0 + SX_ED2, VX0 + SX_ES2}},
-    {"OSC3 ENV", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_EON3, VX0 + SX_EA3, VX0 + SX_ED3, VX0 + SX_ES3}},
+    /* ENV (1.3): no ENV of the voice, one per oscillator, each as SLOOP's (OSC 1's is the track's: P_ATK ..) */
+    {"OSC1 ENV", FAM_SYN, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
+    {"OSC2 ENV", FAM_SYN, SC_TRACK, GR_ADSR, {VX0 + SX_A2, VX0 + SX_D2, VX0 + SX_S2, VX0 + SX_R2}},
+    {"OSC3 ENV", FAM_SYN, SC_TRACK, GR_ADSR, {VX0 + SX_A3, VX0 + SX_D3, VX0 + SX_S3, VX0 + SX_R3}},
+    {"ENV DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (OSC 1's; SHP: POS) */
     {"LFO", FAM_SYN, SC_TRACK, GR_LFO, {P_LRATE, P_LWAVE, P_LPHASE, P_LFADE}},   /* LFO */
     {"LFO 2", FAM_SYN, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},
     {"LFO DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},   /* (SHP: POS) */
@@ -483,7 +483,7 @@ static const page_t PAGES[] = {
     {"OSC2 LFO", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_LR2, VX0 + SX_LD2, VX0 + SX_LT2, 0xFF}},
     {"OSC3 LFO", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_LR3, VX0 + SX_LD3, VX0 + SX_LT3, 0xFF}},
     {"FX CHAIN", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C1, VX0 + SX_C2, VX0 + SX_C3, VX0 + SX_C4}},   /* FX */
-    {"CHAIN 2", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C5, VX0 + SX_C6, VX0 + SX_C7, VX0 + SX_C8}},
+    {"CHAIN 2", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C5, VX0 + SX_C6, VX0 + SX_C7, 0xFF}},
     {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
     {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
     {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
@@ -538,7 +538,11 @@ static const param_desc_t *wave_field(uint32_t id, int16_t **valp)
         *valp = 0;
         return 0;
     }
-    return wv_desc(TSEL, id >= VP0 ? id : VP0 + WAVE_EDIT[(id - P_E0) & 7u], valp);
+    {
+        const param_desc_t *d = wv_desc(TSEL, id >= VP0 ? id : VP0 + WAVE_EDIT[(id - P_E0) & 7u], valp);
+        return id >= VX0 + SX_A2 && id < VX0 + SX_C1 ? &TP[P_ATK + ((id - VX0 - SX_A2) & 3u)] : d;   /* (1.3: OSC 2 and
+                                                       * 3's envelopes as OSC 1's, the track's ENV) */
+    }
 }
 
 static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **valp)
