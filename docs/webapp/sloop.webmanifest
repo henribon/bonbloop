@@ -1,12 +1,12 @@
 {
- "name": "BONBLOOP",
- "short_name": "BONBLOOP",
+ "name": "bonbloop",
+ "short_name": "bonbloop",
  "id": "editor/",
  "start_url": "editor/",
  "scope": "./",
  "display": "standalone",
- "background_color": "#000000",
- "theme_color": "#000000",
+ "background_color": "#0a0a0a",
+ "theme_color": "#0a0a0a",
  "description": "BONBLOOP (SLOOP + SYNTH MODE) for the M-VAVE FM-1: the installer and the editor, also without internet",
  "icons": [
   {

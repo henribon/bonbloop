@@ -1,96 +1,170 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-only
-     Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments -->
+     Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
+     BONBLOOP: the installer in bonbap.com.br's look (Inter Tight, dark, monochrome) -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>BONBLOOP installer</title>
-<!--PWA--><link rel="manifest" href="../sloop.webmanifest"><meta name="theme-color" content="#000000"><link rel="icon" href="../icon-192.png"><!--/PWA-->
+<title>bonbloop — installer</title>
+<meta name="description" content="bonbloop: SLOOP + a SYNTH MODE for the M-VAVE FM-1. Install it from the browser.">
+<meta property="og:title" content="bonbloop">
+<meta property="og:description" content="SLOOP + a SYNTH MODE for the M-VAVE FM-1. Install it from the browser.">
+<meta property="og:url" content="https://bonbap.com.br/bonbloop/">
+<!--PWA--><link rel="manifest" href="../sloop.webmanifest"><meta name="theme-color" content="#0a0a0a"><link rel="icon" href="../icon-192.png"><!--/PWA-->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800&display=swap">
 <style>
-  :root { --bg: #000; --fg: #f2f2f2; --dim: #8a8a92; --tile: #16161a; --line: #2a2a30;
-          --blue: #287cff; --green: #1ecc70; --yellow: #ffc618; --orange: #ff621a; --red: #ff2c34; }
-  :root[data-theme="light"] { --bg: #f4f4f2; --fg: #111; --dim: #666; --tile: #e6e6e2; --line: #d0d0cc; }
-  * { box-sizing: border-box; }
-  body { margin: 0; background: var(--bg); color: var(--fg);
-         font: 15px/1.6 "Helvetica Neue", -apple-system, BlinkMacSystemFont, Arial, sans-serif; }
-  main { max-width: 560px; margin: 0 auto; padding: 32px 16px 48px; }
-  .top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
-  .logo svg { display: block; width: 220px; height: auto; }
-  .logo rect:first-child { fill: transparent; }
-  .lang { font-size: 12px; color: var(--dim); cursor: pointer; text-decoration: underline; background: none;
-          border: 0; padding: 0; text-transform: lowercase; }
-  .strip { display: flex; height: 4px; margin: 20px 0 24px; }
-  .strip i { flex: 1; } .strip i:nth-child(1) { background: var(--blue); } .strip i:nth-child(2) { background: var(--green); }
-  .strip i:nth-child(3) { background: var(--yellow); } .strip i:nth-child(4) { background: var(--orange); }
-  h1 { font-size: 13px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; color: var(--dim); margin: 0 0 8px; }
-  .lead { font-size: 20px; line-height: 1.35; margin: 0 0 24px; }
-  .tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 28px; }
-  .tile { background: var(--tile); padding: 10px 10px 12px; border-top: 3px solid var(--c); min-height: 92px; }
-  .tile b { display: block; font-size: 22px; font-weight: 600; color: var(--c); line-height: 1.1; }
-  .tile span { display: block; font-size: 12px; color: var(--dim); text-transform: lowercase; margin-top: 4px; }
-  p { margin: 0 0 14px; }
-  button#go { font: 600 15px/1 inherit; font-family: inherit; background: var(--orange); color: #000; border: 0;
-              padding: 16px 0; width: 100%; cursor: pointer; letter-spacing: .08em; text-transform: uppercase; }
-  button#go:disabled { background: var(--tile); color: var(--dim); cursor: default; }
-  #status { margin-top: 14px; min-height: 1.6em; font-variant-numeric: tabular-nums; }
-  .small { color: var(--dim); font-size: 12.5px; }
-  .small a, a { color: inherit; }
-  progress { -webkit-appearance: none; appearance: none; width: 100%; height: 6px; margin-top: 16px; border: 0; background: var(--tile); }
-  progress::-webkit-progress-bar { background: var(--tile); }
-  progress::-webkit-progress-value { background: var(--orange); }
-  progress::-moz-progress-bar { background: var(--orange); }
-  pre { color: var(--dim); font-size: 11px; white-space: pre-wrap; margin-top: 12px; max-height: 160px; overflow: auto; }
-  hr { border: 0; border-top: 1px solid var(--line); margin: 28px 0 18px; }
+  :root { color-scheme: dark; --bg: #0a0a0a; --fg: #fafafa; --solid: #cfcfcf; --dim: #464646; --muted: #8a8a8a;
+          --line: rgba(255, 255, 255, .09); --pad: clamp(1.25rem, 4vw, 3rem); --ease: cubic-bezier(.22, 1, .36, 1); }
+  *, *::before, *::after { box-sizing: border-box; }
+  body { margin: 0; min-height: 100svh; background: var(--bg); color: var(--fg); overflow-x: hidden;
+         font: 500 16px/1.5 "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+         -webkit-font-smoothing: antialiased; }
+  .layer { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
+  .layer--glow { background: radial-gradient(42rem 42rem at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, .055), transparent 62%); }
+  .layer--grain { opacity: .035; background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
+  .mark { padding: clamp(.75rem, 2.5vh, 3rem) 0 0; overflow: hidden; }
+  .mark span { display: block; width: max-content; white-space: nowrap; line-height: .74; letter-spacing: -.035em;
+               font-size: 24vw; font-weight: 800; color: var(--solid); }
+  main { max-width: 760px; margin: 0 auto; padding: 0 var(--pad) 3rem; }
+  .bar { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: clamp(1.25rem, 3vh, 2.5rem) 0 1.5rem;
+         padding-bottom: .9rem; border-bottom: 1px solid var(--line); }
+  h1 { margin: 0; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .lang { font: inherit; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
+          background: none; border: 0; padding: 0; cursor: pointer; }
+  .lang:hover { color: var(--fg); }
+  .lead { font-size: clamp(1.2rem, 2.6vw, 1.55rem); line-height: 1.3; font-weight: 700; letter-spacing: -.015em; margin: 0 0 1.75rem; }
+  .tiles { border-bottom: 1px solid var(--line); margin: 0 0 1.25rem; }
+  .tile { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: .7rem 0;
+          border-top: 1px solid var(--line); }
+  .tile b { font-size: clamp(1.05rem, 2.4vw, 1.5rem); font-weight: 700; letter-spacing: -.015em; text-transform: uppercase; white-space: nowrap; }
+  .tile span { color: var(--muted); text-align: right; font-size: .95rem; }
+  p { margin: 0 0 .9rem; }
+  .small { color: var(--muted); font-size: .82rem; }
+  a { color: inherit; }
+  .small a { color: var(--muted); }
+  .small a:hover { color: var(--fg); }
+  button#go { display: block; width: 100%; margin: 1.5rem 0 0; padding: 1.15rem 0; border: 0; cursor: pointer;
+              font: 800 clamp(1.2rem, 3vw, 1.7rem)/1 "Inter Tight", ui-sans-serif, system-ui, sans-serif;
+              letter-spacing: -.01em; text-transform: uppercase; background: var(--solid); color: var(--bg);
+              transition: background .3s ease; }
+  button#go:hover:not(:disabled) { background: var(--fg); }
+  button#go:disabled { background: transparent; color: var(--dim); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: default; }
+  progress { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 2px; margin: 0; border: 0; background: var(--line); }
+  progress::-webkit-progress-bar { background: var(--line); }
+  progress::-webkit-progress-value { background: var(--fg); }
+  progress::-moz-progress-bar { background: var(--fg); }
+  #status { margin-top: .9rem; min-height: 1.5em; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+  pre { color: var(--muted); font-size: 11px; white-space: pre-wrap; margin: .5rem 0 0; max-height: 160px; overflow: auto; }
+  pre:empty { display: none; }
+  .doors { margin: 2rem 0; border-bottom: 1px solid var(--line); }
+  .press { margin: 2.5rem 0 0; }
+  .press h2 { margin: 0 0 .9rem; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
+  .shots a { display: block; border: 1px solid var(--line); line-height: 0; transition: border-color .3s ease; }
+  .shots a:hover { border-color: var(--muted); }
+  .shots img { width: 100%; height: auto; }
+  .door { display: flex; justify-content: space-between; gap: 1.5rem; width: 100%; padding: .8rem 0; border: 0; border-top: 1px solid var(--line);
+          background: none; color: var(--fg); text-decoration: none; text-align: left; cursor: pointer;
+          font: 700 clamp(.95rem, 2.2vw, 1.2rem)/1.2 "Inter Tight", ui-sans-serif, system-ui, sans-serif; letter-spacing: -.01em;
+          text-transform: uppercase; transition: color .4s ease, padding .5s var(--ease); }
+  .door::after { content: "\2197"; opacity: .35; transition: opacity .4s ease; }
+  .doors:hover .door { color: var(--dim); }
+  .doors .door:hover, .doors .door:focus-visible { color: var(--fg); padding-left: .6rem; outline: none; }
+  .doors .door:hover::after { opacity: 1; }
+  footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
+  footer .small { font-size: .74rem; }
+  .foot { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; }
+  .foot a { color: var(--muted); text-decoration: none; } .foot a:hover { color: var(--fg); }
   [hidden] { display: none !important; }
-  button.ed { font: inherit; color: var(--fg); border: 0; cursor: pointer; }
-  .ed { display: inline-block; margin: 8px 0 0; padding: 10px 14px; background: var(--tile); text-decoration: none; }
-  details { margin: 22px 0 0; } summary { cursor: pointer; font-weight: 600; }
-  button#stock-go { font: 600 14px/1 inherit; font-family: inherit; background: var(--tile); color: var(--fg); border: 1px solid var(--line);
-                    padding: 12px 16px; cursor: pointer; }
-  button#stock-go:disabled { color: var(--dim); cursor: default; }
-  @media (max-width: 420px) { .tiles { grid-template-columns: repeat(2, 1fr); } .logo svg { width: 170px; } }
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal { animation: rise 1s var(--ease) backwards; animation-delay: var(--d, 0s); }
+    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  }
 </style>
 </head>
 <body>
+<div class="layer layer--glow"></div>
+<div class="layer layer--grain"></div>
+<div class="mark reveal"><span data-fit>bonbloop</span></div>
 <main>
-  <div class="top"><div class="logo"><!--LOGO--></div><button class="lang" id="lang"></button></div>
-  <div class="strip"><i></i><i></i><i></i><i></i></div>
+  <div class="bar reveal" style="--d:.15s"><h1 data-t="h1"></h1><button class="lang" id="lang"></button></div>
   <!--STUDIO_GUIDE-->
   <!--BANNER-->
-  <h1 data-t="h1"></h1>
-  <p class="lead" data-t="lead"></p>
-  <div class="tiles">
-    <div class="tile" style="--c: var(--blue)"><b>3 osc</b><span data-t="tile1"></span></div>
-    <div class="tile" style="--c: var(--green)"><b>16</b><span data-t="tile2"></span></div>
-    <div class="tile" style="--c: var(--yellow)"><b>rev</b><span data-t="tile3"></span></div>
-    <div class="tile" style="--c: var(--orange)"><b>fx</b><span data-t="tile4"></span></div>
+  <p class="lead reveal" style="--d:.2s" data-t="lead"></p>
+  <div class="tiles reveal" style="--d:.28s">
+    <div class="tile"><b>3 oscillators</b><span data-t="tile1"></span></div>
+    <div class="tile"><b>16 waves</b><span data-t="tile2"></span></div>
+    <div class="tile"><b>Reverse</b><span data-t="tile3"></span></div>
+    <div class="tile"><b>FX</b><span data-t="tile4"></span></div>
   </div>
   <p class="small" data-t="how"></p>
   <p data-t="intro"></p>
-  <p data-t="warn"></p>
-  <p><button id="go" disabled data-t="install"></button></p>
+  <p class="small" data-t="warn"></p>
+  <button id="go" disabled data-t="install"></button>
   <progress id="bar" max="100" value="0"></progress>
   <p id="status"></p>
   <pre id="log"></pre>
-  <a class="ed" href="../editor/" data-t="editor"></a>
-  <p class="small"><a href="../editor/sloop-editor.html" download="sloop-editor.html" data-t="edOffline"></a></p>
-  <p><button id="app" class="ed" hidden data-t="appInstall"></button></p>
-  <hr>
+  <div class="doors">
+    <a class="door ed" href="../editor/" data-t="editor"></a>
+    <a class="door" href="../editor/sloop-editor.html" download="sloop-editor.html" data-t="edOffline"></a>
+    <button id="app" class="door ed" hidden data-t="appInstall"></button>
+    <a class="door" href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">Source code and guide</a>
+  </div>
+  <div class="press">
+    <h2>Images to share (click to download)</h2>
+    <div class="shots">
+      <a href="../../press/bonbloop-hero-1600x900.png" download><img src="../../press/bonbloop-hero-1600x900.png" alt="bonbloop: SLOOP + a synth mode for the M-VAVE FM-1" loading="lazy" width="1600" height="900"></a>
+      <a href="../../press/bonbloop-features-1600x900.png" download><img src="../../press/bonbloop-features-1600x900.png" alt="What the synth mode adds" loading="lazy" width="1600" height="900"></a>
+      <a href="../../press/bonbloop-install-1600x900.png" download><img src="../../press/bonbloop-install-1600x900.png" alt="Install in a minute, from the browser" loading="lazy" width="1600" height="900"></a>
+      <a href="../../press/bonbloop-square-1080.png" download><img src="../../press/bonbloop-square-1080.png" alt="bonbloop, square" loading="lazy" width="1080" height="1080"></a>
+    </div>
+  </div>
+  <footer>
   <p class="small" data-t="direct"></p>
   <p class="small" data-t="beta"></p>
   <p class="small"><span data-t="brick"></span>
     <a href="https://github.com/kurogedelic/FM-1-transporter" target="_blank" rel="noopener">FM-1-transporter</a></p>
   <p class="small" data-t="back"></p>
   <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener">www.m-vave.com/download</a></p>
-  <p class="small">BONBLOOP is <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">SLOOP</a> (isod89) with a SYNTH MODE; SLOOP is based on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
+  <p class="small">bonbloop is <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">SLOOP</a> (isod89) with a SYNTH MODE; SLOOP is based on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
     Hold OCT− alone while switching on for USB rescue.<br>
     Font: Terminus (Dimitar Toshkov Zhekov, SIL OFL 1.1). Samples: Versilian Studios VSCO-2 Community Edition and VCSL (CC0 1.0), and the Hügelton Sample Pack (© Hügelton Instruments, not CC0).<br>
-    M-VAVE and FM-1 are trademarks of their respective owners; BONBLOOP, SLOOP and Felucca are not affiliated with them.<br>
+    M-VAVE and FM-1 are trademarks of their respective owners; bonbloop, SLOOP and Felucca are not affiliated with them.<br>
     <span data-t="license"></span> <a href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">github.com/henribon/bonbloop</a>
     · <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">github.com/isod89/sloop-fm1</a>
     · <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener">github.com/hugelton/Felucca</a></p>
+  <div class="foot"><a href="https://bonbap.com.br/">bonbap &#8599;</a><a href="https://github.com/henribon/bonbloop">github &#8599;</a></div>
+  </footer>
 </main>
+<script>
+(function () {
+  /* (bonbap.com.br) the word fits the screen's width exactly; the light follows the pointer */
+  var el = document.querySelector('[data-fit]');
+  function fit() {
+    var target = el.parentElement.clientWidth;
+    el.style.fontSize = '200px';
+    var natural = el.getBoundingClientRect().width;
+    el.style.fontSize = ((target && natural) ? 200 * target / natural : 200).toFixed(2) + 'px';
+  }
+  fit();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
+  addEventListener('resize', function () { requestAnimationFrame(fit); });
+  var glow = document.querySelector('.layer--glow'), tx = 50, ty = 30, cx = 50, cy = 30, raf = null;
+  function frame() {
+    cx += (tx - cx) * .07; cy += (ty - cy) * .07;
+    glow.style.setProperty('--mx', cx.toFixed(2) + '%');
+    glow.style.setProperty('--my', cy.toFixed(2) + '%');
+    raf = (Math.abs(tx - cx) > .1 || Math.abs(ty - cy) > .1) ? requestAnimationFrame(frame) : null;
+  }
+  addEventListener('pointermove', function (e) {
+    tx = e.clientX / innerWidth * 100; ty = e.clientY / innerHeight * 100;
+    if (!raf) raf = requestAnimationFrame(frame);
+  }, { passive: true });
+})();
+</script>
 <script type="module">
 /*LIB*/
 const $ = (id) => document.getElementById(id);
@@ -139,13 +213,13 @@ const TEXT = {
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
     warn: "Do not unplug the USB cable while writing.",
     install: "Install", other: "日本語",
-    h1: "Firmware for the M-VAVE FM-1 — SLOOP + SYNTH MODE",
-    lead: "BONBLOOP is SLOOP — the four-track live groovebox — exactly as it is, plus a SYNTH MODE: hold ENV and the selected track becomes a three-oscillator wavetable synth with its own filter, envelope, LFO and effects.",
-    tile1: "oscillators, each tuned and levelled", tile2: "waves: 5 analog shapes + 10 wavetables", tile3: "reverse: an oscillator played backwards",
-    tile4: "drive, transient, phaser, chorus, delay, reverb", how: "SYNTH MODE: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
-    editor: "Editor (after installing: edit sounds and sequences from the computer)",
-    edOffline: "Download the editor to use it without internet on a computer (open the file in Chrome or Edge)",
-    appInstall: "Install the app (the editor and the installer offline, Android too)",
+    h1: "Firmware for the M-VAVE FM-1",
+    lead: "SLOOP — the four-track live groovebox — exactly as it is, plus a synth mode: hold ENV and the selected track becomes a three-oscillator wavetable synth with its own filter, envelope, LFO and effects.",
+    tile1: "each tuned and levelled", tile2: "5 analog shapes + 10 wavetables", tile3: "an oscillator played backwards",
+    tile4: "drive, transient, phaser, chorus, delay, reverb", how: "Synth mode: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
+    editor: "Open the editor",
+    edOffline: "Download the editor (works offline)",
+    appInstall: "Install as an app (offline, Android too)",
     direct: "Connect the USB cable directly to the computer. No probe or Transporter is needed.",
     brick: "If an install fails and the FM-1 no longer starts, recovering it needs a Transporter:",
     beta: "This is a beta and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
@@ -236,7 +310,7 @@ window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault
       if (h !== meta.sha256) { sayK("badpkg"); log(`sha256 ${h}, expected ${meta.sha256}`); return; }
     }
     image = logicalImage(pkg);
-    say(`BONBLOOP ${meta.version}`);
+    say(`bonbloop ${meta.version}`);
     lockAll(writing);
   } catch (e) { sayK("loadfail", e.message); }
 })();

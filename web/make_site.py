@@ -63,8 +63,8 @@ def app_files(out, version, fw_name):
     for f in ICONS:
         shutil.copy(HERE / f, app / f)
     manifest = {
-        "name": "BONBLOOP", "short_name": "BONBLOOP", "id": "editor/", "start_url": "editor/", "scope": "./",
-        "display": "standalone", "background_color": "#000000", "theme_color": "#000000",
+        "name": "bonbloop", "short_name": "bonbloop", "id": "editor/", "start_url": "editor/", "scope": "./",
+        "display": "standalone", "background_color": "#0a0a0a", "theme_color": "#0a0a0a",
         "description": "BONBLOOP (SLOOP + SYNTH MODE) for the M-VAVE FM-1: the installer and the editor, also without internet",
         "icons": [{"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any"},
                   {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any"},
@@ -159,11 +159,16 @@ def main(pkg, version, out):
         shutil.copy(dsp, ed / dsp.name)
     elif (ed / dsp.name).exists():
         (ed / dsp.name).unlink()  # never serve an old audio build as the current one
+    press = HERE.parent / "assets" / "promo"                 # BONBLOOP: the images to share, linked by the installer
+    if press.exists():
+        (out / "press").mkdir(parents=True, exist_ok=True)
+        for f in sorted(press.glob("*.png")):
+            shutil.copy(f, out / "press" / f.name)
     app_files(out, version, name)
     (out / "index.html").write_text(
-        '<!doctype html><meta charset="utf-8"><title>BONBLOOP</title>'
+        '<!doctype html><meta charset="utf-8"><title>bonbloop</title>'
         '<meta http-equiv="refresh" content="0; url=webapp/installer/">'
-        '<a href="webapp/installer/">BONBLOOP installer</a>\n', encoding="utf-8")
+        '<a href="webapp/installer/">bonbloop installer</a>\n', encoding="utf-8")
     print(f"site: {out}: webapp/installer ({len(html)} B), webapp/editor, firmware/{name} ({len(raw)} B, {product})")
 
 

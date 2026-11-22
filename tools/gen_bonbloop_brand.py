@@ -6,8 +6,10 @@
   tools/gen_bonbloop_brand.py promo SCREENS OUT  the promo images (1600x900 and 1080x1080 PNG) into OUT, from the
                                                 device screens SCREENS/synth-*.ppm (tests/synth_mode_test.c writes them)
 
-Needs Pillow for the promo images. Everything drawn here is BONBLOOP's own: the text in Terminus (SIL OFL 1.1),
-the screens rendered by the firmware's code; no third-party logo or photo."""
+The promo images and the site are in bonbap.com.br's look (Inter Tight, #0a0a0a, the giant word, thin lines): the
+images are HTML pages shot by Edge headless (Windows: EDGE; run it from PowerShell or cmd: from Git Bash Edge
+exits at once and draws nothing). Needs Pillow. The screens are rendered by the firmware's
+own code; no third-party logo or photo."""
 import sys
 from pathlib import Path
 
@@ -81,150 +83,151 @@ def logo_svg():
 
 
 # ------------------------------------------------------------------------------------------------ promo ---
+EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
+
+PROMO_CSS = """
+:root { --bg: #0a0a0a; --fg: #fafafa; --solid: #cfcfcf; --dim: #464646; --muted: #8a8a8a; --line: rgba(255,255,255,.09); }
+* { box-sizing: border-box; margin: 0; }
+html, body { width: WPX; height: HPX; overflow: hidden; background: var(--bg); color: var(--fg);
+             font: 500 16px/1.4 "Inter Tight", sans-serif; -webkit-font-smoothing: antialiased; }
+body { position: relative; }
+.glow { position: absolute; inset: 0; background: radial-gradient(900px 700px at 30% 20%, rgba(255,255,255,.06), transparent 62%); }
+.grain { position: absolute; inset: 0; opacity: .035; background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
+.page { position: absolute; inset: 0; display: flex; flex-direction: column; }
+.mark { overflow: hidden; padding-top: 28px; }
+.mark span { display: block; width: max-content; white-space: nowrap; line-height: .74; letter-spacing: -.035em;
+             font-size: 200px; font-weight: 800; color: var(--solid); }
+.pad { padding: 0 64px; }
+.kicker { font-size: 18px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.lead { font-size: 40px; line-height: 1.15; font-weight: 700; letter-spacing: -.02em; }
+.rows { border-bottom: 1px solid var(--line); }
+.row { display: flex; justify-content: space-between; align-items: baseline; gap: 32px; padding: 16px 0; border-top: 1px solid var(--line); }
+.row b { font-size: 34px; font-weight: 700; letter-spacing: -.015em; text-transform: uppercase; white-space: nowrap; }
+.row span { font-size: 21px; color: var(--muted); text-align: right; }
+.row i { font-style: normal; font-size: 22px; font-weight: 700; color: var(--muted); width: 56px; display: inline-block; }
+.screen { display: block; image-rendering: pixelated; border: 1px solid rgba(255,255,255,.14); }
+.foot { display: flex; justify-content: space-between; font-size: 17px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.foot b { color: var(--fg); font-weight: 700; }
+"""
+FIT_JS = """
+<script>
+(function () {
+  function fit() {
+    document.querySelectorAll('[data-fit]').forEach(function (el) {
+      var target = el.parentElement.clientWidth;
+      el.style.fontSize = '200px';
+      var natural = el.getBoundingClientRect().width;
+      el.style.fontSize = (200 * target / natural).toFixed(2) + 'px';
+    });
+  }
+  fit();
+  document.fonts.ready.then(fit);
+})();
+</script>"""
+
+
 def promo(screens, out):
-    from PIL import Image, ImageDraw
+    """the promo images in bonbap.com.br's look: HTML pages (Inter Tight from Google Fonts, the site's colours, its
+    giant word, its lines) shot by Edge headless at their size; the FM-1's screens in grey, as the site is"""
+    import subprocess
+    import tempfile
+    from PIL import Image, ImageOps
 
     out.mkdir(parents=True, exist_ok=True)
+    html_dir = Path(tempfile.mkdtemp(prefix="bonbloop-promo-"))
+    for name in ("synth-osc1-playing", "synth-osc3-vocal", "synth-drive", "synth-rev-swell", "synth-boot", "synth-osc2-saw"):
+        im = ImageOps.grayscale(Image.open(screens / f"{name}.ppm").convert("RGB"))
+        im = ImageOps.autocontrast(im, cutoff=0)
+        im.resize((480, 480), Image.NEAREST).save(html_dir / f"{name}.png")
 
-    def text(img, xy, s, scale, colour, cols=None):
-        """s in Terminus at an integer scale, top-left xy; cols: a colour per character"""
-        d = ImageDraw.Draw(img)
-        for i, ch in enumerate(s):
-            c = cols[i] if cols else colour
-            for y, bits in enumerate(glyph(ch)):
-                for x in range(8):
-                    if bits & (0x80 >> x):
-                        px, py = xy[0] + (i * 8 + x) * scale, xy[1] + y * scale
-                        d.rectangle([px, py, px + scale - 1, py + scale - 1], fill=c)
-        return xy[0] + len(s) * 8 * scale
+    def page(w, h, body):
+        return (f'<!doctype html><html><head><meta charset="utf-8">'
+                '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800&display=block">'
+                f'<style>{PROMO_CSS.replace("WPX", f"{w}px").replace("HPX", f"{h}px")}</style></head><body>'
+                f'<div class="glow"></div><div class="grain"></div><div class="page">{body}</div>{FIT_JS}</body></html>')
 
-    def width(s, scale):
-        return len(s) * 8 * scale
-
-    def centre(img, y, s, scale, colour, cols=None):
-        text(img, ((img.width - width(s, scale)) // 2, y), s, scale, colour, cols)
-
-    def logo(img, x, y, scale):
-        text(img, (x + 8 * scale, y), "BON", scale, WHITE)
-        text(img, (x, y + 17 * scale), "BLOOP", scale, WHITE, [WHITE] + TRACK)
-
-    def strip(img, y, h=8):
-        d = ImageDraw.Draw(img)
-        w = img.width // 4
-        for i, c in enumerate(TRACK):
-            d.rectangle([i * w, y, (i + 1) * w - 1, y + h - 1], fill=c)
-
-    def screen(name, scale=2):
-        im = Image.open(screens / f"{name}.ppm").convert("RGB")
-        return im.resize((240 * scale, 240 * scale), Image.NEAREST)
-
-    def framed(img, scr, x, y, accent):
-        d = ImageDraw.Draw(img)
-        d.rectangle([x - 10, y - 10, x + scr.width + 9, y + scr.height + 9], fill="#0d0d10", outline=accent, width=3)
-        img.paste(scr, (x, y))
-
+    rows = lambda items: '<div class="rows">' + "".join(f'<div class="row"><b>{a}</b><span>{b}</span></div>' for a, b in items) + "</div>"
+    foot = (f'<div class="foot pad" style="margin-top:auto;padding-bottom:40px"><b>{URL} &#8599;</b>'
+            '<span>free &middot; open source &middot; gpl-3.0</span></div>')
+    cards = {
+        "bonbloop-hero-1600x900.png": (1600, 900,
+            '<div class="mark"><span data-fit>bonbloop</span></div>'
+            '<div class="pad" style="display:flex;gap:56px;margin-top:40px">'
+            '<div style="flex:1"><p class="kicker">Firmware for the M-VAVE FM-1</p>'
+            '<p class="lead" style="margin:18px 0 28px">SLOOP + a synth mode. Hold ENV: your track becomes a '
+            'three-oscillator wavetable synth.</p>'
+            + rows([("3 oscillators", "16 waves each"), ("Reverse", "play it backwards"), ("FX", "drive, transient, phaser")]) +
+            '</div><img class="screen" src="synth-osc1-playing.png" style="width:400px;height:400px"></div>' + foot),
+        "bonbloop-features-1600x900.png": (1600, 900,
+            '<div class="pad" style="display:flex;justify-content:space-between;align-items:baseline;padding-top:56px">'
+            '<p class="kicker">What the synth mode adds</p><p class="kicker" style="color:var(--fg)">bonbloop</p></div>'
+            '<div class="pad" style="display:flex;gap:56px;margin-top:36px">'
+            '<div style="flex:1">'
+            + rows([("3 oscillators", "each tuned, levelled, reversible"),
+                    ("16 waves", "sin tri saw sqr noise + 10 wavetables"),
+                    ("Wavetables", "basic pwm harm reso vocal digi fold fm bell chip"),
+                    ("Reverse", "an oscillator swells in, backwards"),
+                    ("Drive", "five styles, tone, punish"),
+                    ("Transient", "attack and sustain"),
+                    ("Phaser · chorus", "delay · reverb · filter lp bp hp")]) +
+            '</div><div style="display:flex;flex-direction:column;gap:24px">'
+            '<img class="screen" src="synth-osc3-vocal.png" style="width:300px;height:300px">'
+            '<img class="screen" src="synth-drive.png" style="width:300px;height:300px"></div></div>' + foot),
+        "bonbloop-install-1600x900.png": (1600, 900,
+            '<div class="mark"><span data-fit>bonbloop</span></div>'
+            '<div class="pad" style="display:flex;gap:56px;margin-top:40px">'
+            '<div style="flex:1"><p class="kicker">Install in a minute, from the browser</p>'
+            '<div class="rows" style="margin-top:22px">'
+            + "".join(f'<div class="row"><b><i>{n}</i>{s}</b></div>' for n, s in (
+                ("01", "Plug the FM-1 in over USB"), ("02", "Open " + URL + " in Chrome or Edge"),
+                ("03", "Click install"), ("04", "Hold ENV: synth mode"))) +
+            '</div></div><img class="screen" src="synth-boot.png" style="width:400px;height:400px"></div>' + foot),
+        "bonbloop-square-1080.png": (1080, 1080,
+            '<div class="mark"><span data-fit>bonbloop</span></div>'
+            '<div class="pad" style="margin-top:36px"><p class="kicker">Firmware for the M-VAVE FM-1</p>'
+            '<p class="lead" style="margin:16px 0 0">SLOOP + a synth mode: 3 oscillators, 16 waves, reverse, FX.</p></div>'
+            '<div class="pad" style="display:flex;justify-content:center;margin-top:44px">'
+            '<img class="screen" src="synth-osc1-playing.png" style="width:440px;height:440px"></div>' + foot),
+    }
     made = []
-
-    # 1. the hero: the logo, what it is, three screens
-    img = Image.new("RGB", (1600, 900), BG)
-    strip(img, 0)
-    logo(img, 70, 70, 6)
-    text(img, (70, 300), "SYNTH MODE", 5, WHITE)
-    text(img, (70, 400), "FOR THE M-VAVE FM-1", 3, GRAY)
-    y = 480
-    for s, c in (("3 OSCILLATORS . 16 WAVES", BLUE), ("WAVETABLES + REVERSE", GREEN), ("DRIVE . TRANSIENT . PHASER", YELLOW),
-                 ("CHORUS . DELAY . REVERB", ORANGE)):
-        text(img, (70, y), s, 2, c)
-        y += 48
-    text(img, (70, 730), "FREE . OPEN SOURCE . INSTALLS FROM THE BROWSER", 2, DIM)
-    text(img, (70, 790), URL, 3, WHITE)
-    framed(img, screen("synth-osc1-playing"), 1010, 90, BLUE)
-    small = [screen(n, 1) for n in ("synth-drive", "synth-osc3-vocal")]
-    framed(img, small[0], 1010, 610, YELLOW)
-    framed(img, small[1], 1290, 610, GREEN)
-    p = out / "bonbloop-hero-1600x900.png"
-    img.save(p)
-    made.append(p)
-
-    # 2. the features: four cards, a screen each
-    img = Image.new("RGB", (1600, 900), BG)
-    strip(img, 0)
-    centre(img, 40, "WHAT SYNTH MODE ADDS", 4, WHITE)
-    cards = [("3 OSC", "SIN TRI SAW SQR", "NOISE + 10 TABLES", "synth-osc2-saw", BLUE),
-             ("WAVETABLE", "BASIC PWM VOCAL", "DIGI FOLD FM CHIP", "synth-osc3-vocal", GREEN),
-             ("REVERSE", "PLAY AN OSCILLATOR", "BACKWARDS", "synth-rev-swell", YELLOW),
-             ("FX", "DRIVE A-E-N-T-P", "TRANSIENT PHASER", "synth-drive", ORANGE)]
-    for i, (title, l1, l2, scr, c) in enumerate(cards):
-        x = 40 + i * 390
-        d = ImageDraw.Draw(img)
-        d.rectangle([x, 150, x + 360, 860], fill=TILE)
-        d.rectangle([x, 150, x + 360, 157], fill=c)
-        text(img, (x + 20, 180), title, 4, c)
-        text(img, (x + 20, 260), l1, 2, GRAY)
-        text(img, (x + 20, 300), l2, 2, GRAY)
-        im = screen(scr, 1)
-        img.paste(im.resize((320, 320), Image.NEAREST), (x + 20, 380))
-        text(img, (x + 20, 740), "HOLD ENV" if i == 0 else ("PRESETS: 16 SOUNDS" if i == 1 else
-             ("REV SWELL" if i == 2 else "+ CHORUS DLY REV")), 2, DIM)
-    p = out / "bonbloop-features-1600x900.png"
-    img.save(p)
-    made.append(p)
-
-    # 3. how to install
-    img = Image.new("RGB", (1600, 900), BG)
-    strip(img, 0)
-    logo(img, 70, 70, 4)
-    text(img, (420, 100), "INSTALL IN 1 MINUTE", 4, WHITE)
-    text(img, (420, 170), "FROM THE BROWSER, OVER USB", 2, GRAY)
-    steps = [("1", "PLUG THE FM-1 INTO YOUR PC (USB)", BLUE), ("2", "OPEN IN CHROME OR EDGE:", GREEN),
-             ("", URL, WHITE), ("3", "CLICK INSTALL", YELLOW), ("4", "HOLD ENV: SYNTH MODE", ORANGE)]
-    y = 320
-    for n, s, c in steps:
-        if n:
-            d = ImageDraw.Draw(img)
-            d.rectangle([70, y - 6, 70 + 60, y + 54], fill=c)
-            text(img, (70 + 14, y - 2), n, 3, BG)
-            text(img, (170, y + 4), s, 3, WHITE)
-        else:
-            text(img, (170, y - 14), s, 3, c)
-        y += 100 if n else 80
-    text(img, (70, 820), "BASED ON SLOOP + FELUCCA . GPL-3.0 . NOT AFFILIATED WITH M-VAVE", 2, DIM)
-    framed(img, screen("synth-boot", 2), 1060, 300, BLUE)
-    p = out / "bonbloop-install-1600x900.png"
-    img.save(p)
-    made.append(p)
-
-    # 4. a square one (feeds, avatars of posts)
-    img = Image.new("RGB", (1080, 1080), BG)
-    strip(img, 0, 10)
-    logo(img, (1080 - 40 * 6) // 2, 70, 6)
-    centre(img, 300, "SYNTH MODE", 5, WHITE)
-    centre(img, 395, "FOR THE M-VAVE FM-1", 3, GRAY)
-    framed(img, screen("synth-osc1-playing", 2), (1080 - 480) // 2, 480, BLUE)
-    centre(img, 1000, URL, 2, WHITE)
-    p = out / "bonbloop-square-1080.png"
-    img.save(p)
-    made.append(p)
+    for name, (w, h, body) in cards.items():
+        src = html_dir / (name + ".html")
+        src.write_text(page(w, h, body), encoding="utf-8")
+        dst = (out / name).resolve()                   # (absolute: Edge writes a relative one beside itself)
+        if dst.exists():
+            dst.unlink()
+        p = subprocess.Popen([str(EDGE), "--headless=new", "--disable-gpu", "--no-first-run", "--no-default-browser-check",
+                              "--hide-scrollbars", "--force-device-scale-factor=1", f"--window-size={w},{h}",
+                              "--virtual-time-budget=6000", f"--user-data-dir={html_dir / 'edge'}", f"--screenshot={dst}",
+                              src.as_uri()], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)   # (no pipes: Edge's helpers
+        try:                                                                                        # keep them open)
+            p.wait(timeout=90)
+        except subprocess.TimeoutExpired:
+            p.kill()
+        if not dst.exists():
+            raise SystemExit(f"promo: Edge made no {dst}")
+        made.append(dst)
     return made
 
 
 def icons():
-    """the site's app icons (web/icon-*.png, web/make_site.py): BON over BLOOP on black; the maskable one with room
-    for the launcher's mask (the logo inside the middle 60 %)"""
+    """the site's app icons (web/icon-*.png, web/make_site.py), in bonbap.com.br's look: bonbap's mark is a grey dot on
+    #0a0a0a; bonbloop's, a grey ring (the loop). The maskable one: the ring inside the middle 60 %, the square full"""
     from PIL import Image, ImageDraw
     made = []
-    for name, size, frac in (("icon-192.png", 192, 0.8), ("icon-512.png", 512, 0.8), ("icon-maskable-512.png", 512, 0.6)):
-        sc = max(1, int(size * frac) // 40)
-        img = Image.new("RGB", (size, size), BG)
+    for name, size, frac, rounded in (("icon-192.png", 192, .5, True), ("icon-512.png", 512, .5, True),
+                                      ("icon-maskable-512.png", 512, .38, False)):
+        k = 4                                          # drawn 4x, then down: smooth edges
+        S = size * k
+        img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
-        x0, y0 = (size - 40 * sc) // 2, (size - 34 * sc) // 2
-        for text, ox, oy, cols in (("BON", 8, 0, [WHITE] * 3), ("BLOOP", 0, 18, [WHITE] + TRACK)):
-            for i, ch in enumerate(text):
-                for y, bits in enumerate(glyph(ch)):
-                    for x in range(8):
-                        if bits & (0x80 >> x):
-                            px, py = x0 + (ox + i * 8 + x) * sc, y0 + (oy + y) * sc
-                            d.rectangle([px, py, px + sc - 1, py + sc - 1], fill=cols[i])
+        if rounded:
+            d.rounded_rectangle([0, 0, S - 1, S - 1], radius=S // 4, fill="#0a0a0a")
+        else:
+            d.rectangle([0, 0, S - 1, S - 1], fill="#0a0a0a")
+        r, w = int(S * frac / 2), int(S * frac * .22)
+        d.ellipse([S // 2 - r, S // 2 - r, S // 2 + r, S // 2 + r], outline="#cfcfcf", width=w)
+        img = img.resize((size, size), Image.LANCZOS)
         p = ROOT / "web" / name
         img.save(p)
         made.append(p)
