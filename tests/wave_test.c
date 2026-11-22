@@ -118,17 +118,17 @@ static void load(track_t *t, const engine_t *e, uint32_t pi)
     t->p[P_SUS] = 127;
     t->p[P_DEC] = 60;
     t->p[P_REL] = 50;
-    if (e == &ENG_WAVE)
-        wave_preset_words(t->p, pi);
-    else
-        for (i = 0; i < 8u; i++)
-            t->p[P_E0 + i] = e->presets[pi].e[i];
     t->p[P_ED_SHP] = (int16_t)xp_of(&e->presets[pi], P_ED_SHP, 0);
     t->p[P_ED_FLT] = e->presets[pi].fenv;
     t->p[P_ATK] = e->presets[pi].env[0];
     t->p[P_DEC] = e->presets[pi].env[1];
     t->p[P_SUS] = e->presets[pi].env[2];
     t->p[P_REL] = e->presets[pi].env[3];
+    if (e == &ENG_WAVE)                                 /* (after the ENV, as ui.c apply_preset_to: OSC 2 and 3's take it) */
+        wave_preset_words(t->p, pi);
+    else
+        for (i = 0; i < 8u; i++)
+            t->p[P_E0 + i] = e->presets[pi].e[i];
 }
 
 /* a note as voice.c plays it: the ADSR (env_tick), the engine's amp hook, ENV > FLT / SHP; held `held` s then
@@ -171,10 +171,24 @@ static stats_t play(track_t *t, const engine_t *e, uint32_t note, double held, d
             env -= mulq16(env, ENV_EXP[t->p[P_REL] & 127]);
         }
         q = env >> 9;
-        a = e->amp ? e->amp(t, v, q) : q;
         m.amp0 = m.amp1;
-        m.amp1 = mulq15(a, 100 * 258);
-        m.envq15 = a > 32768 ? 32768 : a;
+        if (e->ownenv) {                                /* (BONBLOOP 1.3) WAVE: its oscillators' envelopes, the voice at
+                                                         * 1.0 (voice.c: esync_coef's tables, the amp hook with velocity) */
+            wt_part_t *w = wt_of(t);
+            uint32_t o, j;
+            for (o = 0; w && o < WT_NOSC; o++)
+                for (j = 0; j < 3u; j++) {
+                    int32_t x = wv_envp(t, o, j + (j == 2u));
+                    w->ek[o][j] = j ? ENV_EXP[x & 127] : ENV_LIN[x & 127];
+                }
+            a = e->amp(t, v, 32767);
+            m.amp1 = a;
+            m.envq15 = 0;
+        } else {
+            a = e->amp ? e->amp(t, v, q) : q;
+            m.amp1 = mulq15(a, 100 * 258);
+            m.envq15 = a > 32768 ? 32768 : a;
+        }
         m.cutoff = (m.envq15 * t->p[P_ED_FLT]) >> 7;
         m.shape = (64 << 8) + sh0 + (int32_t)((int64_t)(sh1 - sh0) * b / blocks) + ((m.envq15 * t->p[P_ED_SHP]) >> 7);
         if (e->block)

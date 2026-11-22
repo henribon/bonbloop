@@ -38,6 +38,7 @@ typedef struct {
 } up_bank_t;
 _Static_assert(sizeof(up_rec_t) == 192, "user preset record layout");
 _Static_assert(P_COUNT <= UP_PMAX && P_COUNT < 128, "user preset record: P_COUNT");
+_Static_assert(P_COUNT < UP_PMAX, "BONBLOOP 1.3: p[P_COUNT], the record's spare parameter, holds synx w[3]");
 #ifdef UP_HOST
 static up_bank_t up_bank[UP_SLOTS / UP_PER_BANK];
 UI_SMALL static up_rec_t *up_rec(uint32_t k) { return &up_bank[k / UP_PER_BANK].r[k % UP_PER_BANK]; }
@@ -293,8 +294,11 @@ UI_SMALL static int up_store(uint32_t k, const char *name)
     for (i = 0; i < P_COUNT; i++)
         r.p[i] = TSEL->p[i];
     up_pat_from(&r, TSEL->step);
-    if (TSEL->eng_req == ENGI_WAVE)                     /* (BONBLOOP 1.2) its synx, marked (sx_take) */
+    if (TSEL->eng_req == ENGI_WAVE) {                   /* (BONBLOOP 1.3) its synx, marked (sx_take); the last word's
+                                                         * 16 bits in the record's spare parameter */
         sx_give(trk_index(TSEL), up_sx);
+        r.p[P_COUNT] = (int16_t)synx[trk_index(TSEL) % NPART].w[3];
+    }
     return up_put(k, &r);
 }
 
@@ -332,8 +336,8 @@ UI_SMALL static int up_load_to(track_t *t, uint32_t k)       /* user preset k in
 #ifndef UP_HOST
     {   /* (BONBLOOP 1.2) its synx: the bank's side record, beside its copy in the XIP window (up_put) */
         const up_bank_t *bk = up_bank_xip[(k / UP_PER_BANK) % NELEM(up_bank_xip)];
-        sx_take(trk_index(t), bk ? (const uint32_t *)((const uint8_t *)bk - ST_PAYLOAD_OFF + ST_SIDE_OFF) +
-                                       (k % UP_PER_BANK) * 3u : 0);
+        sx_take(t, bk ? (const uint32_t *)((const uint8_t *)bk - ST_PAYLOAD_OFF + ST_SIDE_OFF) + (k % UP_PER_BANK) * 3u
+                      : 0, (uint16_t)r->p[P_COUNT]);
     }
 #endif
     fm1_irq_on();

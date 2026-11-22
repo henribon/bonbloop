@@ -721,8 +721,8 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
         if (t->engine == ENGI_WAVE) {                   /* (BONBLOOP 1.2) the synth: DRIVE, PHASER and FILTER in its FX
                                                          * chain's order (eng_wave.c synx), the others after, then the SLICER */
             uint32_t done = 0, s, fx;
-            for (s = 0; s < 8u + 3u; s++) {
-                fx = s < 8u ? (uint32_t)sx_get((uint32_t)(t - trk), SX_C1 + s) : s - 8u + FXI_DRIVE;
+            for (s = 0; s < SX_NSLOT + 3u; s++) {
+                fx = s < SX_NSLOT ? (uint32_t)sx_get((uint32_t)(t - trk), SX_C1 + s) : s - SX_NSLOT + FXI_DRIVE;
                 if (fx >= FXI_DRIVE && fx <= FXI_FILTER && !((done >> fx) & 1u)) {
                     done |= 1u << fx;
                     track_fx_run(t, b, n, fx);
