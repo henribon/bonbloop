@@ -39,6 +39,10 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
         t->dist_hp = b[0];
         t->dist_lp1 = t->dist_lp2 = 0;
     }
+    if (t->engine == ENGI_WAVE) {                       /* BONBLOOP: on the synth, DRIVE's five styles (eng_wave.c) */
+        wave_drive(t, b, n, d);
+        return;
+    }
     g = 4096 + d * d * 2;                                /* Q12: 1x .. ~9x, gentle at first */
     k = 32000 - d * 95;                                  /* tone: transparent at low drive .. ~3 kHz, Q15 */
     mk = 30000 - d * 120;                                /* make-up */
@@ -447,6 +451,7 @@ static void tflt_run(djf_t *f, const tsvf_t *c, int32_t *b, uint32_t n, uint32_t
  * (fx.c mix_block). State in RAM (.bss): 580 B a channel; noinline, its own loops */
 enum { IT_OFF, IT_SOFT, IT_HARD, IT_FOLD, IT_FUZZ, IT_CRUSH, IT_PHASER, IT_FLANGER, IT_CHORUS, IT_N };
 _Static_assert(IT_N == sizeof N_ITYPE / sizeof N_ITYPE[0], "the INSERT's types as params.c names them");
+_Static_assert(IT_PHASER == 6, "eng_wave.c wave_preset_words: the WAVE sounds' INSERT at hand, PHASER");
 #define IL_LEN 256u                     /* FLANG / CHOR: the line, samples (a power of 2: masked) */
 #define PH_ST 4u                        /* PHASR: all-pass stages (two notches, the classic pedal's) */
 static const uint8_t INS_HOLD[16] = {64, 48, 40, 32, 24, 20, 16, 12, 10, 8, 6, 5, 4, 3, 2, 1};   /* CRUSH RATE */

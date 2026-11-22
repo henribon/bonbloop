@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.0"  /* SLOOP 2.8.5 + the SYNTH MODE (wavetable), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.1"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -505,7 +505,7 @@ UI_SMALL static void note_name(char *b, uint32_t n)
  * nothing of it is saved, the sound is the track's like any other */
 static uint8_t syn_mode;
 static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
-static const uint8_t SYN_GRP[5] = {0, 3, 5, 8, 13};   /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
+static const uint8_t SYN_GRP[5] = {0, 5, 7, 10, 18};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
 static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
 UI_SMALL static int syn_group_of(uint32_t fam)
 {
@@ -519,6 +519,16 @@ UI_SMALL static uint32_t syn_group_at(uint32_t page)          /* the group of a 
     return g;
 }
 UI_SMALL static int on_syn_page(void) { return !ui.home && cur_page()->fam == FAM_SYN; }
+/* the SYNTH MODE's first page (OSC 1): where it opens, HOME in it, and where it comes back to when something else
+ * took the screen (1.1: the mode keeps the screen, ui_input.c) */
+UI_SMALL static void syn_home(void)
+{
+    ui.page = (uint8_t)page_first(FAM_SYN);
+    ui.fam_last[FAM_SYN] = ui.page;
+    ui.home = 0;
+    ui.force = 1;
+    page_entered();
+}
 /* in the SYNTH MODE, EDIT / ENV / LFO / FX (fam): their synth pages. 0: not routed (open_family goes on) */
 UI_SMALL static int syn_route(uint32_t fam)
 {
@@ -565,10 +575,10 @@ UI_SMALL static int page_walk(int32_t s)
     const page_t *pg = cur_page();
     uint32_t i, fam = pg->fam, n = 0;
     int32_t cur = -1, to;
-    uint8_t idx[16];                               /* (2.7: GLO has 9 pages with MIDI 3) */
+    uint8_t idx[24];                               /* (2.7: GLO has 9 pages with MIDI 3; BONBLOOP: the synth 18) */
     if (ui.home || pg->scope == SC_SONG || pg->scope == SC_DRUM)
         return 0;
-    for (i = 0; i < NPAGES && n < 16u; i++) {
+    for (i = 0; i < NPAGES && n < 24u; i++) {
         if (PAGES[i].fam != fam || PAGES[i].scope == SC_SONG || PAGES[i].scope == SC_DRUM || !page_shown(&PAGES[i]))
             continue;
         if (i == ui.page)
@@ -777,7 +787,8 @@ static const struct { uint8_t kind, e; const char *name; } BANK[] = {
     {BK_PAD, 5, "VOX PAD"}, {BK_PAD, 8, "PNO FREEZE"}, {BK_PAD, 8, "HORN CLOUD"}, {BK_PAD, 0, "SINE PAD"},
     {BK_PAD, 6, "PULSE PAD"}, {BK_PAD, ENGI_WAVE, "WT BASIC"}, {BK_PAD, ENGI_WAVE, "WT SWEEP"},
     {BK_PAD, ENGI_WAVE, "PPG PAD"}, {BK_PAD, ENGI_WAVE, "VOX SWEEP"}, {BK_PAD, ENGI_WAVE, "WT CHOIR"},
-    {BK_PAD, ENGI_WAVE, "PWM STRNG"}, {BK_LEAD, 0, "SUPERSAW"}, {BK_LEAD, 0, "G-FUNK LD"}, {BK_LEAD, 6, "SYNC LEAD"},
+    {BK_PAD, ENGI_WAVE, "PWM STRNG"}, {BK_PAD, ENGI_WAVE, "REV SWELL"}, {BK_LEAD, 0, "SUPERSAW"},
+    {BK_LEAD, 0, "G-FUNK LD"}, {BK_LEAD, 6, "SYNC LEAD"},
     {BK_LEAD, 6, "HOOVER"}, {BK_LEAD, 5, "TALKBOX"}, {BK_LEAD, 3, "GAME LEAD"}, {BK_LEAD, 4, "LOFI FLUTE"},
     {BK_LEAD, 8, "FLUTE DUST"}, {BK_LEAD, 0, "FAT LEAD"}, {BK_LEAD, 0, "PAN FLUTE"}, {BK_LEAD, 5, "HARMONICA"},
     {BK_LEAD, ENGI_NOISE, "NZ ARCADE"}, {BK_LEAD, 3, "WAVE LEAD"}, {BK_LEAD, 2, "CZ LEAD"},
@@ -1073,6 +1084,8 @@ UI_SMALL static const param_desc_t *home_param(uint32_t k, int16_t **vp)
         return &TP[id];
     }
     id = ENGINES[TSEL->eng_req % NENGINES]->macro[k & 3u];
+    if (id >= VP0)                                    /* BONBLOOP: a field of WAVE's packed words (ui_input.c: wv_commit) */
+        return wv_desc(TSEL, id - VP0, vp);
     *vp = &TSEL->p[id];
     return track_desc(TSEL, id);
 }

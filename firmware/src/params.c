@@ -145,6 +145,8 @@ static const param_desc_t TP[P_COUNT] = {
 static void preset_extras(int16_t *p, const preset_t *pr)
 {
     uint32_t i;
+    if ((uintptr_t)pr >= (uintptr_t)WAVE_PRESETS && (uintptr_t)pr < (uintptr_t)(WAVE_PRESETS + NELEM(WAVE_PRESETS)))
+        wave_preset_words(p, (uint32_t)(pr - WAVE_PRESETS));   /* BONBLOOP: WAVE's words (eng_wave.c) */
     for (i = 0; i + 1u < 8u; i += 2u) {
         int32_t id = pr->x[i] - 1;
         if (id >= 0 && id < P_E0)
@@ -446,18 +448,24 @@ static const page_t PAGES[] = {
     {"TRACKS", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},   /* REC button; TRACK LEVEL LEN PAN */
     {"DRUMS", FAM_TRK, SC_DRUM, GR_NONE, {0xFF,0xFF,0xFF,0xFF}},
     /* BONBLOOP: the SYNTH MODE (hold ENV), one family in four groups (ui.c SYN_GRP: the button that opens each; SELECT
-     * walks them all). The selected track plays WAVE (eng_wave.c); ENV, LFO and FX are SLOOP's own, as on their pages */
-    {"WAVE", FAM_SYN, SC_TRACK, GR_WAVE, {P_E0, P_E1, P_E2, P_E3}},          /* EDIT: TABL POS WARP SUB */
-    {"OSC", FAM_SYN, SC_TRACK, GR_WAVE, {P_E6, P_VOICE, P_DETUNE, P_GLIDE}},  /* DTN, UNISON and its spread, GLIDE */
-    {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {P_E4, P_E5, P_E7, P_ED_FLT}},   /* CUT RES DRV, ENV > FLT */
+     * walks them all). The selected track plays WAVE (eng_wave.c); VP0 + WV_*: a field of its packed words */
+    {"OSC 1", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W1, VP0 + WV_P1, VP0 + WV_L1, VP0 + WV_R1}},   /* EDIT */
+    {"OSC 2", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W2, VP0 + WV_P2, VP0 + WV_L2, VP0 + WV_R2}},
+    {"OSC 3", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W3, VP0 + WV_P3, VP0 + WV_L3, VP0 + WV_R3}},
+    {"TUNE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_S2, VP0 + WV_F2, VP0 + WV_S3, VP0 + WV_F3}},
+    {"VOICE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_WARP, P_VOICE, P_DETUNE, P_GLIDE}},
     {"ENV", FAM_SYN, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},       /* ENV */
     {"ENV DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (SHP: POS) */
     {"LFO", FAM_SYN, SC_TRACK, GR_LFO, {P_LRATE, P_LWAVE, P_LPHASE, P_LFADE}},   /* LFO */
     {"LFO 2", FAM_SYN, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},
     {"LFO DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},   /* (SHP: POS) */
-    {"FX", FAM_SYN, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},        /* FX */
-    {"INSERT", FAM_SYN, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},
-    {"INSERT 2", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_TFLT, 0xFF, 0xFF}},
+    {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_CUT, VP0 + WV_RES, P_FTYPE, P_TFLT}},   /* FX: the voice's filter,
+                                                                          * then the track's (LP <- -> HP) */
+    {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
+    {"TRANSNT", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_TATK, VP0 + WV_TSUS, 0xFF, 0xFF}},
+    {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT (TYPE PHASR on a WAVE sound) */
+    {"INSERT", FAM_SYN, SC_TRACK, GR_INS, {P_ITYPE, 0xFF, 0xFF, 0xFF}},      /* (its TYPE: FLANG, CHOR, the drives...) */
+    {"SENDS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, P_DLY, P_REV, 0xFF}},     /* chorus, delay, reverb */
     {"DLY", FAM_SYN, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
     {"REV/CHO", FAM_SYN, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
 };
@@ -482,6 +490,16 @@ static int page_shown(const page_t *pg)
 {
     return pg->id[0] != P_FTYPE || (!is_drum(TSEL) && TSEL->eng_req % NENGINES == 0u);
 }
+/* BONBLOOP: a packed field of WAVE (eng_wave.c): page id VP0 + WV_*, or SLOOP's EDIT pages on a WAVE track (WAVE_EDIT).
+ * Its value through wv_tmp (edit_param, the HOME knobs: wv_commit). Not on another engine: empty */
+static const param_desc_t *wave_field(uint32_t id, int16_t **valp)
+{
+    if (!wave_track(TSEL)) {
+        *valp = 0;
+        return 0;
+    }
+    return wv_desc(TSEL, id >= VP0 ? id - VP0 : WAVE_EDIT[(id - P_E0) & 7u], valp);
+}
 
 static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **valp)
 {
@@ -498,6 +516,8 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = &song.g[id];
         return &GP[id];
     }
+    if (id >= VP0 || (pg->scope == SC_ENGINE && wave_track(TSEL)))
+        return wave_field(id, valp);
     *valp = &TSEL->p[id];
     return track_desc(TSEL, id);
 }

@@ -840,7 +840,8 @@ static uint32_t track_render(track_t *t, int32_t *out, uint32_t n)
             }
             if (e->amp)                                 /* the engine's own amplitude curve */
                 env = e->amp(t, v, env);
-            m.envq15 = e->ownenv ? 0 : env;
+            m.envq15 = e->ownenv ? 0 : env > 32768 ? 32768 : env;   /* (BONBLOOP: WAVE's transient may lift the amplitude
+                                                         * past 1.0, not the envelope's modulation) */
             m.amp1 = e->ownenv ? env : mulq15(env, v->vel * 258);
             if (p[P_LD_AMP])
                 m.amp1 = mulq15(m.amp1, 32767 - mulq15(p[P_LPOL] ? lfo : (lfo + 32768) >> 1, p[P_LD_AMP] * 258));

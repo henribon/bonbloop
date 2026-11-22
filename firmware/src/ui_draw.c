@@ -237,56 +237,84 @@ UI_SMALL static void graph_lfo(const track_t *t, uint16_t c)
     cv_line(0, 50, 239, 50, C_LINE);
 }
 
-/* BONBLOOP: the wavetable as it is in the part's arena (eng_wave.c; read only, never claimed here): its eight frames
- * one behind the other, dim, the position playing in front in the track's colour (between two frames, as the voice
- * reads them; the last voice's, modulation included, or POS with none sounding); "SYNTH MODE" as the mode starts */
+/* BONBLOOP: an oscillator of the synth (eng_wave.c; the arena read only, never claimed here). The OSC 1..3 pages show
+ * their own, the others OSC 1. A table: its eight frames one behind the other, dim, the position playing in front in
+ * the track's colour (between two frames, as the voice reads them; modulation included while a voice sounds, else
+ * POS); SIN TRI SAW SQR NOISE: a cycle; "SYNTH MODE" as the mode starts */
 UI_SMALL static const wt_part_t *wt_peek(const track_t *t)
 {
     uint32_t p = (uint32_t)(t - trk);
     return p < NPART && t->engine == ENGI_WAVE && eng_arena_own[p] == ENGI_WAVE + 1u ? &eng_arena[p].wave : 0;
 }
-UI_SMALL static int32_t wt_pos_shown(const track_t *t, const wt_part_t *w)
+UI_SMALL static uint32_t wt_osc_shown(void)
+{
+    uint32_t o = ui.page - page_first(FAM_SYN);
+    return on_syn_page() && o < WT_NOSC ? o : 0u;
+}
+UI_SMALL static int32_t wt_pos_shown(const track_t *t, const wt_part_t *w, uint32_t o)
 {
     uint32_t i;
     for (i = 0; i < NVOICE; i++)
         if (t->v[i].active)
-            return w->pos;
-    return t->p[P_E1] << 8;
+            return w->pos[o];
+    return wv_get(t->p, WV_P1 + 3u * o) << 8;
 }
 UI_SMALL static void graph_wave(const track_t *t, uint16_t c)
 {
     const wt_part_t *w = wt_peek(t);
+    uint32_t o = wt_osc_shown(), mode = wave_track(t) ? (uint32_t)wv_get(t->p, WV_W1 + 3u * o) : 0u;
     int32_t f, x, py = 0, fp, fr, ox, oy;
+    const char *m = 0;
     if (syn_splash) {
         cv_text((240 - text_w(&FONT_L, "SYNTH MODE")) / 2, 14, &FONT_L, "SYNTH MODE", c);
-        cv_text((240 - text_w(&FONT_S, "WAVETABLE  ENV  LFO  FX")) / 2, 54, &FONT_S, "WAVETABLE  ENV  LFO  FX", C_HI);
+        cv_text((240 - text_w(&FONT_S, "3 OSC  ENV  LFO  FX")) / 2, 54, &FONT_S, "3 OSC  ENV  LFO  FX", C_HI);
         cv_text((240 - text_w(&FONT_S, "HOLD ENV: BACK TO SLOOP")) / 2, 76, &FONT_S, "HOLD ENV: BACK TO SLOOP", C_DIM);
         return;
     }
-    if (!w || (!w->ready && !w->gen)) {               /* another engine (PRESETS: a WAVE sound), or the first frame */
-        const char *m = w ? "BUILDING" : "PRESETS: A WAVE SOUND";
+    if (!w || !wave_track(t))
+        m = "PRESETS: A WAVE SOUND";                    /* another engine */
+    else if (mode == WM_OFF)
+        m = "OSC OFF";
+    else if (mode >= WM_TAB && !w->sl[o].gen && !w->sl[o].ready)
+        m = "BUILDING";
+    if (m) {
         cv_text((240 - text_w(&FONT_S, m)) / 2, 40, &FONT_S, m, C_DIM);
+        return;
+    }
+    fp = wt_pos_shown(t, w, o);
+    if (mode < WM_TAB) {                                /* an analog shape: two cycles, as the oscillator draws it */
+        uint32_t pw = 0x80000000u - (uint32_t)fp * 57950u;
+        for (x = 0; x < 228; x++) {
+            uint32_t ph = (uint32_t)x * (0xFFFFFFFFu / 114u);
+            int32_t v = mode == WM_SIN ? sine_i(ph) : mode == WM_TRI ? osc_tri(ph) : mode == WM_SAW ? (int32_t)(ph >> 16) - 32768
+                      : mode == WM_SQR ? (ph < pw ? 30000 : -30000) : (int32_t)((x * 2654435761u) >> 16) - 32768;
+            int32_t y = 50 - v * 36 / 32768;
+            if (x)
+                cv_line(5 + x, py, 6 + x, y, c);
+            py = y;
+        }
+        cv_line(0, 50, 239, 50, C_LINE);
         return;
     }
     for (f = (int32_t)WT_FR - 1; f >= 0; f--) {         /* the frames, back to front */
         ox = 6 + f * 10;
         oy = 80 - f * 7;
         for (x = 0; x < 150; x += 3) {
-            int32_t y = oy - w->w[f][x * (int32_t)WT_LEN / 150] * 16 / WT_PEAK;
+            int32_t y = oy - w->w[o][f][x * (int32_t)WT_LEN / 150] * 16 / WT_PEAK;
             if (x)
                 cv_line(ox + x - 3, py, ox + x, y, C_DIM);
             py = y;
         }
     }
-    fp = wt_pos_shown(t, w) * 7 / 127;                  /* the position: frame << 8 | between it and the next */
+    fp = fp * 7 / 127;                                  /* the position: frame << 8 | between it and the next */
     fr = fp & 255;
     f = (fp >> 8) & 7;
     ox = 6 + fp * 10 / 256;
     oy = 80 - fp * 7 / 256;
     for (x = 0; x < 150; x++) {
-        int32_t i = x * (int32_t)WT_LEN / 150, a = w->w[f][i], y;
+        int32_t i = x * (int32_t)WT_LEN / 150, a = w->w[o][f][i], y;
         if (fr)
-            a += ((w->w[(f + 1) & 7][i] - a) * fr) >> 8;
+            a += ((w->w[o][(f + 1) & 7][i] - a) * fr) >> 8;
         y = oy - a * 18 / WT_PEAK;
         if (x)
             cv_line(ox + x - 1, py, ox + x, y, c);
@@ -511,9 +539,10 @@ UI_SMALL static uint32_t graph_signature(void)
     }
     if (pg->graph == GR_WAVE) {                      /* BONBLOOP: the table as it is built, the position playing */
         const wt_part_t *w = wt_peek(t);
-        h ^= (syn_splash != 0u) * 104729u;
+        uint32_t o = wt_osc_shown();
+        h ^= (syn_splash != 0u) * 104729u + o * 524287u;
         if (w)
-            h ^= (uint32_t)w->gen * 7919u + (uint32_t)(wt_pos_shown(t, w) >> 9) * 31u + 1u;
+            h ^= (uint32_t)w->sl[o].gen * 7919u + (uint32_t)(wt_pos_shown(t, w, o) >> 9) * 31u + 1u;
     }
     if (pg->graph == GR_SLCR && t->p[P_SLCR])        /* the SLICER's step playing */
         h ^= (sl[song.sel].idx + 1u) * 2654435761u;

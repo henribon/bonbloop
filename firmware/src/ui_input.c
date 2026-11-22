@@ -562,6 +562,8 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     v = d->names == ESYNC_NAMES || d->names == N_IBITS || d->names == N_IRATE ? names_turn(d, *vp, steps)   /* (a name a detent) */
                                     : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
     *vp = (int16_t)v;
+    if (wv_commit(TSEL, vp))                              /* BONBLOOP: a field of WAVE's packed words (no lock, no learn) */
+        return;
     if (pg->scope != SC_GLOBAL && p_lockable(id))
         ui.lock_par = (uint8_t)id;                        /* the SEQ layer's lock parameter: the last one touched */
     if (pg->scope != SC_GLOBAL)
@@ -779,6 +781,11 @@ UI_SMALL static uint32_t btn_hold(uint32_t *t0, uint32_t label, uint32_t now, in
 /* a layer button tapped (pressed and let go, nothing touched): its pages, as before the layers */
 UI_SMALL static void layer_tap(uint32_t layer)
 {
+    if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL,
+                                                       * GLO and SAVE tapped open nothing (held, their layers as ever) */
+        ui_message("HOLD ENV: SYNTH OFF");
+        return;
+    }
     switch (layer) {
     case LY_FX:
         open_family(FAM_FX);
@@ -1222,6 +1229,9 @@ UI_SMALL static void ui_input(void)
     }
     if (envh == BT_HOLD && !rec_wait && !ft_on)          /* BONBLOOP: ENV held, the SYNTH MODE on / off */
         syn_toggle();
+    if (syn_mode && !on_syn_page())                     /* (1.1) the mode keeps the screen: back to its pages, whatever
+                                                         * took it (a load, the editor, a drum track page) */
+        syn_home();
     if (rec_wait && !ft_on && !ci_on) {                 /* the REC screen, armed: how it records */
         rec_knobs();                                    /* (tempo and sound still work; the track too: */
         enc_hold |= 15u << EN_K1;                       /* (after 2.8.3, sloop-pro #6) KNOB 1..4 are the REC screen's this
@@ -1242,6 +1252,10 @@ UI_SMALL static void ui_input(void)
         return;
     }
 #endif
+    if (home == BT_TAP && syn_mode) {                   /* BONBLOOP: HOME in the SYNTH MODE: its first page (OSC 1) */
+        syn_home();
+        home = BT_NONE;
+    }
     if (home == BT_TAP) {                               /* HOME acts on release: a hold opens the menu */
         if (!ui.home && cur_page()->scope == SC_TRK && !vis_on)
             vis_open();                                 /* HOME on HOME: the visualiser (ui_vis.c) */
@@ -1322,8 +1336,9 @@ UI_SMALL static void ui_input(void)
         else if (total)
             preset_go((uint32_t)(((int32_t)cur + s % (int32_t)total + (int32_t)total) % (int32_t)total));
     }
-    if ((s = panel_enc(EN_ALGO)) != 0 && !ft_on)     /* ALGORITHM: the selected track, on every page (not in a take) */
-        track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, NTRK - 1));
+    if ((s = panel_enc(EN_ALGO)) != 0 && !ft_on)     /* ALGORITHM: the selected track, on every page (not in a take); */
+        track_select((uint32_t)clamp((int32_t)song.sel + (s > 0 ? 1 : -1), 0, syn_mode ? NPART - 1 : NTRK - 1));   /* (the
+                                                     * SYNTH MODE: the three synth tracks) */
     if (vis_shown() && !rec_wait && !ft_on) {           /* the visualiser: SELECT its style; KNOB 1..4 (the TRACKS
                                                          * screen's, out of sight) do nothing */
         if ((s = panel_enc(EN_SELECT)) != 0)
@@ -1350,6 +1365,7 @@ UI_SMALL static void ui_input(void)
             int16_t *vp;
             const param_desc_t *d = home_param(k, &vp);
             *vp = (int16_t)clamp(*vp + accel(EN_K1 + k, s, d->names ? 0 : d->max - d->min), d->min, d->max);   /* (a list: no jumps) */
+            wv_commit(TSEL, vp);                        /* (BONBLOOP: WAVE's macros are fields of its words) */
             if (!is_drum(TSEL) && p_lockable(ENGINES[TSEL->eng_req % NENGINES]->macro[k & 3u]))
                 ui.lock_par = ENGINES[TSEL->eng_req % NENGINES]->macro[k & 3u];
             if (!is_drum(TSEL))
