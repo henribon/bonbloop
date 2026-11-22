@@ -177,7 +177,15 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
 - A identidade do pacote continua `FM-1_900` (build de desenvolvimento), instalável pelo mesmo instalador.
 
-## Compilar e instalar
+## Instalar
+
+Pelo navegador (Chrome ou Edge), com o FM-1 ligado no computador pelo USB:
+**[henribon.github.io/bonbloop](https://henribon.github.io/bonbloop/)** → **INSTALL**. O site (pasta `docs/`, em
+inglês) é gerado por `web/make_site.py` e instala direto no FM-1 conectado, pelo Web MIDI.
+
+Imagens para divulgação: `assets/promo/` (`tools/gen_bonbloop_brand.py promo`, com a fonte e as telas do próprio FM-1).
+
+## Compilar e instalar pela linha de comando
 
 Igual ao SLOOP (ver [BUILDING.md](BUILDING.md)): toolchain JieLi (Linux x86-64, via WSL ou Docker) e três
 arquivos do SDK AC79. No Windows com WSL:
