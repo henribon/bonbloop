@@ -8,7 +8,10 @@ cadeia de efeitos própria (drive estilo Decapitator, transient shaper, phaser, 
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.1** — 3 osciladores, 16 formas de onda, REV, efeitos do synth, e o modo agora segura a tela.
+**Versão 1.2** — cada oscilador com **envelope e LFO próprios**; uma **cadeia de efeitos** que você monta (todos
+começam desligados); DRIVE mais pesado; delay com **1/2, 1/2T** e tempo **livre em ms** (com **FIX**); **voicings**
+de acorde no SEL; e **REC + SAVE** segurados para limpar o synth.
+(1.1: 3 osciladores, 16 formas de onda, REV, efeitos do synth, o modo segura a tela.)
 
 ---
 
@@ -45,7 +48,7 @@ Dentro do MODO SYNTH você **não sai sem querer**:
 ### Os botões dentro do modo
 
 Quatro botões abrem os grupos de páginas do synth. Tocar de novo no mesmo botão passa para a próxima página do
-grupo; o **SELECT** percorre as 18 páginas.
+grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 
 | Botão | Página | KNOB 1 · KNOB 2 · KNOB 3 · KNOB 4 |
 | --- | --- | --- |
@@ -53,20 +56,27 @@ grupo; o **SELECT** percorre as 18 páginas.
 | | OSC 2 | WAVE · POS · LVL · REV |
 | | OSC 3 | WAVE · POS · LVL · REV |
 | | TUNE | SEMI2 · FINE2 · SEMI3 · FINE3 |
+| | FILTER | CUT · RES · TYPE (LP/BP/HP) · FLT (quanto o envelope abre o filtro) |
 | | VOICE | WARP · VCE (POLY/MONO/LEG/UNI) · DTUNE (abertura do unison) · GLD |
-| **ENV** | ENV | ATK · DEC · SUS · REL |
+| **ENV** | ENV | ATK · DEC · SUS · REL (o envelope da voz) |
 | | ENV DEST | FLT · PIT · **POS** · SYNC |
+| | OSC1 ENV · OSC2 ENV · OSC3 ENV | ENV (OFF/ON) · ATK · DEC · SUS — **o envelope de cada oscilador** (1.2) |
 | **LFO** | LFO | RATE · WAVE · PHS · FADE |
 | | LFO 2 | SYNC · TRIG · POL |
 | | LFO DEST | PIT · FLT · **POS** · AMP |
-| **FX** | FILTER | CUT · RES · TYPE (LP/BP/HP) · FILT (filtro DJ do track) |
-| | DRIVE | DST (quantidade) · STYLE (A E N T P) · TONE · PUNSH |
-| | TRANSNT | ATTCK · SUSTN |
+| | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
+| **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
+| | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 · SLOT8 |
+| | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
-| | INSERT | TYPE (PHASR, e também FLANG, CHOR, SOFT, HARD, FOLD, FUZZ, CRUSH) |
-| | SENDS | CHO · DLY · REV (envios para o chorus, delay e reverb) |
-| | DLY | tempo, feedback, cor e mix do delay (global) |
-| | REV/CHO | tamanho e amortecimento do reverb, velocidade e profundidade do chorus (globais) |
+| | DJ FILT | FILT (filtro DJ do track) |
+| | TRANSNT | ATTCK · SUSTN |
+| | CHORUS | CHO (envio) · CRT · CDP |
+| | DELAY | DLY (envio) · TIME (1/4 … 1/2, 1/2T, FREE) · FDBK · MS |
+| | DELAY 2 | COLR · MIX · **FIX** |
+| | REVERB | REV (envio) · SIZE · DAMP |
+
+As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
 
 - **PRESETS** (o encoder), numa página do synth: passa pelos 16 sons WAVE.
 - No engine WAVE, os destinos **SHP** do envelope e do LFO aparecem como **POS**: movem a posição de **todos** os
@@ -134,18 +144,47 @@ tracking; o envelope e o LFO (→ FLT) movem o CUT. Na mesma página, o **FILT**
 para a esquerda, passa-alta para a direita), depois de todos os efeitos de insert. O CC 74 de um teclado MIDI
 move o filtro DJ.
 
-### Efeitos do synth
+### Envelope e LFO de cada oscilador (1.2)
 
-| Efeito | De onde vem |
+Além do ENV e do LFO da voz (que valem para todos), cada oscilador tem os seus:
+
+- **OSCn ENV**: com **ENV ON**, o volume daquele oscilador segue o próprio ATK / DEC / SUS (0–15); o release é o
+  REL da voz. Um oscilador pode entrar devagar enquanto outro dá o ataque, ou só fazer um "clique" no começo.
+- **OSCn LFO**: **RATE** (0–15), **DEPTH** (−8 a +7; 0 desliga) e **DEST**: **POS** (varre a tabela só daquele
+  oscilador), **PITCH** (vibrato só nele) ou **LVL** (tremolo só nele).
+
+### A cadeia de efeitos (1.2)
+
+No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 8 slots (4 aqui, 4 em
+CHAIN 2), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, TRANS.
+
+- Escolher um efeito num slot **liga** o efeito (numa quantidade que já se ouve) e faz a página de detalhes dele
+  aparecer depois de CHAIN 2. Voltar o slot para **--** desliga o efeito e esconde a página.
+- **DRIVE, PHASER e FILTER** tocam **na ordem dos slots** (ex.: PHASER antes do DRIVE soa diferente de DRIVE antes
+  do PHASER). TRANSIENT é por nota (antes de todos); CHORUS, DELAY e REVERB são envios (depois de todos).
+- Um efeito ligado por fora do modo (nas páginas normais do SLOOP, ou num projeto antigo) entra sozinho no primeiro
+  slot livre: a cadeia sempre mostra tudo o que está soando.
+
+| Efeito | O que é |
 | --- | --- |
-| **DRIVE** | Novo, estilo **Decapitator**: num track WAVE, o DIST do SLOOP vira um saturador de 5 estilos — **A** fita (suave, simétrica), **E** válvula (assimétrica: harmônicos pares), **N** transformador (mais ganho), **T** triodo (mais sujo), **P** pentodo (meio corte duro) —, **TONE** (escuro ↔ aberto) e **PUNSH** (+12 dB de drive). |
-| **TRANSIENT** | Novo: **ATTCK** sobe até +12 dB os primeiros ~25 ms de cada nota (ou, negativo, faz a nota entrar suave); **SUSTN** sobe até +6 dB o corpo da nota (ou, negativo, deixa só o ataque). |
-| **PHASER** | O INSERT do SLOOP, já em PHASR nos sons WAVE (MIX 0 = desligado). Na página INSERT dá para trocar por FLANG, CHOR ou um dos drives. |
-| **CHORUS, DELAY, REVERB** | Os envios do SLOOP (página SENDS) e os ajustes globais (DLY, REV/CHO). |
-| **FILTER** | O filtro da voz (acima) e o filtro DJ do track. |
+| **DRIVE** | Estilo **Decapitator**, num track WAVE: 5 estilos — **A** fita, **E** válvula (harmônicos pares), **N** transformador, **T** triodo, **P** pentodo —, **TONE** (escuro ↔ aberto) e **PUNSH**. No 1.2 ficou bem mais pesado: mais ganho em todo o curso do DST e o PUNSH soma +18 dB. |
+| **TRANSIENT** | **ATTCK** sobe até +12 dB os primeiros ~25 ms de cada nota (negativo: entrada suave); **SUSTN** sobe até +6 dB o corpo da nota (negativo: só o ataque). |
+| **PHASER** | O INSERT do SLOOP como PHASR (MIX · RATE · DEPTH · FDBK). |
+| **FILTER** | O filtro DJ do track (passa-baixa para a esquerda, passa-alta para a direita). |
+| **CHORUS, DELAY, REVERB** | Os envios do SLOOP e os ajustes globais deles, na mesma página. |
 
-A ordem: osciladores → filtro → transient (por nota) → DRIVE → PHASER/INSERT → filtro DJ → volume/pan → envios
-(chorus, delay, reverb).
+### Delay: 1/2, 1/2T, livre e FIX (1.2)
+
+O **TIME** do delay ganhou **1/2** (2 tempos), **1/2T** (tercina de mínima) e **FREE**: no FREE o tempo é o **MS**
+(10–1480 ms) e não muda com o BPM. O **FIX** (DELAY 2, ou FX → DLY 2 fora do modo) **fixa** o tempo atual: converte
+a divisão que está tocando no BPM de agora em ms e passa para FREE — mude o andamento e o eco fica onde estava.
+
+### Limpar o synth: REC + SAVE (1.2)
+
+No MODO SYNTH, segure **SAVE** e **REC** juntos: depois de ~0,7 s aparece o anel **clear / synth sound**; segure
+até ele fechar (~1,3 s) e o track volta ao **primeiro som do WAVE**, com todos os efeitos desligados, a cadeia
+vazia e sem envelope/LFO nos osciladores. **As notas do track ficam** (para apagar as notas, REC sozinho segurado,
+como no SLOOP). Soltou antes: nada acontece.
 
 ### Sem gastar flash nem RAM
 
@@ -156,7 +195,9 @@ que está tocando; trocar de tabela nunca deixa o som mudo. Nenhum byte de RAM a
 garante isso).
 
 Os 25 parâmetros do synth cabem **empacotados nos 8 parâmetros do engine** (16 bits cada): projetos, presets de
-usuário e p-locks os guardam como sempre. As páginas do synth editam cada campo; o **editor web** mostra os 8
+usuário e p-locks os guardam como sempre. Os do 1.2 (envelope e LFO de cada oscilador, a cadeia: 12 bytes por track,
+e o MS do delay) vão num registro ao lado de cada projeto e de cada banco de presets de usuário na flash, que o
+SLOOP nunca lê. As páginas do synth editam cada campo; o **editor web** mostra os 8
 números brutos e não edita esses campos.
 
 Custo de CPU, medido no PC: 1 oscilador de tabela ≈ 0,9× uma voz do ANALOG; 3 osciladores de tabela ≈ 1,5×.
@@ -169,10 +210,30 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 
 ---
 
+## Fora do modo synth: VOICING (1.2)
+
+Com o **CHORD** ligado (SEL → página SEL 2), o antigo **VLEAD** virou **VOIC**, o voicing do acorde:
+
+| VOIC | Um C maior (C E G) vira |
+| --- | --- |
+| OFF | como tocado |
+| LEAD | cada acorde na inversão mais perto do anterior (o VLEAD ON de antes) |
+| INV1 / INV2 | 1ª / 2ª inversão (E G C / G C E) |
+| DROP2 / DROP3 | a 2ª / 3ª voz de cima uma oitava abaixo (E3 C G / C3 E G) |
+| SPRD | aberto: vozes alternadas uma oitava acima (C G E5) |
+| +BASS | mais a fundamental uma oitava abaixo (C3 C E G) |
+
+Funciona nas teclas, nos passos e com os modificadores das teclas pretas.
+
+---
+
 ## Compatibilidade
 
 - Projetos, presets de usuário, samples e ajustes do SLOOP continuam valendo.
 - Sons WAVE salvos com o BONBLOOP 1.0 tocam diferente no 1.1 (os parâmetros do engine mudaram de significado).
+- Do 1.1 para o 1.2: os sons e projetos abrem iguais; os efeitos que estavam ligados aparecem sozinhos na cadeia.
+  Os presets de fábrica WAVE agora começam sem efeitos (no 1.1 vinham com o phaser no INSERT).
+- Um projeto salvo no 1.2 aberto no 1.1 ou no SLOOP perde só os extras do 1.2 (envelope/LFO dos osciladores, cadeia, MS).
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
 - A identidade do pacote continua `FM-1_900` (build de desenvolvimento), instalável pelo mesmo instalador.
@@ -195,7 +256,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.1: 575.972 de 581.564 bytes de flash (5,5 KB livres); RAM e pool iguais aos do SLOOP.
+Tamanho do 1.2: 580.964 de 581.564 bytes de flash (600 bytes livres); RAM 59.436 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 

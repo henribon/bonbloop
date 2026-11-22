@@ -108,6 +108,8 @@ enum {                          /* global parameters */
                                  * while SYNC is INT (seq.c clkout_block; a setting of the FM-1, kept in DR MAP's byte) */
     G_FXFADE,                   /* SLOOP 2.7.2, the FX layer (FX held), SELECT: how fast a punch-in FX fades in and out, 0 (instant, as
                                  * before) .. 15 (punch.c; a setting of the FM-1, kept in BEND's byte) */
+    G_DMS,                      /* BONBLOOP 1.2: the delay's TIME = FREE: this many ms (a project keeps it in its side record) */
+    G_DFIX,                     /* .. and FIX (a GO button): the time the tempo gives now, kept as FREE ms (ui_input.c) */
     G_COUNT
 };
 
@@ -366,10 +368,11 @@ static uint32_t div_units(uint32_t div)
     return div < NDIV_SHORT ? BEAT_U / DIV_DEN[div] : BEAT_U * DIV_BEATS[(div - NDIV_SHORT) % 3u];
 }
 /* the delay's TIME in clock units (N_DLY order) */
+#define DLY_FREE 11u            /* (BONBLOOP 1.2) N_DLY: after 1/4D, 1/2 and 1/2T, FREE: G_DMS ms (fx.c delay_samples) */
 static uint32_t dly_units(uint32_t d)
 {
-    return d < NDIV_SHORT ? BEAT_U / DIV_DEN[d] : d == NDIV_SHORT ? BEAT_U * 3u / 4u : d == NDIV_SHORT + 1u ? BEAT_U * 3u / 8u
-                                                                                         : BEAT_U * 3u / 2u;   /* 1/4D (2.6) */
+    static const uint8_t Q[6] = {6, 3, 12, 16, 32, 8};   /* 1/8D 1/16D 1/4D 1/2 1/2T, FREE (unused): beats x 8 */
+    return d < NDIV_SHORT ? BEAT_U / DIV_DEN[d] : BEAT_U / 8u * Q[(d - NDIV_SHORT) % 6u] / (d == NDIV_SHORT + 4u ? 3u : 1u);
 }
 /* length of one step (N_SDIV order) in samples at the song tempo (rounded down) */
 static uint32_t div_samples(uint32_t div) { return div_units(div) / (uint32_t)song.g[G_BPM]; }

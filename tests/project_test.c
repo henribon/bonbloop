@@ -478,6 +478,29 @@ int main(void)
     q2 = q;
     bad += check("2.6 SAVE > PROJECT > ERASE: an object of no bytes is no project (an empty slot, older SLOOP too)",
                  !proj_import(&q2, &q, 0));
+    {   /* BONBLOOP 1.2: the synth's extras beside a project (bbx_t): captured and applied with it; spoilt or none: 0 */
+        project_t *pp = &proj_slot[2];
+        memset(synx, 0, sizeof synx);
+        synx[1].w[0] = 0x2345678u, synx[1].w[2] = 0x45u;
+        song.g[G_DMS] = 333;
+        proj_capture(pp);
+        memset(synx, 0, sizeof synx);
+        song.g[G_DMS] = 100;
+        proj_apply(pp, 1);
+        ok = synx[1].w[0] == 0x2345678u && synx[1].w[2] == 0x45u && song.g[G_DMS] == 333;
+        bad += check("1.2: a project's synth extras (synx, the delay's FREE ms) captured and applied with it", ok);
+        song.g[G_DMS] = 100;
+        proj_apply(pp, 0);
+        ok = synx[1].w[0] == 0x2345678u && song.g[G_DMS] == 100;
+        bad += check("1.2: a song section: the synx with its tracks, the ms (a global) left", ok);
+        bbx_of(pp)->sum ^= 1u;
+        proj_apply(pp, 1);
+        ok = !synx[1].w[0] && !synx[1].w[2] && song.g[G_DMS] == GP[G_DMS].def;
+        bad += check("1.2: extras spoilt (or none: SLOOP, 1.1): synx 0, the ms at their default", ok);
+        bad += check("1.2: each section its own extras, any other copy the fifth",
+                     bbx_of(&proj_slot[0]) == &bbx_ram[0] && bbx_of(&proj_slot[3]) == &bbx_ram[3] && bbx_of(&q) == &bbx_ram[4]);
+        bad += check("1.2: the extras fit a side record", sizeof(bbx_t) == 44u);
+    }
     printf("%s\n", bad ? "PROJECT FORMAT TEST FAILED" : "project format test passed");
     return bad != 0;
 }

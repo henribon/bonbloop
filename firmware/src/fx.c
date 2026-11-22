@@ -199,7 +199,8 @@ static inline void master_pre(int32_t *l, int32_t *r)
 
 static uint32_t delay_samples(void)
 {
-    uint32_t s = dly_samples((uint32_t)song.g[G_DTIME]);
+    uint32_t s = song.g[G_DTIME] == DLY_FREE ? (uint32_t)clamp(song.g[G_DMS], 1, 1480) * 441u / 10u   /* (BONBLOOP: FREE, ms) */
+                                             : dly_samples((uint32_t)song.g[G_DTIME]);
     return s < 16u ? 16u : s >= DLY_LEN ? DLY_LEN - 1u : s;
 }
 
@@ -672,6 +673,24 @@ static void mix_part(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)   /* into
     mix_part_run(t, n, mx, b);
     memcpy(t->p, pn, sizeof pnew[0]);
 }
+/* a part's DIST (FXI_DRIVE), INSERT (FXI_PHASER) or FILTER (FXI_FILTER) on its block b (mix_part_run) */
+static void track_fx_run(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
+{
+    if (fx == FXI_DRIVE) {
+        track_dist(t, b, n);
+    } else if (fx == FXI_PHASER) {
+        if (t->p[P_ITYPE] | t->ins_run) {
+            track_insert(t, b, n);                      /* the INSERT (2.6): off, nothing */
+            t->ins_res = (uint16_t)(b[n - 1u] < 0 ? (-b[n - 1u] > 65535 ? 65535 : -b[n - 1u])
+                                                  : (b[n - 1u] > 65535 ? 65535 : b[n - 1u]));   /* (its tail's end) */
+        }
+    } else {
+        tsvf_t fc;
+        djf_t *f = &tflt[(uint32_t)(t - trk) % NTRK];
+        if (djf_block(f, t->p[P_TFLT], &fc, tflt_reso()))
+            tflt_run(f, &fc, b, n, 0);
+    }
+}
 static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
 {
     uint32_t i;
@@ -699,18 +718,22 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
         int32_t xmax = c > d ? c : d;
         int32_t ga = mulq15(g0, duck.g0), gb = mulq15(g1, duck.g1);   /* mute x duck, ramped over the block */
         xmax = 0x7FFFFFFF / ((xmax > r ? xmax : r) | 1);   /* sends: loud chords at a high LEVEL */
-        track_dist(t, b, n);
-        if (t->p[P_ITYPE] | t->ins_run) {
-            track_insert(t, b, n);                      /* the INSERT (2.6): off, nothing */
-            t->ins_res = (uint16_t)(b[n - 1u] < 0 ? (-b[n - 1u] > 65535 ? 65535 : -b[n - 1u])
-                                                  : (b[n - 1u] > 65535 ? 65535 : b[n - 1u]));   /* (its tail's end) */
-        }
-        slicer_track(t, b, n);                          /* slicer.c: before the level, pan and sends */
-        {
-            tsvf_t fc;                                  /* the track's FILTER (P_TFLT), after the SLICER */
-            djf_t *f = &tflt[(uint32_t)(t - trk) % NTRK];
-            if (djf_block(f, t->p[P_TFLT], &fc, tflt_reso()))
-                tflt_run(f, &fc, b, n, 0);
+        if (t->engine == ENGI_WAVE) {                   /* (BONBLOOP 1.2) the synth: DRIVE, PHASER and FILTER in its FX
+                                                         * chain's order (eng_wave.c synx), the others after, then the SLICER */
+            uint32_t done = 0, s, fx;
+            for (s = 0; s < 8u + 3u; s++) {
+                fx = s < 8u ? (uint32_t)sx_get((uint32_t)(t - trk), SX_C1 + s) : s - 8u + FXI_DRIVE;
+                if (fx >= FXI_DRIVE && fx <= FXI_FILTER && !((done >> fx) & 1u)) {
+                    done |= 1u << fx;
+                    track_fx_run(t, b, n, fx);
+                }
+            }
+            slicer_track(t, b, n);
+        } else {
+            track_fx_run(t, b, n, FXI_DRIVE);
+            track_fx_run(t, b, n, FXI_PHASER);
+            slicer_track(t, b, n);                      /* slicer.c: before the level, pan and sends */
+            track_fx_run(t, b, n, FXI_FILTER);          /* the track's FILTER (P_TFLT), after the SLICER */
         }
         int32_t lvl0, dl, gl0, dgl, gr0, dgr;          /* (2.7) LEVEL (and a new sound's trim) and PAN glide (drums.c
                                                          * mix_glide), ramped sample by sample inside the block */

@@ -1057,7 +1057,8 @@ UI_SMALL static void layer_screen_draw(void)
 UI_SMALL static void hold_screen_draw(void)
 {
     static uint32_t cache;
-    uint32_t span = ui.hold_kind == 1u ? HOLD_CLEAR_MS : HOLD_SAVE_MS, el = fm1_ms - ui.hold_t0;
+    int clr = ui.hold_kind != 2u;                     /* (1: the track, 3: the synth, BONBLOOP 1.2; 2: save) */
+    uint32_t span = clr ? HOLD_CLEAR_MS : HOLD_SAVE_MS, el = fm1_ms - ui.hold_t0;
     int32_t ratio = el >= span ? 1000 : (int32_t)(el * 1000u / span);
     uint32_t sig = ui.hold_kind * 7u + (uint32_t)ratio / 20u + ui.hold_trk * 131u;
     char b[24];
@@ -1070,20 +1071,21 @@ UI_SMALL static void hold_screen_draw(void)
         return;
     cache = sig;
     cv_begin(240, 124, C_BLACK);
-    cv_text(120 - text_w(&FONT_L, ui.hold_kind == 1u ? "clear" : "save") / 2, 4, &FONT_L,
-            ui.hold_kind == 1u ? "clear" : "save", ui.hold_kind == 1u ? TE_RED : C_WHITE);
+    cv_text(120 - text_w(&FONT_L, clr ? "clear" : "save") / 2, 4, &FONT_L, clr ? "clear" : "save", clr ? TE_RED : C_WHITE);
     {   /* the ring: 36 px, 7 thick, filling clockwise from the top */
         int32_t a, rr, end = ratio * 1024 / 1000;
         for (a = 0; a < 1024; a += 2) {
             int32_t co = SINE[((uint32_t)a + 768u) & 1023u], si = SINE[(uint32_t)a & 1023u];   /* from 12 o'clock */
-            uint16_t c = a <= end ? (ui.hold_kind == 1u ? TE_RED : C_WHITE) : TE_G2;
+            uint16_t c = a <= end ? (clr ? TE_RED : C_WHITE) : TE_G2;
             for (rr = 30; rr <= 36; rr++)
                 cv_pset(120 + ((si * rr) >> 15), 80 + ((co * rr) >> 15), c);
         }
     }
     cv_blit(0, 20);
     cv_begin(240, 60, C_BLACK);
-    if (ui.hold_kind == 1u) {
+    if (ui.hold_kind == 3u) {
+        str_cpy(b, "synth sound", sizeof b);
+    } else if (ui.hold_kind == 1u) {
         str_cpy(b, "track 1", sizeof b);
         b[6] = (char)('1' + ui.hold_trk);
     } else {

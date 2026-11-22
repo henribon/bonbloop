@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.1"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.2"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -505,7 +505,7 @@ UI_SMALL static void note_name(char *b, uint32_t n)
  * nothing of it is saved, the sound is the track's like any other */
 static uint8_t syn_mode;
 static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
-static const uint8_t SYN_GRP[5] = {0, 5, 7, 10, 18};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
+static const uint8_t SYN_GRP[5] = {0, 6, 11, 17, 27};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
 static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
 UI_SMALL static int syn_group_of(uint32_t fam)
 {
@@ -519,6 +519,21 @@ UI_SMALL static uint32_t syn_group_at(uint32_t page)          /* the group of a 
     return g;
 }
 UI_SMALL static int on_syn_page(void) { return !ui.home && cur_page()->fam == FAM_SYN; }
+/* (1.2) an effect that sounds on the synth's track but is not in its chain (turned on outside the SYNTH MODE, a project
+ * of 1.1): it takes the first free slot, so the chain shows all that sounds (ui_input: every frame in the mode) */
+UI_SMALL static void syn_chain_fill(track_t *t)
+{
+    const int16_t *p = t->p;
+    uint32_t part = (uint32_t)(t - trk), fx, s;
+    uint8_t on[FXI_N] = {0, p[P_DIST] != 0, p[P_ITYPE] != 0, p[P_TFLT] != 0, p[P_CHOR] != 0, p[P_DLY] != 0, p[P_REV] != 0,
+                         (wv_get(p, WV_TATK) | wv_get(p, WV_TSUS)) != 0};
+    if (is_drum(t) || t->eng_req % NENGINES != ENGI_WAVE)
+        return;
+    for (fx = 1; fx < FXI_N; fx++)
+        for (s = 0; on[fx] && !sx_chain_has(part, fx) && s < 8u; s++)
+            if (!sx_get(part, SX_C1 + s))
+                sx_set(part, SX_C1 + s, (int32_t)fx);
+}
 /* the SYNTH MODE's first page (OSC 1): where it opens, HOME in it, and where it comes back to when something else
  * took the screen (1.1: the mode keeps the screen, ui_input.c) */
 UI_SMALL static void syn_home(void)
@@ -537,8 +552,14 @@ UI_SMALL static int syn_route(uint32_t fam)
     if (!syn_mode || g < 0)
         return 0;
     to = base + SYN_GRP[g];
-    if (on_syn_page() && syn_group_at(ui.page) == (uint32_t)g && ui.page + 1u < base + SYN_GRP[g + 1])
-        to = ui.page + 1u;                              /* the same button again: the next page of its group */
+    if (on_syn_page() && syn_group_at(ui.page) == (uint32_t)g) {   /* the same button again: the next page of its group
+                                                         * shown (1.2: an effect's, while it is in the chain) */
+        uint32_t i = ui.page + 1u;
+        while (i < base + SYN_GRP[g + 1] && !page_shown(&PAGES[i]))
+            i++;
+        if (i < base + SYN_GRP[g + 1])
+            to = i;
+    }
     ui.page = (uint8_t)to;
     ui.fam_last[FAM_SYN] = ui.page;
     ui.home = 0;
@@ -575,10 +596,10 @@ UI_SMALL static int page_walk(int32_t s)
     const page_t *pg = cur_page();
     uint32_t i, fam = pg->fam, n = 0;
     int32_t cur = -1, to;
-    uint8_t idx[24];                               /* (2.7: GLO has 9 pages with MIDI 3; BONBLOOP: the synth 18) */
+    uint8_t idx[32];                               /* (2.7: GLO has 9 pages with MIDI 3; BONBLOOP: the synth 27) */
     if (ui.home || pg->scope == SC_SONG || pg->scope == SC_DRUM)
         return 0;
-    for (i = 0; i < NPAGES && n < 24u; i++) {
+    for (i = 0; i < NPAGES && n < 32u; i++) {
         if (PAGES[i].fam != fam || PAGES[i].scope == SC_SONG || PAGES[i].scope == SC_DRUM || !page_shown(&PAGES[i]))
             continue;
         if (i == ui.page)
@@ -1085,7 +1106,7 @@ UI_SMALL static const param_desc_t *home_param(uint32_t k, int16_t **vp)
     }
     id = ENGINES[TSEL->eng_req % NENGINES]->macro[k & 3u];
     if (id >= VP0)                                    /* BONBLOOP: a field of WAVE's packed words (ui_input.c: wv_commit) */
-        return wv_desc(TSEL, id - VP0, vp);
+        return wv_desc(TSEL, id, vp);
     *vp = &TSEL->p[id];
     return track_desc(TSEL, id);
 }

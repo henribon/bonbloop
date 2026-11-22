@@ -217,6 +217,7 @@ UI_SMALL static void up_boot(void)                      /* persist_boot: the ban
 
 /* record k = *r (0: erase), then the bank to flash: 0 ok, 2 flash error, 3 no flash (nothing kept: there is no
  * RAM mirror). The bank is staged in the project buffer: its current copy, or an empty one, with the record put */
+static uint32_t up_sx[3];                       /* (BONBLOOP 1.2) the next up_put's synth extras (up_store) */
 UI_SMALL static int up_put(uint32_t k, const up_rec_t *r)
 {
     uint32_t b = (k / UP_PER_BANK) % NELEM(up_bank_xip), i;
@@ -239,9 +240,19 @@ UI_SMALL static int up_put(uint32_t k, const up_rec_t *r)
                 trk[i].user = 0;
     up_gen++;
 #if FELUCCA_FLASH
-    if (flash_ok)
+    if (flash_ok) {                                     /* (BONBLOOP 1.2) each record's synx (eng_wave.c), 12 bytes, in
+                                                         * the bank's side record (storage.c): SLOOP never sees them */
+        uint32_t sx[UP_PER_BANK][3];
+        if (!up_bank_xip[b] || st_side_load(OBJ_UPRESET0 + b, sx, sizeof sx))
+            memset(sx, 0, sizeof sx);
+        memcpy(sx[k % UP_PER_BANK], up_sx, sizeof up_sx);
+        st_side = sx;
+        st_side_len = sizeof sx;
         rc = st_save(OBJ_UPRESET0 + b, bk, sizeof *bk) ? 2 : 0;
+        st_side = 0;
+    }
 #endif
+    memset(up_sx, 0, sizeof up_sx);
     up_bank_find(b);
     return rc;
 }
@@ -282,6 +293,8 @@ UI_SMALL static int up_store(uint32_t k, const char *name)
     for (i = 0; i < P_COUNT; i++)
         r.p[i] = TSEL->p[i];
     up_pat_from(&r, TSEL->step);
+    if (TSEL->eng_req == ENGI_WAVE)                     /* (BONBLOOP 1.2) its synx, marked (sx_take) */
+        sx_give(trk_index(TSEL), up_sx);
     return up_put(k, &r);
 }
 
@@ -316,6 +329,13 @@ UI_SMALL static int up_load_to(track_t *t, uint32_t k)       /* user preset k in
     for (i = 0; i < P_COUNT; i++)
         t->p[i] = v[i];
     t->preset = 0;
+#ifndef UP_HOST
+    {   /* (BONBLOOP 1.2) its synx: the bank's side record, beside its copy in the XIP window (up_put) */
+        const up_bank_t *bk = up_bank_xip[(k / UP_PER_BANK) % NELEM(up_bank_xip)];
+        sx_take(trk_index(t), bk ? (const uint32_t *)((const uint8_t *)bk - ST_PAYLOAD_OFF + ST_SIDE_OFF) +
+                                       (k % UP_PER_BANK) * 3u : 0);
+    }
+#endif
     fm1_irq_on();
     fm6_track_loaded(t);                                /* FM6: a user preset holds the PTCH and the macros */
     t->user = (uint8_t)(k + 1u);

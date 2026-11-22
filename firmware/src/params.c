@@ -42,11 +42,16 @@ static const char *const N_MIN[] = {"NOTES", "CLOCK", "CH 1", "CH 2", "CH 3", "C
                                      "CH 10", "CH 11", "CH 12", "CH 13", "CH 14", "CH 15", "CH 16"};  /* G_ROUTE: MIDI in, notes and clock, the clock only, or (2.6) one channel only, on the selected track (seq.c) */    /* G_MIDI: what goes to MIDI OUT (seq.c seq_out_on) */
 static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T"};
 static const char *const N_SDIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1BAR", "2BAR"};   /* core.h div_units */
-static const char *const N_DLY[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/8D", "1/16D", "1/4D"};   /* core.h dly_units
+static const char *const N_DLY[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/8D", "1/16D", "1/4D",
+                                     "1/2", "1/2T", "FREE"};   /* (BONBLOOP 1.2: 1/2, 1/2T, FREE = G_DMS ms; core.h DLY_FREE) */   /* core.h dly_units
                                                                           * (2.6: 1/4D, after Felucca 1.5.1) */
 static const char *const N_SCALE[] = {"CHR", "MAJ", "MIN", "DOR", "MIX", "PEN", "MPEN", "HARM",
                                     "PHRY", "LYD", "LOC", "MEL", "BLUES", "WHOLE", "DIMHW", "DIMWH"};
 static const char *const N_ONOFF[] = {"OFF", "ON"};
+/* (BONBLOOP 1.2) chord mode's VOICING (P_VLEAD, SEL 2): OFF as played, LEAD nearest the last chord (VLEAD ON), the
+ * inversions, the drops (the 2nd / 3rd voice from the top an octave down), SPRD open (every other voice up), +BASS the
+ * root an octave below (seq.c chord_play_notes) */
+static const char *const N_VOIC[] = {"OFF", "LEAD", "INV1", "INV2", "DROP2", "DROP3", "SPRD", "+BASS"};
 static const char *const N_CLKOUT[] = {"OFF", "OUT"};   /* 2.7, GLO > MIDI 3 > CLOCK: OUT, the MIDI clock out */
 static const char *const N_DRMAP[] = {"GM", "1-16"};   /* (2.7) GLO > MIDI 3: DR MAP */
 static const char *const N_QUANT[] = {"OFF", "SNAP", "WHITE"};   /* seq.c kb_map; 1 = SNAP as the old ON */
@@ -127,7 +132,7 @@ static const param_desc_t TP[P_COUNT] = {
     [P_CHORD] = PE("CHORD", N_CHORD, 0),
     [P_TFLT] = PD("FILT", F_FILT, -64, 63, 0),
     [P_STRUM] = PD("STRUM", F_INT, -60, 60, 0),   /* ms a note: > 0 low to high (down), < 0 high to low */
-    [P_VLEAD] = PE("VLEAD", N_ONOFF, 0),
+    [P_VLEAD] = PE("VOIC", N_VOIC, 0),            /* (BONBLOOP 1.2: VLEAD's ON is LEAD; then the voicings, seq.c) */
     /* 2.6, after Felucca 1.5 / 1.4. The INSERT (fx.c track_insert): TYPE OFF = as before. A B C as the editor
      * protocol names them; the device shows the type's own labels (ins_desc) */
     [P_ITYPE] = PE("INSRT", N_ITYPE, 0),
@@ -206,6 +211,8 @@ static const param_desc_t GP[G_COUNT] = {
     [G_RMCH] = PE("REMOTE", N_MCH, 0),           /* 2.7, GLO > MIDI 3: the buttons over MIDI (CC 102..115, seq.c remote_cc) */        /* 2.7, GLO > MIDI 3: MIDI notes -> drum sounds (seq.c midi_drum_lane) */            /* 2.7, GLO > MIDI 3: the punch-in FX's channel (seq.c midi_fx) */
     [G_BEND] = PD("BEND", F_SEMI, 1, 12, 2),      /* 2.6, GLO > MIDI 2: MIDI pitch bend's range (a setting of the FM-1) */
     [G_FXFADE] = PD("FADE", F_INT, 0, 15, 0),     /* 2.7.2: the punch-in FX fade (FX layer SELECT), 0 off .. 15 (punch.c) */
+    [G_DMS] = {"MS", F_INT, 10, 1480, 250, 0, "ms"},   /* (BONBLOOP 1.2) the delay's FREE time */
+    [G_DFIX] = PE("FIX", N_GO, 0),                /* (BONBLOOP 1.2) the time the tempo gives, kept as FREE ms */
 };
 
 static const param_desc_t DRUM_KIT_DESC = PE("KIT", DRUM_KIT_NAMES, 0);
@@ -402,6 +409,12 @@ typedef struct {
     uint8_t id[4];               /* param ids; 0xFF = empty slot */
 } page_t;
 
+/* (BONBLOOP 1.2) the globals the synth pages show beside the track's values: page ids VG0 + VG_* */
+enum { VG_CRATE, VG_CDEPTH, VG_DTIME, VG_DFDBK, VG_DCOLOR, VG_DMIX, VG_DFIX, VG_RSIZE, VG_RDAMP, VG_DMS, VG_N };
+static const uint8_t VG_MAP[VG_N] = {G_CRATE, G_CDEPTH, G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX, G_DFIX, G_RSIZE, G_RDAMP, G_DMS};
+#define VG0 0xE0u
+_Static_assert(VX0 + SX_N <= VG0 && VG0 + VG_N < 0xFFu, "the synth's page ids");
+
 static const page_t PAGES[] = {
     {"ENV", FAM_ENV, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},
     {"ENV DEST", FAM_ENV, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (P_ED_FX: the level trim, no
@@ -415,6 +428,7 @@ static const page_t PAGES[] = {
     {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* 2.6 (Felucca 1.5): the track's INSERT (fx.c), */
     {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, 0xFF, 0xFF, 0xFF}},  /* .. its dry / wet; the drum track too */
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
+    {"DLY 2", FAM_FX, SC_GLOBAL, GR_NONE, {G_DMS, G_DFIX, 0xFF, 0xFF}},       /* (BONBLOOP 1.2) TIME FREE: its ms; FIX */
     {"REV/CHO", FAM_FX, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
     {"SEL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_CHORD}},
     {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, 0xFF}},   /* (2.4: the chords played) */
@@ -448,26 +462,36 @@ static const page_t PAGES[] = {
     {"TRACKS", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},   /* REC button; TRACK LEVEL LEN PAN */
     {"DRUMS", FAM_TRK, SC_DRUM, GR_NONE, {0xFF,0xFF,0xFF,0xFF}},
     /* BONBLOOP: the SYNTH MODE (hold ENV), one family in four groups (ui.c SYN_GRP: the button that opens each; SELECT
-     * walks them all). The selected track plays WAVE (eng_wave.c); VP0 + WV_*: a field of its packed words */
+     * walks them all). The selected track plays WAVE (eng_wave.c); VP0 + WV_*: a field of its words, VX0 + SX_*: of its
+     * synx, VG0 + VG_*: a global (VG_MAP). 1.2: the FX group starts with the chain; an effect's pages show while it is in
+     * it (page_shown) */
     {"OSC 1", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W1, VP0 + WV_P1, VP0 + WV_L1, VP0 + WV_R1}},   /* EDIT */
     {"OSC 2", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W2, VP0 + WV_P2, VP0 + WV_L2, VP0 + WV_R2}},
     {"OSC 3", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W3, VP0 + WV_P3, VP0 + WV_L3, VP0 + WV_R3}},
     {"TUNE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_S2, VP0 + WV_F2, VP0 + WV_S3, VP0 + WV_F3}},
+    {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_CUT, VP0 + WV_RES, P_FTYPE, P_ED_FLT}},   /* the voice's filter */
     {"VOICE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_WARP, P_VOICE, P_DETUNE, P_GLIDE}},
     {"ENV", FAM_SYN, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},       /* ENV */
     {"ENV DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (SHP: POS) */
+    {"OSC1 ENV", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_EON1, VX0 + SX_EA1, VX0 + SX_ED1, VX0 + SX_ES1}},
+    {"OSC2 ENV", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_EON2, VX0 + SX_EA2, VX0 + SX_ED2, VX0 + SX_ES2}},
+    {"OSC3 ENV", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_EON3, VX0 + SX_EA3, VX0 + SX_ED3, VX0 + SX_ES3}},
     {"LFO", FAM_SYN, SC_TRACK, GR_LFO, {P_LRATE, P_LWAVE, P_LPHASE, P_LFADE}},   /* LFO */
     {"LFO 2", FAM_SYN, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},
     {"LFO DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},   /* (SHP: POS) */
-    {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_CUT, VP0 + WV_RES, P_FTYPE, P_TFLT}},   /* FX: the voice's filter,
-                                                                          * then the track's (LP <- -> HP) */
+    {"OSC1 LFO", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_LR1, VX0 + SX_LD1, VX0 + SX_LT1, 0xFF}},
+    {"OSC2 LFO", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_LR2, VX0 + SX_LD2, VX0 + SX_LT2, 0xFF}},
+    {"OSC3 LFO", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_LR3, VX0 + SX_LD3, VX0 + SX_LT3, 0xFF}},
+    {"FX CHAIN", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C1, VX0 + SX_C2, VX0 + SX_C3, VX0 + SX_C4}},   /* FX */
+    {"CHAIN 2", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C5, VX0 + SX_C6, VX0 + SX_C7, VX0 + SX_C8}},
     {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
+    {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
+    {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
     {"TRANSNT", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_TATK, VP0 + WV_TSUS, 0xFF, 0xFF}},
-    {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT (TYPE PHASR on a WAVE sound) */
-    {"INSERT", FAM_SYN, SC_TRACK, GR_INS, {P_ITYPE, 0xFF, 0xFF, 0xFF}},      /* (its TYPE: FLANG, CHOR, the drives...) */
-    {"SENDS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, P_DLY, P_REV, 0xFF}},     /* chorus, delay, reverb */
-    {"DLY", FAM_SYN, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
-    {"REV/CHO", FAM_SYN, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
+    {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, 0xFF}},
+    {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DMS}},
+    {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, VG0 + VG_DFIX, 0xFF}},
+    {"REVERB", FAM_SYN, SC_TRACK, GR_NONE, {P_REV, VG0 + VG_RSIZE, VG0 + VG_RDAMP, 0xFF}},
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 
@@ -486,8 +510,24 @@ static int page_for_drum(const page_t *pg)
                                                        * greyed "DRUM TRACK") */
 }
 /* a page the buttons and SELECT reach on the selected track: EDIT > FILTER (TYPE) on ANALOG only */
+/* (BONBLOOP 1.2) the effect a synth FX page shows (FXI_*), 0: not one */
+static uint32_t syn_fx_of(const page_t *pg)
+{
+    switch (pg->id[0]) {
+    case P_DIST: return FXI_DRIVE;
+    case P_IMIX: return FXI_PHASER;
+    case P_TFLT: return FXI_FILTER;
+    case VP0 + WV_TATK: return FXI_TRANS;
+    case P_CHOR: return FXI_CHORUS;
+    case P_DLY: case VG0 + VG_DCOLOR: return FXI_DELAY;
+    case P_REV: return FXI_REVERB;
+    default: return 0;
+    }
+}
 static int page_shown(const page_t *pg)
 {
+    if (pg->fam == FAM_SYN && syn_fx_of(pg))          /* (1.2) an effect's pages: while it is in the chain */
+        return !is_drum(TSEL) && sx_chain_has((uint32_t)(TSEL - trk), syn_fx_of(pg));
     return pg->id[0] != P_FTYPE || (!is_drum(TSEL) && TSEL->eng_req % NENGINES == 0u);
 }
 /* BONBLOOP: a packed field of WAVE (eng_wave.c): page id VP0 + WV_*, or SLOOP's EDIT pages on a WAVE track (WAVE_EDIT).
@@ -498,7 +538,7 @@ static const param_desc_t *wave_field(uint32_t id, int16_t **valp)
         *valp = 0;
         return 0;
     }
-    return wv_desc(TSEL, id >= VP0 ? id - VP0 : WAVE_EDIT[(id - P_E0) & 7u], valp);
+    return wv_desc(TSEL, id >= VP0 ? id : VP0 + WAVE_EDIT[(id - P_E0) & 7u], valp);
 }
 
 static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **valp)
@@ -512,11 +552,15 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         *valp = 0;
         return 0;
     }
+    if (id >= VG0 && id < VG0 + VG_N) {               /* (BONBLOOP 1.2) a global on a synth page */
+        *valp = &song.g[VG_MAP[id - VG0]];
+        return &GP[VG_MAP[id - VG0]];
+    }
     if (pg->scope == SC_GLOBAL) {
         *valp = &song.g[id];
         return &GP[id];
     }
-    if (id >= VP0 || (pg->scope == SC_ENGINE && wave_track(TSEL)))
+    if ((id >= VP0 && id < VG0) || (pg->scope == SC_ENGINE && wave_track(TSEL)))
         return wave_field(id, valp);
     *valp = &TSEL->p[id];
     return track_desc(TSEL, id);
