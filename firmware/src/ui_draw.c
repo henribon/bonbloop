@@ -45,7 +45,8 @@ UI_SMALL static void draw_head(void)
     uint32_t rec = (song.rec >> song.sel) & 1u ? 2u : song.rec != 0u;   /* 2 the selected track armed, 1 another */
     uint32_t sig = (uint32_t)song.playing * 3u + rec * 5u + (uint32_t)(song.octave + 8) * 11u + song.sel * 13131u +
                    (ui.msg_t ? str_hash(7u, ui.msg) : 0u) + (uint32_t)song.g[G_BPM] * 101u + (ui.bpm_t != 0) * 31u +
-                   (uint32_t)batt_shown() * 7777u + (usb.config && !usb.suspended) * 99991u + mlu.on * 7919u;
+                   (uint32_t)batt_shown() * 7777u + (usb.config && !usb.suspended) * 99991u + mlu.on * 7919u +
+                   syn_mode * 524287u;
     if (!ui.force && sig == ui.head_sig)
         return;
     ui.head_sig = sig;
@@ -70,7 +71,17 @@ UI_SMALL static void draw_head(void)
         x += 14;
     }
     x = cv_text(x, 1, &FONT_S, b, ui.bpm_t ? C_WHITE : C_HI);   /* white while SELECT turns it */
-    if (mlu.on) {                                     /* MIDI LEARN on (2.6, GLO + F#3): in the octave's place */
+    if (syn_mode) {                                   /* BONBLOOP: the SYNTH MODE, then the octave alone, small */
+        cv_rect(x + 8, 1, 44, 18, TE_COL[song.sel & 3u]);
+        cv_text(x + 10, 1, &FONT_S, "SYNTH", C_BLACK);
+        if (mlu.on)
+            cv_text(x + 56, 1, &FONT_S, "LRN", C_AMB);
+        else if (song.octave) {
+            str_cpy(b, song.octave > 0 ? "+" : "", 4);
+            fmt_int(b + str_len(b), song.octave);
+            cv_text(x + 58, 1, &FONT_S, b, C_HI);
+        }
+    } else if (mlu.on) {                              /* MIDI LEARN on (2.6, GLO + F#3): in the octave's place */
         cv_text(x + 12, 1, &FONT_S, "LEARN", C_AMB);
     } else if (song.octave) {
         str_cpy(b, song.octave > 0 ? "+" : "", 4);
@@ -115,7 +126,7 @@ UI_SMALL static void draw_frame(void)
     lcd_fill(0, Y_GRAPH + H_GRAPH, 240, Y_FOOT - Y_GRAPH - H_GRAPH, C_BLACK);
     for (i = 0; i < 4u; i++)                            /* left inset of each column */
         lcd_fill(i * 60u, Y_LABEL, 4, Y_SEP_END - Y_LABEL, C_BLACK);
-    lcd_fill(0, H_HEAD, 240, 1, C_LINE);
+    lcd_fill(0, H_HEAD, 240, 1, syn_mode ? TE_COL[song.sel & 3u] : C_LINE);   /* (BONBLOOP: the SYNTH MODE's colour) */
     lcd_fill(0, Y_FOOT - 2, 240, 1, C_LINE);
     for (i = 1; i < 4u; i++)
         lcd_fill(i * 60u - 1u, H_HEAD + 4, 1, Y_SEP_END - H_HEAD - 4, C_LINE);
@@ -224,6 +235,63 @@ UI_SMALL static void graph_lfo(const track_t *t, uint16_t c)
         py = y;
     }
     cv_line(0, 50, 239, 50, C_LINE);
+}
+
+/* BONBLOOP: the wavetable as it is in the part's arena (eng_wave.c; read only, never claimed here): its eight frames
+ * one behind the other, dim, the position playing in front in the track's colour (between two frames, as the voice
+ * reads them; the last voice's, modulation included, or POS with none sounding); "SYNTH MODE" as the mode starts */
+UI_SMALL static const wt_part_t *wt_peek(const track_t *t)
+{
+    uint32_t p = (uint32_t)(t - trk);
+    return p < NPART && t->engine == ENGI_WAVE && eng_arena_own[p] == ENGI_WAVE + 1u ? &eng_arena[p].wave : 0;
+}
+UI_SMALL static int32_t wt_pos_shown(const track_t *t, const wt_part_t *w)
+{
+    uint32_t i;
+    for (i = 0; i < NVOICE; i++)
+        if (t->v[i].active)
+            return w->pos;
+    return t->p[P_E1] << 8;
+}
+UI_SMALL static void graph_wave(const track_t *t, uint16_t c)
+{
+    const wt_part_t *w = wt_peek(t);
+    int32_t f, x, py = 0, fp, fr, ox, oy;
+    if (syn_splash) {
+        cv_text((240 - text_w(&FONT_L, "SYNTH MODE")) / 2, 14, &FONT_L, "SYNTH MODE", c);
+        cv_text((240 - text_w(&FONT_S, "WAVETABLE  ENV  LFO  FX")) / 2, 54, &FONT_S, "WAVETABLE  ENV  LFO  FX", C_HI);
+        cv_text((240 - text_w(&FONT_S, "HOLD ENV: BACK TO SLOOP")) / 2, 76, &FONT_S, "HOLD ENV: BACK TO SLOOP", C_DIM);
+        return;
+    }
+    if (!w || (!w->ready && !w->gen)) {               /* another engine (PRESETS: a WAVE sound), or the first frame */
+        const char *m = w ? "BUILDING" : "PRESETS: A WAVE SOUND";
+        cv_text((240 - text_w(&FONT_S, m)) / 2, 40, &FONT_S, m, C_DIM);
+        return;
+    }
+    for (f = (int32_t)WT_FR - 1; f >= 0; f--) {         /* the frames, back to front */
+        ox = 6 + f * 10;
+        oy = 80 - f * 7;
+        for (x = 0; x < 150; x += 3) {
+            int32_t y = oy - w->w[f][x * (int32_t)WT_LEN / 150] * 16 / WT_PEAK;
+            if (x)
+                cv_line(ox + x - 3, py, ox + x, y, C_DIM);
+            py = y;
+        }
+    }
+    fp = wt_pos_shown(t, w) * 7 / 127;                  /* the position: frame << 8 | between it and the next */
+    fr = fp & 255;
+    f = (fp >> 8) & 7;
+    ox = 6 + fp * 10 / 256;
+    oy = 80 - fp * 7 / 256;
+    for (x = 0; x < 150; x++) {
+        int32_t i = x * (int32_t)WT_LEN / 150, a = w->w[f][i], y;
+        if (fr)
+            a += ((w->w[(f + 1) & 7][i] - a) * fr) >> 8;
+        y = oy - a * 18 / WT_PEAK;
+        if (x)
+            cv_line(ox + x - 1, py, ox + x, y, c);
+        py = y;
+    }
 }
 
 UI_SMALL static void graph_steps(const track_t *t, uint16_t c)
@@ -440,6 +508,12 @@ UI_SMALL static uint32_t graph_signature(void)
     {   /* (2.7) the favourites: the PRESETS list and its FAV column */
         uint32_t q;
         for (q = 0; q < FAV_N; q++) h = h * 31u + fav[q];
+    }
+    if (pg->graph == GR_WAVE) {                      /* BONBLOOP: the table as it is built, the position playing */
+        const wt_part_t *w = wt_peek(t);
+        h ^= (syn_splash != 0u) * 104729u;
+        if (w)
+            h ^= (uint32_t)w->gen * 7919u + (uint32_t)(wt_pos_shown(t, w) >> 9) * 31u + 1u;
     }
     if (pg->graph == GR_SLCR && t->p[P_SLCR])        /* the SLICER's step playing */
         h ^= (sl[song.sel].idx + 1u) * 2654435761u;
@@ -766,6 +840,9 @@ UI_SMALL static void draw_graph(void)
         case GR_LFO:
             graph_lfo(t, c);
             break;
+        case GR_WAVE:                                /* BONBLOOP */
+            graph_wave(t, c);
+            break;
         case GR_STEPS:
             graph_steps(t, c);
             break;
@@ -1044,6 +1121,8 @@ UI_SMALL static void ui_timers(void)
         ui.arm = 0;
     if (ui.hot_t)
         ui.hot_t--;
+    if (syn_splash)                                  /* (BONBLOOP: the SYNTH MODE's title over the wavetable) */
+        syn_splash--;
 }
 
 static void vis_draw(void);                     /* ui_vis.c */

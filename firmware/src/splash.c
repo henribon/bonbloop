@@ -4,31 +4,38 @@
 #ifndef UI_SMALL                 /* (2.7) compiled for size: not the audio path (gfx.c UI_SMALL); the host tests: nothing */
 #define UI_SMALL
 #endif
-#ifndef FELUCCA_LOGO_TEXT       /* (2.7) 1: the boot logo as text, "S" and "LOOP" in the four track colours (4.6 KB of flash
-                                 * less: tools/build.py builds so by itself when the flash is full) */
-#define FELUCCA_LOGO_TEXT 0
+#ifndef FELUCCA_LOGO_TEXT       /* (2.7) 1: the boot logo as text (4.6 KB of flash less than the picture). BONBLOOP: the
+                                 * default, "BON" over "BLOOP" (the room the WAVE engine and the SYNTH MODE take); 0: SLOOP's
+                                 * picture (tools/gen_logo.py) */
+#define FELUCCA_LOGO_TEXT 1
 #endif
 #if FELUCCA_LOGO_TEXT
-UI_SMALL static void sloop_logo_draw(uint32_t y0)
+/* one word of the wordmark: small at the top left, letter i in col[i], then twice as big in place (from the end:
+ * nothing read is overwritten before), centred, at y */
+UI_SMALL static void logo_word(const char *s, const uint16_t *col, uint32_t y)
 {
-    static const char L[5] = {'S', 'L', 'O', 'O', 'P'};
-    uint32_t i, w = text_w(&FONT_L, "SLOOP"), k = w * 3u <= 232u ? 3u : 2u, h = 32u, off, y, x;
+    uint32_t i, w = text_w(&FONT_L, s), k = 2u, h = 32u, off = (240u - w * k) / 2u, yy, x;
     int32_t px = 0;
     char c[2] = {0, 0};
     cv_begin(240, h * k, C_BLACK);
-    for (i = 0; i < 5u; i++) {                          /* small, at the top left: S white, L O O P the tracks' colours */
-        c[0] = L[i];
-        px = cv_text(px, 0, &FONT_L, c, i ? TE_COL_DEF[i - 1u] : C_WHITE);
+    for (i = 0; s[i]; i++) {
+        c[0] = s[i];
+        px = cv_text(px, 0, &FONT_L, c, col[i]);
     }
-    off = (240u - w * k) / 2u;
-    for (y = h * k; y-- > 0;)                           /* then k times as big, in place (from the end: nothing read is
-                                                         * overwritten before) */
+    for (yy = h * k; yy-- > 0;)
         for (x = w * k; x-- > 0;)
-            cv_px[y * 240u + off + x] = cv_px[(y / k) * 240u + x / k];
-    for (y = 0; y < h * k; y++)                         /* (the small one's left-over columns) */
+            cv_px[yy * 240u + off + x] = cv_px[(yy / k) * 240u + x / k];
+    for (yy = 0; yy < h * k; yy++)                      /* (the small one's left-over columns) */
         for (x = 0; x < off; x++)
-            cv_px[y * 240u + x] = swap16(C_BLACK);
-    cv_blit(0, y0 + 60u);
+            cv_px[yy * 240u + x] = swap16(C_BLACK);
+    cv_blit(0, y);
+}
+UI_SMALL static void sloop_logo_draw(uint32_t y0)
+{
+    const uint16_t bon[3] = {C_WHITE, C_WHITE, C_WHITE};
+    const uint16_t bloop[5] = {C_WHITE, TE_COL_DEF[0], TE_COL_DEF[1], TE_COL_DEF[2], TE_COL_DEF[3]};
+    logo_word("BON", bon, y0 + 52u);                    /* BON in white, BLOOP: B white, L O O P the tracks' colours */
+    logo_word("BLOOP", bloop, y0 + 118u);
 }
 #else
 #include "sloop_logo.h"
@@ -56,11 +63,14 @@ UI_SMALL static void sloop_splash(void)
 {
     lcd_fill(0, 0, 240, 240, C_BLACK);
     sloop_logo_draw(10);
-    const char *v = FELUCCA_VERSION;
-    if (v[0] == 'S' && v[1] == 'L' && v[5] == ' ')
-        v += 6;                                         /* "SLOOP 1.0" -> "1.0" under the wordmark */
+    const char *v = FELUCCA_VERSION, *sp = v;
+    while (*sp && *sp != ' ')
+        sp++;
+    if (*sp)
+        v = sp + 1;                                     /* "BONBLOOP 1.0" -> "1.0" under the wordmark */
     cv_begin(240, 36, C_BLACK);
     cv_text(120 - text_w(&FONT_S, v) / 2, 0, &FONT_S, v, RGB(196, 196, 204));
-    cv_text(120 - text_w(&FONT_S, "based on felucca") / 2, 18, &FONT_S, "based on felucca", RGB(96, 96, 104));
+    cv_text(120 - text_w(&FONT_S, "based on sloop + felucca") / 2, 18, &FONT_S, "based on sloop + felucca",
+            RGB(96, 96, 104));
     cv_blit(0, 202);
 }

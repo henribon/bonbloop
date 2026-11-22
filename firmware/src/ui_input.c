@@ -26,7 +26,8 @@ UI_SMALL static void led_put(uint8_t *nl, uint32_t id, int on)
 }
 
 static const uint8_t FAM_BTN[FAM_COUNT] = {B_HOME, B_ENV, B_LFO, B_FX, B_SCL, B_EDIT, B_GLO, B_SAVE,
-                                           B_ARP, B_SEQ, B_HOME};   /* button of each page family (TRACKS: HOME) */
+                                           B_ARP, B_SEQ, B_HOME,
+                                           B_ENV};   /* button of each page family (TRACKS: HOME; SYNTH: by group, below) */
 
 UI_SMALL static uint32_t cur_fam(void) { return ui.home ? FAM_HOME : cur_page()->fam; }
 UI_SMALL static uint32_t cur_btn(void)                      /* the button of the screen shown */
@@ -35,6 +36,8 @@ UI_SMALL static uint32_t cur_btn(void)                      /* the button of the
         return B_SAVE;
     if (!ui.home && cur_page()->scope == SC_DRUM)
         return B_SEQ;
+    if (on_syn_page())                                      /* BONBLOOP: the button of the synth page's group */
+        return SYN_BTN[syn_group_at(ui.page) & 3u];
     return FAM_BTN[cur_fam()];
 }
 
@@ -1101,10 +1104,49 @@ UI_SMALL static void remote_poll(void)
     fm1_remote_btn = m;
 }
 
+/* BONBLOOP: ENV held 0.7 s: the SYNTH MODE on, or off again (ui.c syn_mode). On: the selected track (track 1 when the
+ * drums are selected) plays WAVE, its first sound unless it plays WAVE already; the wavetable page opens. Off: the ENV
+ * page, as SLOOP (the sound stays: PRESETS gives the others back) */
+UI_SMALL static void syn_toggle(void)
+{
+    if (syn_mode) {
+        syn_mode = 0;
+        syn_splash = 0;
+        open_family(FAM_ENV);
+        ui_message("SYNTH MODE OFF");
+        ui.force = 1;
+        return;
+    }
+    if (is_drum(TSEL))
+        track_select(0);
+    if (TSEL->eng_req % NENGINES != ENGI_WAVE)
+        set_engine(ENGI_WAVE);
+    syn_mode = 1;
+    syn_splash = 50;
+    syn_route(FAM_EDIT);
+    ui_message("SYNTH MODE");
+}
+/* BONBLOOP: on a synth page PRESETS steps through WAVE's sounds (the track's other sounds: HOME / the PRESETS page) */
+UI_SMALL static void syn_presets(int32_t s)
+{
+    const engine_t *e = ENGINES[ENGI_WAVE];
+    uint32_t n = e->npresets;
+    if (is_drum(TSEL) || !n)
+        return;
+    if (TSEL->eng_req % NENGINES != ENGI_WAVE || user_of(TSEL) < UP_SLOTS)
+        set_engine(ENGI_WAVE);
+    else
+        apply_preset((uint32_t)(((int32_t)(TSEL->preset % n) + (s > 0 ? 1 : -1) + (int32_t)n) % (int32_t)n));
+    ui_message(e->presets[TSEL->preset % n].name);
+    ui.force = 1;
+}
+
 UI_SMALL static void ui_input(void)
 {
+    static uint32_t env_t0;                             /* (BONBLOOP) ENV's press time: held, the SYNTH MODE */
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
     uint32_t home = btn_hold(&ui.home_t0, B_HOME, now, 1);
+    uint32_t envh = btn_hold(&env_t0, B_ENV, now, !ui.menu);
     int32_t s;
     int layered;
     enc_hold = 0;                                       /* (panel.c: every knob readable again this pass) */
@@ -1178,6 +1220,8 @@ UI_SMALL static void ui_input(void)
             enc_hold |= 1u << EN_SELECT;
         }
     }
+    if (envh == BT_HOLD && !rec_wait && !ft_on)          /* BONBLOOP: ENV held, the SYNTH MODE on / off */
+        syn_toggle();
     if (rec_wait && !ft_on && !ci_on) {                 /* the REC screen, armed: how it records */
         rec_knobs();                                    /* (tempo and sound still work; the track too: */
         enc_hold |= 15u << EN_K1;                       /* (after 2.8.3, sloop-pro #6) KNOB 1..4 are the REC screen's this
@@ -1262,6 +1306,8 @@ UI_SMALL static void ui_input(void)
     if (song.seq_mode && cur_page()->scope == SC_STEP && !ui.sheet)
         seq_entry(notes);                                 /* (and the MIDI keyboard's: midi_entry) */
 
+    if (on_syn_page() && (s = panel_enc(EN_PRESET)) != 0)   /* BONBLOOP: the SYNTH MODE, WAVE's sounds */
+        syn_presets(s);
     if (on_notes_page() && (s = panel_enc(EN_PRESET)) != 0) {   /* (2.7.2) NOTES: PRESETS zooms, 8 .. 64 steps */
         ui.zoom = (uint8_t)(clamp((int32_t)(int8_t)ui.zoom + (s > 0 ? 1 : -1), -1, 2));
         ui.force = 1;

@@ -3065,7 +3065,7 @@ static uint32_t cc74_slot(const engine_t *e)      /* 0..7, or 8: none */
 {
     static const struct { const char *name; uint8_t slot; } T[] = {
         {"ANALOG", 4}, {"PHASE", 2}, {"LOFI", 7}, {"SAMPLE", 4}, {"TRIO", 5}, {"GRAIN", 7}, {"FM6", 2}, {"PHYS", 2},
-        {"NOISE", 2}, {"SLICE", 7}};
+        {"NOISE", 2}, {"SLICE", 7}, {"WAVE", 4}};
     uint32_t i;
     for (i = 0; i < NELEM(T); i++)
         if (str_eq(e->name, T[i].name) && e->edit[T[i].slot].max > e->edit[T[i].slot].min &&

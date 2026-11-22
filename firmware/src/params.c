@@ -65,7 +65,7 @@ static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"}
 static const char *const N_CHORD[] = {"OFF", "TRIAD", "7TH", "9TH", "SUS4", "POWER"};   /* seq.c CHORD_DEG */
 static const char *const N_ROLL[] = {"1/8", "1/16", "1/32", "32T", "1/64"};   /* seq.c ROLL_DEN */
 static const char *const N_ENGNAME[] = {"ANALOG", "DIGITAL", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN",
-                                        "FM6", "PHYS", "NOISE",
+                                        "FM6", "PHYS", "NOISE", "WAVE",
 #if FELUCCA_SLICE
                                              "SLICE",
 #endif
@@ -228,9 +228,14 @@ static const param_desc_t ESYNC_DESC[3] = {   /* ATK DEC REL with ENV SYNC on: t
     {"REL", F_INT, 0, 127, 60, ESYNC_NAMES, 0},
 };
 
+/* BONBLOOP: on WAVE, ENV > SHP and LFO > SHP move the wavetable's position: named POS there (the same range) */
+static const param_desc_t WAVE_POS_DESC = {"POS", F_BIPCT, -64, 63, 0, 0, 0};
+
 static const param_desc_t *track_desc(const track_t *t, uint32_t id)
 {
     if(is_drum(t) && id==P_E0) return &DRUM_KIT_DESC;
+    if ((id == P_ED_SHP || id == P_LD_SHP) && !is_drum(t) && t->eng_req % NENGINES == ENGI_WAVE)
+        return &WAVE_POS_DESC;
     if (id >= P_IA && id <= P_IC)                     /* the INSERT's values as its TYPE names them */
         return ins_desc(t->p[P_ITYPE], id - P_IA);
     if (t->p[P_ESYNC] && (id == P_ATK || id == P_DEC || id == P_REL))   /* ENV SYNC: note values */
@@ -382,10 +387,12 @@ static void param_format(const param_desc_t *d, int32_t v, char *val, const char
 
 /* ------------------------------------------------------------ pages --- */
 enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE, FAM_ARP, FAM_SEQ, FAM_TRK,
+       FAM_SYN,                  /* BONBLOOP: the SYNTH MODE's pages (hold ENV); EDIT, ENV, LFO and FX open them (ui.c syn_route) */
        FAM_COUNT };
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK, SC_SONG, SC_DRUM };
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
-       GR_SLCR, GR_INS };
+       GR_SLCR, GR_INS,
+       GR_WAVE };                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
 
 typedef struct {
     const char *title;
@@ -438,6 +445,21 @@ static const page_t PAGES[] = {
     {"SONG", FAM_SEQ, SC_SONG, GR_NONE, {0xFF, 0xFF, 0xFF, 0xFF}},
     {"TRACKS", FAM_TRK, SC_TRK, GR_TRK, {0, 1, 2, 3}},   /* REC button; TRACK LEVEL LEN PAN */
     {"DRUMS", FAM_TRK, SC_DRUM, GR_NONE, {0xFF,0xFF,0xFF,0xFF}},
+    /* BONBLOOP: the SYNTH MODE (hold ENV), one family in four groups (ui.c SYN_GRP: the button that opens each; SELECT
+     * walks them all). The selected track plays WAVE (eng_wave.c); ENV, LFO and FX are SLOOP's own, as on their pages */
+    {"WAVE", FAM_SYN, SC_TRACK, GR_WAVE, {P_E0, P_E1, P_E2, P_E3}},          /* EDIT: TABL POS WARP SUB */
+    {"OSC", FAM_SYN, SC_TRACK, GR_WAVE, {P_E6, P_VOICE, P_DETUNE, P_GLIDE}},  /* DTN, UNISON and its spread, GLIDE */
+    {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {P_E4, P_E5, P_E7, P_ED_FLT}},   /* CUT RES DRV, ENV > FLT */
+    {"ENV", FAM_SYN, SC_TRACK, GR_ADSR, {P_ATK, P_DEC, P_SUS, P_REL}},       /* ENV */
+    {"ENV DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_ED_FLT, P_ED_PIT, P_ED_SHP, P_ESYNC}},   /* (SHP: POS) */
+    {"LFO", FAM_SYN, SC_TRACK, GR_LFO, {P_LRATE, P_LWAVE, P_LPHASE, P_LFADE}},   /* LFO */
+    {"LFO 2", FAM_SYN, SC_TRACK, GR_LFO, {P_LSYNC, P_LTRIG, P_LPOL, 0xFF}},
+    {"LFO DEST", FAM_SYN, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},   /* (SHP: POS) */
+    {"FX", FAM_SYN, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},        /* FX */
+    {"INSERT", FAM_SYN, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},
+    {"INSERT 2", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_TFLT, 0xFF, 0xFF}},
+    {"DLY", FAM_SYN, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
+    {"REV/CHO", FAM_SYN, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 

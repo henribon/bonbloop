@@ -379,6 +379,8 @@ static void unison_spread(track_t *t, voice_t *v, uint32_t r)
         fm6_spread(t, v, r);
     else if (e == &ENG_SAMPLE)
         sample_spread(t, v, r);
+    else if (e == &ENG_WAVE)
+        wave_spread(t, v, r);
 #if FELUCCA_SLICE
     else if (e == &ENG_SLICE)
         ;                                            /* (slices: as played) */

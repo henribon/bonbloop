@@ -1,3 +1,9 @@
+> ## BONBLOOP
+> **This tree is BONBLOOP**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
+> selected track becomes a **wavetable synth** (new engine **WAVE**: 10 tables × 8 frames, POS / WARP / SUB / DTN /
+> filter / drive, 15 sounds) with its own screen and pages for the wavetable, ENV, LFO and FX. Hold ENV again to
+> go back. Everything else is SLOOP. Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.
+
 <p align="center"><img src="assets/logo/sloop-logo.png" alt="SLOOP" width="420"></p>
 
 <p align="center"><b>A live groovebox firmware for the M-VAVE FM-1 — for any style.</b><br>

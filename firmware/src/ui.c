@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "SLOOP 2.8.5"  /* the beat machine firmware for the FM-1 (based on Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.0"  /* SLOOP 2.8.5 + the SYNTH MODE (wavetable), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -498,8 +498,49 @@ UI_SMALL static void note_name(char *b, uint32_t n)
     fmt_int(b + str_len(b), (int32_t)(n / 12u) - 1);
 }
 
+/* BONBLOOP: the SYNTH MODE (hold ENV, ui_input.c syn_toggle). The selected synth track plays WAVE (eng_wave.c) and
+ * EDIT, ENV, LFO and FX open the synth pages (params.c FAM_SYN) instead of their own: each button its group of them,
+ * again the next page of the group; SELECT walks them all. Everything else is SLOOP as it is: the other buttons, the
+ * keys, the sequencer, the layers; HOME the TRACKS screen (the mode stays: the header says SYNTH). A UI mode only:
+ * nothing of it is saved, the sound is the track's like any other */
+static uint8_t syn_mode;
+static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
+static const uint8_t SYN_GRP[5] = {0, 3, 5, 8, 13};   /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
+static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
+UI_SMALL static int syn_group_of(uint32_t fam)
+{
+    return fam == FAM_EDIT ? 0 : fam == FAM_ENV ? 1 : fam == FAM_LFO ? 2 : fam == FAM_FX ? 3 : -1;
+}
+UI_SMALL static uint32_t syn_group_at(uint32_t page)          /* the group of a synth page */
+{
+    uint32_t o = page - page_first(FAM_SYN), g = 0;
+    while (g < 3u && o >= SYN_GRP[g + 1u])
+        g++;
+    return g;
+}
+UI_SMALL static int on_syn_page(void) { return !ui.home && cur_page()->fam == FAM_SYN; }
+/* in the SYNTH MODE, EDIT / ENV / LFO / FX (fam): their synth pages. 0: not routed (open_family goes on) */
+UI_SMALL static int syn_route(uint32_t fam)
+{
+    int g = syn_group_of(fam);
+    uint32_t base = page_first(FAM_SYN), to;
+    if (!syn_mode || g < 0)
+        return 0;
+    to = base + SYN_GRP[g];
+    if (on_syn_page() && syn_group_at(ui.page) == (uint32_t)g && ui.page + 1u < base + SYN_GRP[g + 1])
+        to = ui.page + 1u;                              /* the same button again: the next page of its group */
+    ui.page = (uint8_t)to;
+    ui.fam_last[FAM_SYN] = ui.page;
+    ui.home = 0;
+    ui.force = 1;
+    page_entered();
+    return 1;
+}
+
 UI_SMALL static void open_family(uint32_t fam)
 {
+    if (syn_route(fam))                                 /* BONBLOOP: the SYNTH MODE's pages */
+        return;
     if (!ui.home && cur_page()->fam == fam) {          /* same button again: next page */
         uint32_t i = ui.page + 1u;
         while (i < NPAGES && PAGES[i].fam == fam && !page_shown(&PAGES[i]))
@@ -719,24 +760,29 @@ static const struct { uint8_t kind, e; const char *name; } BANK[] = {
     {BK_BASS, 5, "WOW BASS"}, {BK_BASS, 3, "GB BASS"}, {BK_BASS, 4, "UP BASS"}, {BK_BASS, 4, "DEEP BASS"},
     {BK_BASS, ENGI_FM6, "ROUND BASS"}, {BK_BASS, 1, "BASS GTR"}, {BK_BASS, 0, "MONO BASS"},
     {BK_BASS, ENGI_PHYS, "PLUCK BASS"}, {BK_BASS, 3, "NES BASS"}, {BK_BASS, 0, "SAW BASS"},
+    {BK_BASS, ENGI_WAVE, "RESO BASS"}, {BK_BASS, ENGI_WAVE, "DIGI BASS"}, {BK_BASS, ENGI_WAVE, "FM GROWL"},
     {BK_KEYS, 1, "RHODES"}, {BK_KEYS, 1, "DX RHODES"}, {BK_KEYS, 1, "WURLI"}, {BK_KEYS, 1, "M1 PIANO"},
     {BK_KEYS, 1, "AFRO KEYS"}, {BK_KEYS, 4, "GRAND PNO"}, {BK_KEYS, 4, "DUSTY PNO"}, {BK_KEYS, 4, "LOFI KEYS"},
     {BK_KEYS, 2, "SOFT KEYS"}, {BK_KEYS, 1, "CLAV"}, {BK_KEYS, ENGI_FM6, "TINE EP"}, {BK_KEYS, 1, "FM GRAND"},
     {BK_ORGAN, 7, "SOUL ORGAN"}, {BK_ORGAN, 7, "GOSPEL"}, {BK_ORGAN, 7, "JAZZ ORGAN"},
     {BK_ORGAN, 7, "DIRTY B3"}, {BK_ORGAN, 7, "HOUSE ORGN"}, {BK_ORGAN, ENGI_FM6, "DRAWBARS"},
     {BK_ORGAN, 6, "ACCORDION"}, {BK_ORGAN, 7, "ROCK ORGAN"}, {BK_ORGAN, 7, "CHAPEL"},
-    {BK_ORGAN, 7, "REGGAE ORG"}, {BK_PAD, 0, "WARM PAD"}, {BK_PAD, 6, "SAW PAD"}, {BK_PAD, 1, "GLASS PAD"},
+    {BK_ORGAN, 7, "REGGAE ORG"}, {BK_ORGAN, ENGI_WAVE, "WT ORGAN"}, {BK_PAD, 0, "WARM PAD"}, {BK_PAD, 6, "SAW PAD"},
+    {BK_PAD, 1, "GLASS PAD"},
     {BK_PAD, 0, "DARK STR"}, {BK_PAD, 2, "CZ STRING"}, {BK_PAD, 0, "ATMOS PAD"}, {BK_PAD, 8, "LOFI CLOUD"},
     {BK_PAD, 8, "VIBE HAZE"}, {BK_PAD, 5, "CHOIR AAH"}, {BK_PAD, 5, "SOUL OOH"}, {BK_PAD, ENGI_FM6, "SOFT PAD"},
     {BK_PAD, 6, "ENSEMBLE"}, {BK_PAD, 8, "STR CLOUD"}, {BK_PAD, 8, "SHIMMER"}, {BK_PAD, 8, "DRONE"},
     {BK_PAD, ENGI_PHYS, "BOWED MTL"}, {BK_PAD, ENGI_NOISE, "WIND"}, {BK_PAD, ENGI_PHYS, "CELLO BOW"},
     {BK_PAD, ENGI_PHYS, "GLASS BOWL"}, {BK_PAD, ENGI_NOISE, "OCEAN"}, {BK_PAD, 2, "CZ PAD"},
     {BK_PAD, 5, "VOX PAD"}, {BK_PAD, 8, "PNO FREEZE"}, {BK_PAD, 8, "HORN CLOUD"}, {BK_PAD, 0, "SINE PAD"},
-    {BK_PAD, 6, "PULSE PAD"}, {BK_LEAD, 0, "SUPERSAW"}, {BK_LEAD, 0, "G-FUNK LD"}, {BK_LEAD, 6, "SYNC LEAD"},
+    {BK_PAD, 6, "PULSE PAD"}, {BK_PAD, ENGI_WAVE, "WT BASIC"}, {BK_PAD, ENGI_WAVE, "WT SWEEP"},
+    {BK_PAD, ENGI_WAVE, "PPG PAD"}, {BK_PAD, ENGI_WAVE, "VOX SWEEP"}, {BK_PAD, ENGI_WAVE, "WT CHOIR"},
+    {BK_PAD, ENGI_WAVE, "PWM STRNG"}, {BK_LEAD, 0, "SUPERSAW"}, {BK_LEAD, 0, "G-FUNK LD"}, {BK_LEAD, 6, "SYNC LEAD"},
     {BK_LEAD, 6, "HOOVER"}, {BK_LEAD, 5, "TALKBOX"}, {BK_LEAD, 3, "GAME LEAD"}, {BK_LEAD, 4, "LOFI FLUTE"},
     {BK_LEAD, 8, "FLUTE DUST"}, {BK_LEAD, 0, "FAT LEAD"}, {BK_LEAD, 0, "PAN FLUTE"}, {BK_LEAD, 5, "HARMONICA"},
     {BK_LEAD, ENGI_NOISE, "NZ ARCADE"}, {BK_LEAD, 3, "WAVE LEAD"}, {BK_LEAD, 2, "CZ LEAD"},
-    {BK_LEAD, 5, "ROBOT"}, {BK_LEAD, 0, "PWM LEAD"}, {BK_LEAD, 6, "SQR LEAD"}, {BK_PLUCK, 0, "TRAP PLUCK"},
+    {BK_LEAD, 5, "ROBOT"}, {BK_LEAD, 0, "PWM LEAD"}, {BK_LEAD, 6, "SQR LEAD"}, {BK_LEAD, ENGI_WAVE, "FOLD LEAD"},
+    {BK_LEAD, ENGI_WAVE, "SUPER WAVE"}, {BK_LEAD, ENGI_WAVE, "CHIP WAVE"}, {BK_PLUCK, 0, "TRAP PLUCK"},
     {BK_PLUCK, 2, "RESO PLUCK"}, {BK_PLUCK, 1, "PLUGG BELL"}, {BK_PLUCK, 1, "TRAP BELL"},
     {BK_PLUCK, 1, "MUSIC BOX"}, {BK_PLUCK, 1, "KALIMBA"}, {BK_PLUCK, 1, "MARIMBA"}, {BK_PLUCK, 4, "VIBES"},
     {BK_PLUCK, 3, "8BIT ARP"}, {BK_PLUCK, ENGI_FM6, "GLASS BELL"}, {BK_PLUCK, ENGI_FM6, "WOOD BARS"},
@@ -748,7 +794,8 @@ static const struct { uint8_t kind, e; const char *name; } BANK[] = {
     {BK_PLUCK, ENGI_PHYS, "KOTO"}, {BK_PLUCK, ENGI_PHYS, "BANJO"}, {BK_PLUCK, ENGI_PHYS, "TANPURA"},
     {BK_PLUCK, ENGI_PHYS, "CHIMES"}, {BK_PLUCK, ENGI_PHYS, "BIG BELL"}, {BK_PLUCK, ENGI_PHYS, "VIBRA BAR"},
     {BK_PLUCK, ENGI_PHYS, "STEEL PAN"}, {BK_PLUCK, ENGI_PHYS, "WOOD BLOCK"}, {BK_PLUCK, 3, "1BIT BEEP"},
-    {BK_PLUCK, 2, "CZ RESO"}, {BK_PLUCK, 1, "TUBE BELL"}, {BK_PLUCK, 1, "FM PLUCK"}, {BK_STAB, 6, "MIN STAB"},
+    {BK_PLUCK, 2, "CZ RESO"}, {BK_PLUCK, 1, "TUBE BELL"}, {BK_PLUCK, 1, "FM PLUCK"},
+    {BK_PLUCK, ENGI_WAVE, "WT PLUCK"}, {BK_PLUCK, ENGI_WAVE, "WT BELLS"}, {BK_STAB, 6, "MIN STAB"},
     {BK_STAB, 6, "MIN7 STAB"}, {BK_STAB, 6, "RAVE STAB"}, {BK_STAB, 6, "DUB CHORD"}, {BK_STAB, 0, "SYN BRASS"},
     {BK_STAB, 2, "CZ BRASS"}, {BK_STAB, 4, "HORN STAB"}, {BK_STAB, 4, "STRING STB"},
     {BK_STAB, ENGI_FM6, "BRASS SECT"}, {BK_STAB, 6, "80S POLY"}, {BK_STAB, 3, "CHIP CHORD"},
