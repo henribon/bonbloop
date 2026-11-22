@@ -25,7 +25,9 @@
   .layer { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
   .layer--glow { background: radial-gradient(42rem 42rem at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, .055), transparent 62%); }
   .layer--grain { opacity: .035; background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
-  .mark { padding: clamp(.75rem, 2.5vh, 3rem) 0 0; overflow: hidden; }
+  .mark { max-width: 760px; margin: 0 auto; padding: clamp(1.25rem, 4vh, 2.5rem) var(--pad) 0; }   /* (the content's width,
+                                                       not the screen's: a smaller header) */
+  .mark-in { overflow: hidden; width: min(100%, 360px); }
   .mark span { display: block; width: max-content; white-space: nowrap; line-height: .74; letter-spacing: -.035em;
                font-size: 24vw; font-weight: 800; color: var(--solid); }
   main { max-width: 760px; margin: 0 auto; padding: 0 var(--pad) 3rem; }
@@ -88,7 +90,7 @@
 <body>
 <div class="layer layer--glow"></div>
 <div class="layer layer--grain"></div>
-<div class="mark reveal"><span data-fit>bonbloop</span></div>
+<div class="mark reveal"><div class="mark-in"><span data-fit>bonbloop</span></div></div>
 <main>
   <div class="bar reveal" style="--d:.15s"><h1 data-t="h1"></h1><button class="lang" id="lang"></button></div>
   <!--STUDIO_GUIDE-->
@@ -175,8 +177,8 @@ const TEXT = {
     install: "インストール", other: "English",
     h1: "M-VAVE FM-1 のファームウェア — SLOOP + SYNTH MODE",
     lead: "BONBLOOP は SLOOP（4 トラックのライブ用グルーヴボックス）そのままに、SYNTH MODE を加えたものです。ENV を長押しすると、選んだトラックが 3 オシレーターのウェーブテーブル・シンセになります。",
-    tile1: "オシレーター、ピッチと音量", tile2: "波形：アナログ 5 + テーブル 10", tile3: "リバース：逆再生のように",
-    tile4: "drive・transient・phaser ほか", how: "SYNTH MODE：ENV を約 0.7 秒押す。もう一度で SLOOP に戻る。",
+    tile1: "それぞれ専用のエンベロープと LFO", tile2: "波形：アナログ 5 + テーブル 10", tile3: "リバース：逆再生のように",
+    tile4: "自分で組む FX チェーン", how: "SYNTH MODE：ENV を約 0.7 秒押す。もう一度で SLOOP に戻る。",
     editor: "エディタ（インストール後、パソコンから音色やシーケンスを編集）",
     edOffline: "エディタをダウンロード（パソコンでインターネットなしで使う：ファイルを Chrome / Edge で開く）",
     appInstall: "アプリとしてインストール（エディタとインストーラーがオフラインで使える・Android も）",
@@ -215,8 +217,8 @@ const TEXT = {
     install: "Install", other: "日本語",
     h1: "Firmware for the M-VAVE FM-1",
     lead: "SLOOP — the four-track live groovebox — exactly as it is, plus a synth mode: hold ENV and the selected track becomes a three-oscillator wavetable synth with its own filter, envelope, LFO and effects.",
-    tile1: "each tuned and levelled", tile2: "5 analog shapes + 10 wavetables", tile3: "an oscillator played backwards",
-    tile4: "drive, transient, phaser, chorus, delay, reverb", how: "Synth mode: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
+    tile1: "each with its own envelope and LFO", tile2: "5 analog shapes + 10 wavetables", tile3: "an oscillator played backwards",
+    tile4: "your own chain: drive, phaser, filter, transient, chorus, delay, reverb", how: "Synth mode: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
     editor: "Open the editor",
     edOffline: "Download the editor (works offline)",
     appInstall: "Install as an app (offline, Android too)",

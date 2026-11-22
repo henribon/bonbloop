@@ -502,6 +502,7 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     const param_desc_t *d;
     uint32_t id = pg->id[slot];
     int32_t v;
+    int glob = pg->scope == SC_GLOBAL;
     if (is_drum(TSEL) && !page_for_drum(pg))
         return;                                           /* "DRUM TRACK": nothing to edit here */
     if (pg->scope == SC_STEP) {
@@ -564,13 +565,15 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     *vp = (int16_t)v;
     if (wv_commit(TSEL, vp))                              /* BONBLOOP: a field of WAVE's packed words (no lock, no learn) */
         return;
-    if (pg->scope != SC_GLOBAL && p_lockable(id))
+    if (id >= VG0 && id < VG0 + VG_N)                     /* (1.2) a global on a synth page: as on its own page */
+        id = VG_MAP[id - VG0], glob = 1;
+    if (!glob && p_lockable(id))
         ui.lock_par = (uint8_t)id;                        /* the SEQ layer's lock parameter: the last one touched */
-    if (pg->scope != SC_GLOBAL)
+    if (!glob)
         ml_knob(TSEL, id);                                /* MIDI LEARN: this parameter (2.6) */
     if (!v)
         return;
-    if (pg->scope == SC_GLOBAL && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ) &&
+    if (glob && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ) &&
         ui.arm != id) {                                   /* one detent arms, a second one within ~1.5 s acts */
         *vp = 0;
         ui.arm = (uint8_t)id;
@@ -579,9 +582,20 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
         return;
     }
     ui.arm = 0;
-    if (pg->scope != SC_GLOBAL)
+    if (!glob)
         return;
     switch (id) {                                         /* GO buttons: act, then back to 0 */
+    case G_DFIX: {                                        /* (BONBLOOP 1.2) the delay's time, kept: FREE at its ms */
+        char b[8];
+        *vp = 0;
+        if (song.g[G_DTIME] != DLY_FREE)
+            song.g[G_DMS] = (int16_t)clamp((int32_t)(dly_samples((uint32_t)song.g[G_DTIME]) * 10u / 441u),
+                                           GP[G_DMS].min, GP[G_DMS].max);
+        song.g[G_DTIME] = DLY_FREE;
+        fmt_int(b, song.g[G_DMS]);
+        ui_say("DELAY FIXED MS ", b);
+        break;
+    }
     case G_LOAD:
         *vp = 0;
         project_load((uint32_t)song.g[G_SLOT] - 1u);
@@ -1028,6 +1042,7 @@ UI_SMALL static void rec_knobs(void)
 /* REC: acts on the press (no lag). Held 0.7 s the press is undone and a ring fills: held on to the
  * end, the selected track is cleared (EDIT + OCT- brings it back); let go before, nothing happens.
  * (SAVE is the SONG layer: ui_layers.c; tapped, layer_tap) */
+UI_SMALL static void syn_clear(void);
 UI_SMALL static void holds_input(uint32_t pressed, uint32_t now_ms)
 {
     static uint8_t prev_rec, prev_wait, eaten, rec_on, save_on;   /* *_on: pressed, *_t0 its time */
@@ -1054,6 +1069,23 @@ UI_SMALL static void holds_input(uint32_t pressed, uint32_t now_ms)
         ui.hold_trk = song.sel;
         ui.force = 1;
     }
+    if (ui.hold_kind == 1u && syn_mode && save_down) {   /* (BONBLOOP 1.2) REC + SAVE held in the SYNTH MODE: the synth's
+                                                         * sound back to its start (kind 3), not the track's notes */
+        ui.hold_kind = 3;
+        ui.hold_t0 = now_ms;
+        ui.force = 1;
+    }
+    if (ui.hold_kind == 3u && rec_down && save_down && now_ms - ui.hold_t0 >= HOLD_CLEAR_MS) {
+        syn_clear();
+        ui.hold_kind = 0;
+        rec_on = 0;                                       /* (until REC is up: nothing more) */
+        ui.force = 1;
+    }
+    if (ui.hold_kind == 3u && !(rec_down && save_down)) {
+        ui.hold_kind = 0;                                 /* let go before the end: nothing */
+        rec_on = 0;
+        ui.force = 1;
+    }
     if (ui.hold_kind == 1u && rec_down && now_ms - ui.hold_t0 >= HOLD_CLEAR_MS) {
         track_t *t = &trk[ui.hold_trk % NTRK];
         char b[12] = "1 CLEARED";
@@ -1076,7 +1108,7 @@ UI_SMALL static void holds_input(uint32_t pressed, uint32_t now_ms)
         }
         rec_on = 0;
     }
-    (void)sb, (void)save_down, (void)save_on, (void)save_t0;   /* (SAVE is a layer now: ui_layers.c) */
+    (void)save_on, (void)save_t0;                       /* (SAVE is a layer now: ui_layers.c) */
 }
 
 /* (2.7) REMOTE: the buttons held over MIDI (seq.c remote_cc) as the panel's (fm1_input.h fm1_remote_btn, read as closed);
@@ -1126,12 +1158,22 @@ UI_SMALL static void syn_toggle(void)
     }
     if (is_drum(TSEL))
         track_select(0);
-    if (TSEL->eng_req % NENGINES != ENGI_WAVE)
-        set_engine(ENGI_WAVE);
+    if (TSEL->eng_req % NENGINES != ENGI_WAVE) {
+        set_engine(ENGI_WAVE);                          /* (its sound: every effect off, 1.2) */
+        TSEL->p[P_TFLT] = 0;
+    }
     syn_mode = 1;
     syn_splash = 50;
     syn_route(FAM_EDIT);
     ui_message("SYNTH MODE");
+}
+/* (1.2) REC + SAVE held in the SYNTH MODE: the selected track's synth as it starts, its notes kept */
+UI_SMALL static void syn_clear(void)
+{
+    set_engine(ENGI_WAVE);                              /* (its first sound, every effect off, the chain empty) */
+    TSEL->p[P_TFLT] = 0;
+    syn_home();                                         /* (OSC 1) */
+    ui_message("SYNTH CLEARED");
 }
 /* BONBLOOP: on a synth page PRESETS steps through WAVE's sounds (the track's other sounds: HOME / the PRESETS page) */
 UI_SMALL static void syn_presets(int32_t s)
@@ -1229,6 +1271,8 @@ UI_SMALL static void ui_input(void)
     }
     if (envh == BT_HOLD && !rec_wait && !ft_on)          /* BONBLOOP: ENV held, the SYNTH MODE on / off */
         syn_toggle();
+    if (syn_mode)
+        syn_chain_fill(TSEL);                           /* (1.2) the chain shows every effect that sounds */
     if (syn_mode && !on_syn_page())                     /* (1.1) the mode keeps the screen: back to its pages, whatever
                                                          * took it (a load, the editor, a drum track page) */
         syn_home();

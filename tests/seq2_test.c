@@ -423,6 +423,21 @@ static void t_chordplus(void)
     check(notes_are(c, n, 64, 67, 72, -1), "CHORD+: D#: an inversion, E G C");
     n = chord_play_notes(&trk[0], 60, CM_MINOR | CM_SEVEN, c);
     check(notes_are(c, n, 60, 63, 67, 71), "CHORD+: modifiers combine (F# + G#: C Eb G B)");
+    {   /* BONBLOOP 1.2: SEL 2 > VOIC, the chord's voicing (OFF, LEAD, then these) on C E G */
+        static const int16_t V[6][5] = {{2, 64, 67, 72, -1}, {3, 67, 72, 76, -1}, {4, 52, 60, 67, -1},
+                                        {5, 48, 64, 67, -1}, {6, 60, 67, 76, -1}, {7, 48, 60, 64, 67}};
+        static const char *const NM[6] = {"INV1: E G C", "INV2: G C E", "DROP2: E3 C G", "DROP3: C3 E G",
+                                          "SPRD: C G E5", "+BASS: C3 C E G"};
+        char b[96];
+        uint32_t v;
+        for (v = 0; v < 6u; v++) {
+            trk[0].p[P_VLEAD] = V[v][0];
+            n = chord_play_notes(&trk[0], 60, 0, c);
+            snprintf(b, sizeof b, "VOICING %s", NM[v]);
+            check(notes_are(c, n, V[v][1], V[v][2], V[v][3], V[v][4]), b);
+        }
+        trk[0].p[P_VLEAD] = 0;
+    }
     check(chord_mod_of_key(1) == CM_MINOR && chord_mod_of_key(3) == CM_SEVEN && chord_mod_of_key(5) == CM_SUS4 &&
           chord_mod_of_key(8) == CM_NINE && chord_mod_of_key(10) == CM_INV && chord_mod_of_key(13) == CM_MINOR &&
           !chord_mod_of_key(7), "CHORD+: the black keys F# G# A# C# D# (both octaves), white keys none");
@@ -851,8 +866,16 @@ static void t_longdiv(void)
     song.g[G_BPM] = 120;
     check(dly_samples(6) == (uint32_t)FS * 60u / 120u * 3u / 4u && dly_samples(7) == (uint32_t)FS * 60u / 120u * 3u / 8u,
           "2.4: delay TIME 1/8D = 3/4 beat, 1/16D = 3/8 beat");
-    check(dly_samples(8) == (uint32_t)FS * 60u / 120u * 3u / 2u && GP[G_DTIME].max == 8 && !strcmp(GP[G_DTIME].names[8], "1/4D"),
+    check(dly_samples(8) == (uint32_t)FS * 60u / 120u * 3u / 2u && !strcmp(GP[G_DTIME].names[8], "1/4D"),
           "2.6: delay TIME 1/4D = 1.5 beats, after 1/16D (older projects keep their value)");
+    check(dly_samples(9) == (uint32_t)FS * 60u / 120u * 2u && dly_samples(10) == (uint32_t)FS * 60u / 120u * 4u / 3u &&
+          GP[G_DTIME].max == (int16_t)DLY_FREE && !strcmp(GP[G_DTIME].names[9], "1/2") &&
+          !strcmp(GP[G_DTIME].names[10], "1/2T") && !strcmp(GP[G_DTIME].names[DLY_FREE], "FREE"),
+          "BONBLOOP 1.2: delay TIME 1/2 = 2 beats, 1/2T = 4/3 beat, then FREE (GLO > DLY 2 > MS)");
+    song.g[G_DTIME] = (int16_t)DLY_FREE;
+    song.g[G_DMS] = 300;
+    check(delay_samples() == 300u * 441u / 10u, "BONBLOOP 1.2: delay FREE: its MS, whatever the tempo");
+    song.g[G_DTIME] = GP[G_DTIME].def;
     check(div_units(7) == BEAT_U * 4u && div_units(8) == BEAT_U * 8u && div_units(2) == BEAT_U / 4u,
           "2.4: div_units: 1BAR = 4 beats, 2BAR = 8, 1/16 = a quarter beat");
 }

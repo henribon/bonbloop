@@ -354,7 +354,7 @@ static uint32_t chord_play_notes(track_t *t, uint32_t n, uint32_t mods, uint8_t 
         }
     }
     sort_notes(c, k);
-    if (t->p[P_VLEAD] && part < NPART && vl_n[part] && k) {   /* the inversion and octave nearest the last chord */
+    if (t->p[P_VLEAD] == 1 && part < NPART && vl_n[part] && k) {   /* LEAD: the inversion and octave nearest the last chord */
         uint8_t best[4], cand[4];
         int32_t bcost = 0x7FFFFFFF, inv, oct;
         for (inv = 0; inv < (int32_t)k; inv++)
@@ -380,6 +380,23 @@ static uint32_t chord_play_notes(track_t *t, uint32_t n, uint32_t mods, uint8_t 
             }
         if (bcost != 0x7FFFFFFF)
             memcpy(c, best, k);
+    }
+    if (t->p[P_VLEAD] >= 2 && k >= 2u) {               /* (BONBLOOP 1.2) VOICING: INV1 INV2 DROP2 DROP3 SPRD +BASS */
+        int32_t vo = t->p[P_VLEAD];
+        if (vo <= 3) {                                  /* the lowest one (two) an octave up */
+            for (j = 0; j < (uint32_t)(vo - 1) && j < k - 1u; j++)
+                c[j] = (uint8_t)(c[j] + 12u < 128u ? c[j] + 12u : c[j]);
+        } else if (vo <= 5) {                           /* the 2nd (3rd) from the top an octave down */
+            uint32_t d = (uint32_t)vo - 2u;             /* (2, 3) */
+            j = k > d ? k - d : 0u;
+            c[j] = (uint8_t)(c[j] >= 12u ? c[j] - 12u : c[j]);
+        } else if (vo == 6) {                           /* open: every other voice up an octave */
+            for (j = 1; j < k; j += 2u)
+                c[j] = (uint8_t)(c[j] + 12u < 128u ? c[j] + 12u : c[j]);
+        } else if (k < 4u && c[0] >= 12u) {             /* +BASS: the root an octave below */
+            c[k++] = (uint8_t)(c[0] - 12u);
+        }
+        sort_notes(c, k);
     }
     if ((mods & CM_INV) && k >= 2u && c[0] + 12u < 128u) {   /* an inversion: the lowest an octave up */
         c[0] = (uint8_t)(c[0] + 12u);

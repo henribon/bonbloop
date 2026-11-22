@@ -1,7 +1,9 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* BONBLOOP 1.1: the SYNTH MODE and the WAVE engine on the real UI and audio (the ui_pages_test harness).
+/* BONBLOOP 1.1 / 1.2: the SYNTH MODE and the WAVE engine on the real UI and audio (the ui_pages_test harness).
  *   ENV held 0.7 s: the mode on; the selected track plays WAVE, OSC 1 opens; again: off, the ENV page
- *   EDIT / ENV / LFO / FX tapped: their synth pages (again: the next of the group); SELECT walks all 18
+ *   EDIT / ENV / LFO / FX tapped: their synth pages (again: the next of the group); SELECT walks those shown
+ *   1.2: each oscillator's ENV and LFO; FX: the chain (every effect off at first), an effect's pages while it is in
+ *   it; the delay's 1/2, FREE ms and FIX; REC + SAVE held: the synth's sound back to its start
  *   the mode keeps the screen: ARP, SEQ, SEL, GLO, SAVE tapped open nothing, HOME is OSC 1, ALGORITHM stays on the
  *   synth tracks, anything that took the screen gives it back
  *   the knobs edit the packed fields (WAVE, POS, LVL, REV ...), one field each; PRESETS: WAVE's sounds
@@ -105,6 +107,12 @@ int main(int argc, char **argv)
     turn(EN_K1, -12);
     check(field(WV_S2) <= -10, "KNOB 1 on TUNE: OSC 2 down (SEMI2)");
     tap(B_EDIT);
+    check(on_syn_page() && str_eq(pg_title(), "FILTER"), "EDIT again: FILTER (1.2: the voice's filter is EDIT's)");
+    turn(EN_K3, 1);
+    check(TSEL->p[P_FTYPE] == 1, "KNOB 3 on FILTER: TYPE BP");
+    turn(EN_K3, -1);
+    shot("synth-filter");
+    tap(B_EDIT);
     check(on_syn_page() && str_eq(pg_title(), "VOICE"), "EDIT again: VOICE");
     tap(B_EDIT);
     check(on_syn_page() && str_eq(pg_title(), "OSC 1"), "EDIT again: back to OSC 1");
@@ -133,54 +141,175 @@ int main(int argc, char **argv)
     }
     tap(B_LFO);
     check(on_syn_page() && str_eq(pg_title(), "LFO") && cur_btn() == B_LFO, "LFO tapped: the synth LFO page, LFO lit");
-    tap(B_FX);
-    check(on_syn_page() && str_eq(pg_title(), "FILTER") && cur_btn() == B_FX, "FX tapped: FILTER, FX lit");
-    turn(EN_K3, 1);
-    check(TSEL->p[P_FTYPE] == 1, "KNOB 3 on FILTER: TYPE BP");
-    turn(EN_K3, -1);
-    shot("synth-filter");
-    tap(B_FX);
-    check(on_syn_page() && str_eq(pg_title(), "DRIVE"), "FX again: DRIVE");
-    turn(EN_K1, 30);
-    turn(EN_K2, 3);
-    check(TSEL->p[P_DIST] > 0 && field(WV_DSTY) == 3, "DRIVE: KNOB 1 the drive, KNOB 2 style T");
-    shot("synth-drive");
-    tap(B_FX);
-    check(on_syn_page() && str_eq(pg_title(), "TRANSNT"), "FX again: TRANSNT");
-    turn(EN_K1, 6);
-    check(field(WV_TATK) > 0, "TRANSNT: KNOB 1 ATTCK up");
-    shot("synth-transient");
-    tap(B_FX);
-    check(on_syn_page() && str_eq(pg_title(), "PHASER") && TSEL->p[P_ITYPE] == IT_PHASER, "FX again: PHASER (the INSERT, PHASR)");
-    turn(EN_K1, 40);
-    check(TSEL->p[P_IMIX] > 0, "PHASER: KNOB 1 its MIX");
-    shot("synth-phaser");
-    fm1_in.notes |= 1u << 14;
-    frame();
-    {
-        int32_t pk = peak_of(400);
-        snprintf(b, sizeof b, "drive, transient and phaser on: a key sounds (peak %d), bounded", pk);
-        check(pk > 1000 && pk < 2000000, b);
+    {   /* 1.2: each oscillator's ENV */
+        uint32_t part = (uint32_t)(TSEL - trk);
+        tap(B_ENV); tap(B_ENV); tap(B_ENV);
+        check(on_syn_page() && str_eq(pg_title(), "OSC1 ENV"), "ENV, ENV DEST, then OSC1 ENV");
+        turn(EN_K1, 1);
+        turn(EN_K2, 3);
+        turn(EN_K3, 5);
+        turn(EN_K4, -10);
+        check(sx_get(part, SX_EON1) == 1 && sx_get(part, SX_EA1) == 3 && sx_get(part, SX_ED1) == 5 &&
+              sx_get(part, SX_ES1) == 5 && TSEL->p[P_ATK] == ENG_WAVE.presets[TSEL->preset].env[0],
+              "OSC1 ENV: ON, ATK 3, DEC 5, SUS 5: its own, the voice's ENV as it was");
+        shot("synth-osc1-env");
+        tap(B_ENV);
+        check(on_syn_page() && str_eq(pg_title(), "OSC2 ENV"), "ENV again: OSC2 ENV");
+        tap(B_ENV); tap(B_ENV);
+        check(on_syn_page() && str_eq(pg_title(), "ENV"), "ENV round its group: ENV");
+        /* 1.2: each oscillator's LFO */
+        tap(B_LFO);
+        check(on_syn_page() && str_eq(pg_title(), "LFO") && cur_btn() == B_LFO, "LFO tapped: the synth LFO page, LFO lit");
+        tap(B_LFO); tap(B_LFO); tap(B_LFO);
+        check(on_syn_page() && str_eq(pg_title(), "OSC1 LFO"), "LFO three more: OSC1 LFO");
+        turn(EN_K1, 9);
+        turn(EN_K2, 6);
+        turn(EN_K3, 1);
+        check(sx_get(part, SX_LR1) == 9 && sx_get(part, SX_LD1) == 6 && sx_get(part, SX_LT1) == 1 && TSEL->p[P_LD_PIT] == 0,
+              "OSC1 LFO: RATE 9, DEPTH 6, DEST PITCH: its own, the voice's LFO untouched");
+        shot("synth-osc1-lfo");
+        fm1_in.notes |= 1u << 12;
+        frame();
+        {
+            int32_t pk = peak_of(400);
+            snprintf(b, sizeof b, "OSC 1 with its own ENV and LFO: a key sounds (peak %d), bounded", pk);
+            check(pk > 500 && pk < 2000000, b);
+        }
+        fm1_in.notes &= ~(1u << 12);
+        frames(80);
     }
-    fm1_in.notes &= ~(1u << 14);
-    frames(80);
-    tap(B_FX); tap(B_FX);
-    check(on_syn_page() && str_eq(pg_title(), "SENDS"), "FX twice more: SENDS (chorus, delay, reverb)");
-    tap(B_FX); tap(B_FX); tap(B_FX);
-    check(on_syn_page() && str_eq(pg_title(), "FILTER"), "FX round its group: back to FILTER");
+
+    /* 1.2: FX, the chain: every effect off at first, an effect's pages while it is in the chain */
+    {
+        uint32_t part = (uint32_t)(TSEL - trk);
+        check(!TSEL->p[P_DIST] && !TSEL->p[P_CHOR] && !TSEL->p[P_DLY] && !TSEL->p[P_REV] && !TSEL->p[P_ITYPE] &&
+              !TSEL->p[P_TFLT] && !field(WV_TATK) && !field(WV_TSUS) && !sx_chain_has(part, FXI_DRIVE),
+              "the synth's sound: every effect off, the chain empty");
+        tap(B_FX);
+        check(on_syn_page() && str_eq(pg_title(), "FX CHAIN") && cur_btn() == B_FX, "FX tapped: FX CHAIN, FX lit");
+        shot("synth-chain-empty");
+        tap(B_FX);
+        check(str_eq(pg_title(), "CHAIN 2"), "FX again: CHAIN 2");
+        tap(B_FX);
+        check(str_eq(pg_title(), "FX CHAIN"), "FX again: back to FX CHAIN (no effect: no page of one)");
+        turn(EN_K1, FXI_DRIVE);
+        turn(EN_K2, FXI_PHASER);
+        turn(EN_K3, FXI_TRANS);
+        turn(EN_K4, FXI_DELAY);
+        check(sx_get(part, SX_C1) == FXI_DRIVE && TSEL->p[P_DIST] > 0, "SLOT1 DRIVE: in, at a usable drive");
+        check(TSEL->p[P_ITYPE] == IT_PHASER && TSEL->p[P_IMIX] > 0, "SLOT2 PHASR: the INSERT as a PHASER");
+        check(field(WV_TATK) > 0 && TSEL->p[P_DLY] > 0, "SLOT3 TRANS, SLOT4 DELAY: on");
+        shot("synth-chain");
+        tap(B_FX); tap(B_FX);
+        check(str_eq(pg_title(), "DRIVE"), "FX twice: CHAIN 2, then DRIVE (in the chain)");
+        turn(EN_K1, 30);
+        turn(EN_K2, 3);
+        turn(EN_K4, 1);
+        check(TSEL->p[P_DIST] > 60 && field(WV_DSTY) == 3 && field(WV_PUN) == 1, "DRIVE: KNOB 1 the drive, KNOB 2 style T, KNOB 4 PUNISH");
+        shot("synth-drive");
+        tap(B_FX);
+        check(str_eq(pg_title(), "PHASER"), "FX again: PHASER");
+        shot("synth-phaser");
+        tap(B_FX);
+        check(str_eq(pg_title(), "TRANSNT"), "FX again: TRANSNT (DJ FILT is not in the chain: hidden)");
+        shot("synth-transient");
+        tap(B_FX);
+        check(str_eq(pg_title(), "DELAY"), "FX again: DELAY (CHORUS hidden)");
+        turn(EN_K2, 9 - song.g[G_DTIME]);
+        check(song.g[G_DTIME] == 9 && !strcmp(GP[G_DTIME].names[9], "1/2"), "DELAY: KNOB 2 TIME 1/2");
+        turn(EN_K2, 1);
+        check(song.g[G_DTIME] == 10, "DELAY: TIME 1/2T");
+        shot("synth-delay");
+        tap(B_FX);
+        check(str_eq(pg_title(), "DELAY 2"), "FX again: DELAY 2");
+        {
+            uint32_t want = dly_samples(10) * 10u / 441u;
+            turn(EN_K3, 1);
+            snprintf(b, sizeof b, "DELAY 2: KNOB 3 FIX: FREE at %d ms (1/2T at %d BPM)", song.g[G_DMS], song.g[G_BPM]);
+            check(song.g[G_DTIME] == (int16_t)DLY_FREE && song.g[G_DMS] == (int16_t)want && !song.g[G_DFIX], b);
+            song.g[G_BPM] = (int16_t)(song.g[G_BPM] + 30);
+            check(delay_samples() == want * 441u / 10u, "FIXED: the tempo changes, the delay's time does not");
+            song.g[G_BPM] = (int16_t)(song.g[G_BPM] - 30);
+        }
+        tap(B_FX);
+        check(str_eq(pg_title(), "FX CHAIN"), "FX again: round to FX CHAIN (REVERB hidden)");
+        fm1_in.notes |= 1u << 14;
+        frame();
+        {
+            int32_t pk = peak_of(400);
+            snprintf(b, sizeof b, "drive, phaser, transient and delay on: a key sounds (peak %d), bounded", pk);
+            check(pk > 1000 && pk < 2000000, b);
+        }
+        fm1_in.notes &= ~(1u << 14);
+        frames(80);
+        turn(EN_K1, -FXI_DRIVE);
+        check(!sx_get(part, SX_C1) && !TSEL->p[P_DIST], "SLOT1 back to --: DRIVE out, off");
+        turn(EN_K4, -FXI_DELAY);
+        check(!TSEL->p[P_DLY], "SLOT4 --: DELAY off");
+        {
+            uint32_t pg = 0;
+            for (i = 0; i < NPAGES; i++)
+                if (PAGES[i].fam == FAM_SYN && str_eq(PAGES[i].title, "DRIVE"))
+                    pg = i;
+            check(!page_shown(&PAGES[pg]), "DRIVE's page hidden again");
+        }
+        TSEL->p[P_CHOR] = 30;                           /* (an effect turned on elsewhere: the chain shows it) */
+        frames(2);
+        check(sx_chain_has(part, FXI_CHORUS), "CHORUS turned on outside the chain: it joins the chain");
+        turn(EN_K2, -FXI_PHASER);
+        frames(2);
+        check(!TSEL->p[P_ITYPE] && sx_chain_has(part, FXI_CHORUS) && TSEL->p[P_CHOR] == 30,
+              "SLOT2 --: the INSERT off; CHORUS took SLOT1, at its amount");
+        {
+            uint32_t n2 = 0;
+            for (i = 1; i < FXI_N; i++)
+                n2 += sx_chain_has(part, i) != 0;
+            check(n2 == 2u, "the chain: CHORUS and TRANS");
+        }
+    }
     tap(B_EDIT);
-    {   /* SELECT walks every synth page, stopping at the ends */
+    {   /* SELECT walks every synth page shown, stopping at the ends */
         uint32_t n = 1;
-        for (i = 0; i < 30u; i++) {
+        for (i = 0; i < 40u; i++) {
             uint32_t was = ui.page;
             turn(EN_SELECT, 1);
             n += ui.page != was;
         }
-        snprintf(b, sizeof b, "SELECT walks every synth page (%u), last REV/CHO", n);
-        check(n == 18u && str_eq(pg_title(), "REV/CHO") && on_syn_page(), b);
-        for (i = 0; i < 30u; i++)
+        snprintf(b, sizeof b, "SELECT walks every synth page shown (%u), last CHORUS", n);
+        check(n == 21u && str_eq(pg_title(), "CHORUS") && on_syn_page(), b);
+        for (i = 0; i < 40u; i++)
             turn(EN_SELECT, -1);
         check(str_eq(pg_title(), "OSC 1"), "SELECT back to OSC 1");
+    }
+    {   /* 1.2: REC + SAVE held 2 s: the synth's sound back to its start, its notes kept */
+        uint32_t part = (uint32_t)(TSEL - trk), rec0 = song.rec;
+        step_t st0 = TSEL->step[0];
+        TSEL->step[0].n = 1, TSEL->step[0].note[0] = 64, TSEL->step[0].vel = 100;
+        st0 = TSEL->step[0];
+        press(B_SAVE);
+        frames(3);
+        press(B_REC);
+        frames(60);
+        release(B_REC);
+        release(B_SAVE);
+        frames(3);
+        check(sx_chain_has(part, FXI_CHORUS) && song.rec == rec0, "REC + SAVE let go after 1 s: nothing cleared, REC as it was");
+        press(B_SAVE);
+        frames(3);
+        press(B_REC);
+        frames(60);
+        check(ui.hold_kind == 3u, "REC + SAVE held in the SYNTH MODE: the clear ring");
+        shot("synth-clear-hold");
+        frames(100);
+        release(B_REC);
+        release(B_SAVE);
+        frames(3);
+        check(!sx_chain_has(part, FXI_CHORUS) && !sx_chain_has(part, FXI_TRANS) && !TSEL->p[P_CHOR] && !field(WV_TATK) &&
+              !sx_get(part, SX_EON1) && !sx_get(part, SX_LD1) && TSEL->eng_req == ENGI_WAVE && TSEL->preset == 0u,
+              "REC + SAVE held 2 s: the synth back to its first sound, every effect off, no ENV / LFO of the oscillators");
+        snprintf(b, sizeof b, "... its notes kept (%d), REC as it was (%u %u), OSC 1 (%s)", !memcmp(&TSEL->step[0], &st0, sizeof st0),
+                 (unsigned)song.rec, (unsigned)rec0, pg_title());
+        check(!memcmp(&TSEL->step[0], &st0, sizeof st0) && song.rec == rec0 && syn_mode && str_eq(pg_title(), "OSC 1"), b);
     }
     {   /* PRESETS: WAVE's sounds */
         uint32_t p0 = TSEL->preset;

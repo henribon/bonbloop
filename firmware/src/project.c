@@ -41,7 +41,8 @@
                                                 * so the format and its size do not change */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
-_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_COUNT == G_FXFADE + 1u, "G_FXFADE (2.7.2) is the last global, a setting of the FM-1");
+_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DFIX + 1u,
+               "G_FXFADE (2.7.2) is the last global of SLOOP, a setting of the FM-1; then BONBLOOP's (bbx_t: G_DMS)");
 #define PROJ_NC6 ((uint32_t)P_ITYPE)           /* format 6: the parameters kept in 16 bits, P_LEVEL .. P_VLEAD (as 5), */
 #define PROJ_NX6 ((uint32_t)(P_E0 - P_ITYPE))  /* the 2.6 ones in a byte (0..127), then P_E0 .. P_E7 */
 _Static_assert(PROJ_NC6 == PROJ_NP_V5 - 8u && PROJ_NX6 == 10u, "format 6: format 5's parameters, then ten bytes");
@@ -162,6 +163,29 @@ UI_SMALL static uint32_t proj_hash(const void *p, uint32_t n)   /* FNV-1a over n
 }
 UI_SMALL static uint32_t proj_sum(const project_t *p) { return proj_hash(p, sizeof *p - 4u); }
 UI_SMALL static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC && q->size == sizeof *q && q->sum == proj_sum(q); }
+
+/* (BONBLOOP 1.2) beside each project: the synth's extras (eng_wave.c synx: each oscillator's ENV and LFO, the FX chain)
+ * and the delay's FREE ms. Not in the project (format 6 is full, and SLOOP reads it as ever): in RAM one per section
+ * A..D and one for any other copy (the working one's: the autosave), and in flash in the side record of the copy
+ * (storage.c st_side). None, or not valid (a project of SLOOP or of 1.1): the synx 0 (the chain then shows the
+ * effects that sound: ui.c syn_chain_fill), the ms at their default */
+#define BBX_MAGIC 0x31584242u                  /* "BBX1" */
+typedef struct {
+    uint32_t magic;
+    synx_t x[NPART];
+    int16_t dms;
+    uint16_t sum;                              /* (44 bytes: .noinit is full to 4 bytes) */
+} bbx_t;
+static bbx_t bbx_ram[5] __attribute__((section(".noinit")));   /* (as proj_slot: a warm reset keeps them) */
+UI_SMALL static bbx_t *bbx_of(const project_t *p)
+{
+    uintptr_t a = (uintptr_t)p, b = (uintptr_t)proj_slot;
+    return &bbx_ram[a >= b && a < b + sizeof proj_slot ? (a - b) / sizeof *p : 4u];
+}
+UI_SMALL static uint16_t bbx_sum(const bbx_t *x) { uint32_t h = proj_hash(x, sizeof *x - 2u); return (uint16_t)(h ^ h >> 16); }
+UI_SMALL static int bbx_ok(const bbx_t *x) { return x->magic == BBX_MAGIC && x->sum == bbx_sum(x); }
+UI_SMALL static uint32_t proj_tag(const project_t *p) { return p->sum ^ bbx_of(p)->sum; }   /* (the autosave: a change of
+                                                         * either) */
 
 /* ---- old formats -> format 5 */
 /* an old step into a synth step (no level, no ratchet) */
@@ -481,6 +505,14 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
     }
     drum_tw_put(p);                                     /* (2.7) the drum sounds' TUNE and DECAY */
     p->sum = proj_sum(p);
+    {
+        bbx_t *x = bbx_of(p);                           /* (BONBLOOP 1.2) its extras */
+        memset(x, 0, sizeof *x);
+        x->magic = BBX_MAGIC;
+        memcpy(x->x, synx, sizeof x->x);
+        x->dms = song.g[G_DMS];
+        x->sum = bbx_sum(x);
+    }
 }
 
 /* a project's tracks (and its globals, all: a load; or only the drum level / reverb / delay: a song
@@ -498,6 +530,16 @@ static void proj_apply(const project_t *p, int all)
     song.g[G_DRDLY] = (int16_t)clamp(p->drdly, GP[G_DRDLY].min, GP[G_DRDLY].max);   /* (a load and a section, as REV) */
     proj_tx_get(p);                                     /* GLO > TEXTURE (2.6): a load and a section */
     drum_tw_get(p);                                     /* (2.7) the drum sounds' TUNE and DECAY: a load and a section */
+    {
+        const bbx_t *x = bbx_of(p);                     /* (BONBLOOP 1.2) its extras, or none */
+        int ok = bbx_ok(x);
+        if (ok)
+            memcpy(synx, x->x, sizeof synx);
+        else
+            memset(synx, 0, sizeof synx);
+        if (all)
+            song.g[G_DMS] = (int16_t)clamp(ok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max);
+    }
     for (k = 0; k < NTRK; k++) {
         track_t *t = &trk[k];
         const proj_trk_t *s = &p->t[k];
@@ -569,12 +611,30 @@ static union {
     project_v1_t v1;
 } proj_tmp;
 UI_SMALL static void *up_stage(void) { return &proj_tmp; }   /* upreset.c: a user preset bank staged for a write (sloop-lab) */
+/* (BONBLOOP 1.2) a project into flash with its extras (bbx_t) in the side record; and read back */
+UI_SMALL static int proj_store(uint32_t obj, const project_t *p)
+{
+    int rc;
+    st_side = bbx_of(p);
+    st_side_len = sizeof(bbx_t);
+    rc = st_save(obj, p, sizeof *p);
+    st_side = 0;
+    return rc;
+}
+UI_SMALL static void bbx_load(uint32_t obj, const project_t *p)
+{
+    bbx_t *x = bbx_of(p);
+    if (st_side_load(obj, x, sizeof *x) || !bbx_ok(x))
+        memset(x, 0, sizeof *x);
+}
 UI_SMALL static void proj_fetch(uint32_t slot)
 {
     project_t *q = &proj_slot[slot & 3u];
     int n = st_load(OBJ_PROJECT0 + (slot & 3u), &proj_tmp, sizeof proj_tmp);
     if (!proj_import(q, &proj_tmp, n))
         q->magic = 0;
+    else
+        bbx_load(OBJ_PROJECT0 + (slot & 3u), q);
 }
 #include "fm6_bank.c"                           /* the FM6 patch bank (eng_fm6.c PTCH B1..B27): staged in proj_tmp */
 #endif
@@ -589,7 +649,7 @@ UI_SMALL static void project_save(uint32_t slot)
     proj_capture(p);
 #if FELUCCA_FLASH
     if (flash_ok) {
-        if (st_save(OBJ_PROJECT0 + (slot & 3u), p, sizeof *p))
+        if (proj_store(OBJ_PROJECT0 + (slot & 3u), p))
             ui_message("SAVE ERROR");
         else
             ui_say("SAVED SECTION ", SEC_NAME[slot & 3u]);
@@ -717,10 +777,10 @@ UI_SMALL static void autosave_tick(void)                /* main loop */
         return;
     autosave_checked = now;
     proj_capture(&autosave_buf);
-    h = autosave_buf.sum;
+    h = proj_tag(&autosave_buf);
     if (h == autosave_hash || !audio_quiet())
         return;
-    if (st_save(OBJ_AUTOSAVE, &autosave_buf, sizeof autosave_buf) == 0)
+    if (proj_store(OBJ_AUTOSAVE, &autosave_buf) == 0)
         autosave_hash = h;
     autosave_ms = fm1_ms;
 #endif
@@ -738,7 +798,8 @@ UI_SMALL static void autosave_resume(void)              /* power-on: the project
     n = st_load(OBJ_AUTOSAVE, &proj_tmp, sizeof proj_tmp);
     if (!proj_import(q, &proj_tmp, n))
         return;
-    autosave_hash = q->sum;
+    bbx_load(OBJ_AUTOSAVE, q);
+    autosave_hash = proj_tag(q);
     if (drch_seed && !(q->rsv[0] & 0x80u) && q->g[G_DRCH] >= 0 && q->g[G_DRCH] <= 16 && q->g[G_DRCH] != midi_set[3]) {
         midi_set[3] = (uint8_t)q->g[G_DRCH];          /* (2.6) updated from 2.5: GLO > DRUMS > CH as it was there (a
                                                      * project's then, a setting of the FM-1 now), kept in the settings */
@@ -1092,6 +1153,7 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     }
     if (!proj_import(&autosave_buf, raw, (int)n))
         return 2;
+    bbx_of(&autosave_buf)->magic = 0;                   /* (BONBLOOP 1.2: the editor's copy has no extras) */
     if (slot == 4u) {
         project_apply(&autosave_buf);
         return 0;
@@ -1099,6 +1161,7 @@ UI_SMALL static uint32_t project_restore(uint32_t slot, const void *raw, uint32_
     if (!flash_ok || st_save(OBJ_PROJECT0 + slot, &autosave_buf, sizeof autosave_buf))
         return 4;
     memcpy(&proj_slot[slot], &autosave_buf, sizeof proj_slot[slot]);
+    bbx_ram[slot].magic = 0;
     sec_dirty &= (uint8_t)~(1u << slot);
     return 0;
 }
@@ -1141,7 +1204,7 @@ UI_SMALL static void sections_write(void)                        /* the dirty se
 #if FELUCCA_FLASH
     if (flash_ok)
         for (i = 0; i < 4u; i++)
-            if (((sec_dirty >> i) & 1u) && st_save(OBJ_PROJECT0 + i, &proj_slot[i], sizeof proj_slot[i]) == 0)
+            if (((sec_dirty >> i) & 1u) && proj_store(OBJ_PROJECT0 + i, &proj_slot[i]) == 0)
                 sec_dirty &= (uint8_t)~(1u << i);       /* (a failed write stays dirty: tried again later) */
     if (!flash_ok)
 #endif
@@ -1160,8 +1223,8 @@ UI_SMALL static void persist_flush_now(void)
 #if FELUCCA_FLASH
     if (flash_ok && !arrangement_clock.running) {     /* (a song playing: the tracks hold a section) */
         proj_capture(&autosave_buf);
-        if (autosave_buf.sum != autosave_hash && st_save(OBJ_AUTOSAVE, &autosave_buf, sizeof autosave_buf) == 0)
-            autosave_hash = autosave_buf.sum;
+        if (proj_tag(&autosave_buf) != autosave_hash && proj_store(OBJ_AUTOSAVE, &autosave_buf) == 0)
+            autosave_hash = proj_tag(&autosave_buf);
     }
 #endif
 }
