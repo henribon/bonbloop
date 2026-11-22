@@ -180,7 +180,7 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 ## Instalar
 
 Pelo navegador (Chrome ou Edge), com o FM-1 ligado no computador pelo USB:
-**[henribon.github.io/bonbloop](https://henribon.github.io/bonbloop/)** → **INSTALL**. O site (pasta `docs/`, em
+**[bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** → **INSTALL**. O site (pasta `docs/`, em
 inglês) é gerado por `web/make_site.py` e instala direto no FM-1 conectado, pelo Web MIDI.
 
 Imagens para divulgação: `assets/promo/` (`tools/gen_bonbloop_brand.py promo`, com a fonte e as telas do próprio FM-1).

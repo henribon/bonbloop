@@ -16,7 +16,7 @@ BDF = ROOT / "assets" / "fonts" / "ter-u16b.bdf"
 WHITE, BLUE, GREEN, YELLOW, ORANGE = "#ffffff", "#287cff", "#1ecc70", "#ffc618", "#ff621a"
 TRACK = [BLUE, GREEN, YELLOW, ORANGE]          # the four track colours (gfx.c TE_COL_DEF)
 GRAY, DIM, BG, TILE, LINE = "#c4c4cc", "#8a8a92", "#000000", "#16161a", "#2a2a30"
-URL = "henribon.github.io/bonbloop"
+URL = "bonbap.com.br/bonbloop"
 
 
 def load_bdf(path=BDF):
