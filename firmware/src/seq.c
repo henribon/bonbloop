@@ -521,7 +521,7 @@ static uint32_t rec_target(const track_t *t, uint32_t *later)
  * It goes into the nearest step as ever, and how far off the grid it was becomes that step's nudge (1/64 of a step:
  * at 120 BPM in 1/16, about 2 ms), when the step held nothing before: a step has one nudge, so a chord's later
  * notes and a second drum sound on a step take the first one's. The arp's notes and the rolls stay on their grid. */
-static uint8_t rec_quant_off;
+static uint8_t rec_quant_off = 1;          /* (BONBLOOP 1.4.2: real time unless the REC screen says QUANT ON) */
 static void rec_micro_set(track_t *t, uint32_t idx, int was_empty)
 {
     if (rec_quant_off && was_empty && idx < NSTEP)
@@ -941,6 +941,8 @@ UI_SMALL static void rec_note(track_t *t, uint32_t note, uint32_t vel, uint32_t 
 
 /* live recording into the drum track: lane, level, ratchet */
 static uint8_t roll_rec;                         /* (2.7) a roll's hit is being recorded (roll_hit) */
+static uint8_t trip_msg;                /* (1.4.2) for the UI: a roll's hit could not keep its time on the drum grid */
+static int8_t roll_m;                   /* (1.4.2) the roll hit being recorded: its time from its step, 1/64 of a step */
 static void rec_hit(track_t *t, uint32_t lane, uint32_t lvl, uint32_t rat)
 {
     uint32_t later, abs = rec_target(t, &later), idx = abs % trk_len(t);
@@ -949,6 +951,11 @@ static void rec_hit(track_t *t, uint32_t lane, uint32_t lvl, uint32_t rat)
     dstep_set(&t->dstep[idx], lane, lvl, rat);
     if (!roll_rec)                                  /* (a roll's hits stay on its grid) */
         rec_micro_set(t, idx, was_empty);
+    else if (was_empty)                             /* (BONBLOOP 1.4.2: a roll's hit at its own time, a triplet too:
+                                                     * the step held nothing, its nudge is the hit's) */
+        t->micro[idx] = roll_m;
+    else if (roll_m - t->micro[idx] > 2 || t->micro[idx] - roll_m > 2)
+        trip_msg = 1;                               /* (a step with other hits keeps its nudge: the hit on its grid) */
     t->seq_active = 1;
     if (later) {
         if (t->rskip_abs != abs)
@@ -2010,7 +2017,6 @@ static void drum_input(uint32_t lane, uint32_t lvl, uint32_t rat, int rec)
 static const uint8_t ROLL_NV[10][2] = {{1, 2}, {1, 4}, {1, 8}, {1, 12}, {1, 16}, {1, 1}, {1, 3}, {1, 6}, {2, 3}, {4, 3}};   /* beats
                                          * = [0] / [1]: 1/8 .. 1/64, (1.4) 1/4 1/8T 1/16T, (1.4.1) 1/4T 1/2T */
 static uint8_t rep_on;                  /* (BONBLOOP 1.4) the drum track's REPEAT (ARP tapped): its keys roll, ARP up */
-static uint8_t trip_msg;                /* (1.4.1) for the UI: 2 the drum pattern went to 16T, 1 its grid can't hold them */
 #define NROLL 4u
 static struct {
     uint8_t on, key, trk, note, lvl;    /* note: the synth note, or the lane */
@@ -2021,23 +2027,6 @@ static struct {
 static const uint8_t *roll_nv(void) { return ROLL_NV[(uint32_t)clamp(song.g[G_ROLL], 0, 9)]; }
 static uint32_t roll_u(void) { return BEAT_U * roll_nv()[0] / roll_nv()[1]; }
 static uint32_t roll_grid(uint32_t *into, uint32_t *slen) { return grid_nv(roll_nv()[0], roll_nv()[1], 0, into, slen); }
-/* (BONBLOOP 1.4.1) a roll of step u recorded on the drum track: its grid holds it if a hit falls every k steps or a step
- * holds 2 .. 4 of them (ratchets); else (triplets on 1/16) an empty pattern goes to 16T, as long as it was; a pattern
- * with hits keeps its grid and the UI says why the triplets land on it */
-static void roll_fit(track_t *t, uint32_t u)
-{
-    uint32_t su = div_units(trk_div(t)), i;
-    if ((su % u == 0u && su / u <= 4u) || u % su == 0u)
-        return;
-    for (i = 0; i < NSTEP && !(t->dstep[i].on[0] | t->dstep[i].on[1]); i++)
-        ;
-    trip_msg = 1;
-    if (i < NSTEP)
-        return;
-    t->p[P_SLEN] = (int16_t)clamp((int32_t)(trk_len(t) * (su / (BEAT_U / 24u)) / 4u), 1, NSTEP);
-    t->p[P_SDIV] = 5;                                /* (N_SDIV 16T) */
-    trip_msg = 2;
-}
 /* the lanes / notes a roll plays live on track t: the pattern does not play them meanwhile (no flam
  * with what was recorded, nor with what this roll is recording) */
 static uint32_t roll_lanes(const track_t *t)
@@ -2060,16 +2049,20 @@ static int roll_has(const track_t *t, uint32_t note)
 static void roll_hit(uint32_t r)
 {
     track_t *t = &trk[roll[r].trk % NTRK];
-    uint32_t u = roll_u(), su, hits, rat;
+    uint32_t u = roll_u(), su = div_units(trk_div(t)), hits = su / u, rat = hits > 4u ? 3u : hits > 1u ? hits - 1u : 0u;
     uint32_t armed = ((song.rec >> trk_index(t)) & 1u) && song.playing, later, abs = 0, rec = 0;
-    if (armed && is_drum(t))
-        roll_fit(t, u);                              /* (1.4.1: triplets) */
-    su = div_units(trk_div(t));
-    hits = su / u, rat = hits > 4u ? 3u : hits > 1u ? hits - 1u : 0u;
     if (armed) {                                     /* one recorded hit a step: the ratchet does the rest */
+        uint32_t into, slen, at = trk_grid(t, &into, &slen);
         abs = rec_target(t, &later);
         rec = abs != roll[r].rec_abs;
+        if (!rec && su % u)
+            trip_msg = 1;                            /* (1.4.2: a second hit in one step, 1/16T on 1/16: not kept) */
         roll[r].rec_abs = abs;
+        {   /* (BONBLOOP 1.4.2) where the hit falls, from the step it goes into (the clock's time, no key latency):
+             * the step's nudge on the drums (rec_hit), so 1/2T 1/4T 1/8T keep their time on 1/16 */
+            int32_t m = (int32_t)((into * 64u + slen / 2u) / slen) - (int32_t)(abs - at) * 64;
+            roll_m = (int8_t)(m < MICRO_MIN || m > MICRO_MAX ? 0 : m);
+        }
     }
     if (is_drum(t)) {
         roll_rec = 1;

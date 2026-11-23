@@ -170,7 +170,9 @@ UI_SMALL static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC 
  * A..D and one for any other copy (the working one's: the autosave), and in flash in the side record of the copy
  * (storage.c st_side). None, or not valid (a project of SLOOP or of 1.1): the synx 0 (the chain then shows the
  * effects that sound: ui.c syn_chain_fill), the ms at their default */
-#define BBX_MAGIC 0x32584242u                  /* "BBX2" (1.3; 1.2's "BBX1" held other fields: none) */
+#define BBX_MAGIC 0x33584242u                  /* "BBX3" (1.5: synx with the EQ); "BBX2" (1.3 .. 1.4.2) is read too
+                                                * (bbx_load), 1.2's "BBX1" held other fields: none */
+#define BBX2_MAGIC 0x32584242u
 typedef struct {
     uint32_t magic;
     synx_t x[NPART];
@@ -628,7 +630,24 @@ UI_SMALL static int proj_store(uint32_t obj, const project_t *p)
 UI_SMALL static void bbx_load(uint32_t obj, const project_t *p)
 {
     bbx_t *x = bbx_of(p);
-    if (st_side_load(obj, x, sizeof *x) || !bbx_ok(x))
+    if (st_side_load(obj, x, sizeof *x) == 0 && x->magic == BBX2_MAGIC) {   /* (1.3 .. 1.4.2: synx of 4 words; the EQ
+                                                         * flat) */
+        struct { uint32_t magic, w[NPART][4]; int16_t dms; uint16_t sum; } o;
+        uint32_t h, k;
+        memcpy(&o, x, sizeof o);
+        h = proj_hash(&o, sizeof o - 2u);
+        if (o.sum == (uint16_t)(h ^ h >> 16)) {
+            memset(x, 0, sizeof *x);
+            x->magic = BBX_MAGIC;
+            for (k = 0; k < NPART; k++) {
+                memcpy(x->x[k].w, o.w[k], sizeof o.w[k]);
+                x->x[k].w[4] = EQ_W4;
+            }
+            x->dms = o.dms;
+            x->sum = bbx_sum(x);
+        }
+    }
+    if (!bbx_ok(x))
         memset(x, 0, sizeof *x);
 }
 UI_SMALL static void proj_fetch(uint32_t slot)

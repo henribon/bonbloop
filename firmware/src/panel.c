@@ -112,7 +112,8 @@ UI_SMALL static uint32_t lights_word(void)
            (uint32_t)(knob_accel_off != 0u) << 27 |    /* KNOB ACCEL OFF (2.7; 0 = ON, as before 2.7) */
            (uint32_t)(usb_rate % 3u) << 28 |           /* USB RATE (2.7 beta; 0 = AUTO, as before) */
            (uint32_t)(theme_on != 0u) << 30 |
-           (uint32_t)(rec_quant_off != 0u) << 31;      /* REC screen QUANT OFF (2.7, seq.c; 0 = ON, as before) */           /* COLOR on your theme (2.7; gfx.c; an older SLOOP shows palette) */
+           (uint32_t)(rec_quant_off == 0u) << 31;      /* REC screen QUANT (2.7, seq.c; BONBLOOP 1.4.2: 1 = ON, 0 = OFF, the
+                                                         * default: recorded in real time) */           /* COLOR on your theme (2.7; gfx.c; an older SLOOP shows palette) */
 }
 UI_SMALL static void lights_from_word(uint32_t w)
 {
@@ -136,7 +137,8 @@ UI_SMALL static void lights_from_word(uint32_t w)
     knob_accel_off = (uint8_t)((w >> 27) & 1u);  /* menu KNOB ACCEL (2.7): an older word reads ON */
     usb_rate = (uint8_t)(((w >> 28) & 3u) % 3u); /* menu USB RATE (2.7 beta): an older word reads AUTO */
     theme_on = (uint8_t)((w >> 30) & 1u);
-    rec_quant_off = (uint8_t)((w >> 31) & 1u);  /* REC screen QUANT (2.7): an older word reads ON */        /* menu COLOR on your theme (2.7, gfx.c): shown once it is there */
+    rec_quant_off = (uint8_t)!((w >> 31) & 1u); /* REC screen QUANT (BONBLOOP 1.4.2: an older word, ON then, reads OFF:
+                                                 * real time) */        /* menu COLOR on your theme (2.7, gfx.c): shown once it is there */
 }
 
 static void settings_save(void);              /* project.c: flash copy (FELUCCA_FLASH) */

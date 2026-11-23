@@ -254,8 +254,10 @@ static void t_roll(void)
     }
 }
 
-/* BONBLOOP 1.4.1: a triplet roll recorded on the drums. An empty pattern on 1/16 goes to 16T (24 steps: as long) and
- * each hit lands on its triplet step; a pattern with hits keeps its grid (the UI says why: trip_msg) */
+/* BONBLOOP 1.4.2: a triplet roll recorded on the drums keeps its time: each hit in its nearest step, the step's nudge
+ * (1/64 of a step) its offset, when the step held nothing; the pattern's grid never changes. A step with other hits
+ * keeps its nudge (the hit on the grid) and the UI says TRIPLETS: DIV 16T (trip_msg); so does 1/16T on 1/16 (two hits
+ * in one step) */
 static uint32_t roll_take(uint32_t rate, uint32_t beats)    /* lane 3 rolled from beat 0, REC on: its steps as bits */
 {
     uint32_t i, s, bits = 0;
@@ -276,27 +278,63 @@ static uint32_t roll_take(uint32_t rate, uint32_t beats)    /* lane 3 rolled fro
         bits |= (uint32_t)dstep_has(&TDRUM->dstep[s], 3) << s;
     return bits;
 }
+static int near_m(uint32_t step, int32_t want)    /* the drum step's nudge within 2/64 of want */
+{
+    int32_t m = TDRUM->micro[step];
+    return m - want <= 2 && want - m <= 2;
+}
 static void t_roll_triplets(void)
 {
     uint32_t b;
+    char line[96];
     reset(120);
-    b = roll_take(6, 2);                              /* 1/8T, two beats */
-    check(TDRUM->p[P_SDIV] == 5 && TDRUM->p[P_SLEN] == 24 && trip_msg == 2u,
-          "1.4.1: a 1/8T roll recorded on an empty 1/16 drum pattern: it goes to 16T, 24 steps (as long)");
-    if (b != 0x555u)
-        printf("seq2:   1/8T steps %03x%c", b, 10);
-    check(b == 0x555u, "1.4.1: 1/8T on 16T: steps 0 2 4 6 8 10, the triplets");
+    b = roll_take(6, 2);                              /* 1/8T, two beats: at 0, 4/3, 8/3, 4, 16/3, 20/3 steps */
+    snprintf(line, sizeof line, "1.4.2: 1/8T on 1/16: steps 0 1 3 4 5 7 (got %02x), the grid kept", b);
+    check((b & 0xFFu) == 0xBBu && TDRUM->p[P_SDIV] == TP[P_SDIV].def && TDRUM->p[P_SLEN] == TP[P_SLEN].def, line);
+    check(near_m(0, 0) && near_m(1, 21) && near_m(3, -21) && near_m(4, 0) && near_m(5, 21) && near_m(7, -21),
+          "1.4.2: 1/8T: each step nudged to the triplet's time (+1/3, -1/3 of a step)");
     reset(120);
-    b = roll_take(8, 2);                              /* 1/4T */
-    check(TDRUM->p[P_SDIV] == 5 && b == 0x111u, "1.4.1: 1/4T: steps 0 4 8 of 16T");
+    b = roll_take(8, 2);                              /* 1/4T: 0, 8/3, 16/3 steps */
+    check((b & 0xFFu) == 0x29u && near_m(3, -21) && near_m(5, 21), "1.4.2: 1/4T on 1/16: steps 0 3 5, nudged");
     reset(120);
-    dstep_set(&TDRUM->dstep[0], 0, LV_NORM, 0);      /* a kick: the pattern is not empty */
-    b = roll_take(7, 1);                              /* 1/16T */
-    check(TDRUM->p[P_SDIV] == TP[P_SDIV].def && trip_msg == 1u && b,
-          "1.4.1: a pattern with hits on 1/16 keeps its grid, the UI says TRIPLETS: DIV 16T");
+    b = roll_take(9, 4);                              /* 1/2T over a bar: 0, 16/3, 32/3 steps */
+    check((b & 0xFFFFu) == 0x821u && near_m(5, 21) && near_m(11, -21), "1.4.2: 1/2T on 1/16: steps 0 5 11, nudged");
+    reset(120);
+    dstep_set(&TDRUM->dstep[1], 0, LV_NORM, 0);      /* a kick on step 1: that step keeps its nudge */
+    b = roll_take(6, 1);
+    check(TDRUM->micro[1] == 0 && trip_msg == 1u && (b & 2u), "1.4.2: a step with other hits keeps its nudge: TRIPLETS: DIV 16T");
+    reset(120);
+    b = roll_take(7, 1);                              /* 1/16T: two hits in steps 1 and 3 */
+    check(trip_msg == 1u, "1.4.2: 1/16T on 1/16 (two hits in a step): TRIPLETS: DIV 16T");
+    reset(120);
+    TDRUM->p[P_SDIV] = 5, TDRUM->p[P_SLEN] = 24;     /* 16T: the triplets on the grid */
+    b = roll_take(7, 1);
+    check((b & 0x3Fu) == 0x3Fu && !(b & 0xFC0u & ~0x40u) && !trip_msg && near_m(1, 0) && near_m(4, 0), "1.4.2: 1/16T on 16T: a hit a step, on the grid");
+    reset(120);
+    b = roll_take(6, 4);                              /* a bar of 1/8T, then the next pass plays it back */
+    {
+        uint32_t i, k, n = 0, last = 0, ok = 1, d, worst = 0;
+        nhits = 0;
+        for (i = 0; i < 22050u * 4u / CTL; i++)
+            run_block();
+        for (k = 0; k < nhits; k++)
+            if (hits[k].note == LANE_NOTE[3]) {
+                if (n) {
+                    d = (hits[k].blk - last) * CTL;
+                    d = d > 7350u ? d - 7350u : 7350u - d;
+                    worst = d > worst ? d : worst;
+                    ok &= d < 160u;
+                }
+                last = hits[k].blk;
+                n++;
+            }
+        snprintf(line, sizeof line, "1.4.2: the recorded 1/8T plays back as 1/8T: %u hits, 7350 samples apart (+-%u)", n, worst);
+        check(ok && n >= 11u, line);
+    }
     reset(120);
     b = roll_take(2, 1);                              /* 1/32: straight, as before */
-    check(TDRUM->p[P_SDIV] == TP[P_SDIV].def && !trip_msg, "1.4.1: a straight roll leaves the grid as it is");
+    check(TDRUM->p[P_SDIV] == TP[P_SDIV].def && !trip_msg && near_m(0, 0) && near_m(1, 0),
+          "1.4.2: a straight roll: on the grid, no nudge");
     transport_req = 2;                               /* (stopped, as the tests after expect to start it) */
     run_block();
     trip_msg = 0;

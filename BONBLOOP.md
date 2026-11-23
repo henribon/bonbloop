@@ -8,7 +8,13 @@ cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, de
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.4.1** — tercinas do REPEAT gravadas no lugar; REPEAT com 1/4T e 1/2T; o **TRANSIENT saiu** (sobrava pouco
+**Versão 1.5** — um **EQ de 4 bandas** com a curva na tela, como o de uma DAW (FX CHAIN → EQ); o **REC grava em tempo
+real** de fábrica (o QUANT da tela REC READY liga a quantização).
+
+**1.4.2** — tercinas do REPEAT gravadas no tempo exato, na grade de 1/16 (o micro-timing de cada passo),
+sem mudar a grade do padrão.
+
+**1.4.1** — tercinas do REPEAT gravadas no lugar; REPEAT com 1/4T e 1/2T; o **TRANSIENT saiu** (sobrava pouco
 uso para a flash que ocupava: 424 bytes). Os presets WT PLUCK, WT BELLS e DIGI BASS, que o usavam, foram reajustados. E as caudas
 já quase mudas de dois samples foram encurtadas (BASS: a partir de 0,8 s, abaixo de -27 dB; VIBES F3: a partir de
 0,7 s, abaixo de -40 dB): 7 KB de flash livres para o que vem (o EQ do synth).
@@ -82,6 +88,8 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
 | | DJ FILT | FILT (filtro DJ do track) |
+| | EQ 1 | LOW (Hz) · GAIN · MID1 (Hz) · GAIN — com a curva (1.5) |
+| | EQ 2 | MID2 (Hz) · GAIN · HIGH (Hz) · GAIN — com a curva |
 | | CHORUS | CHO (envio) · CRT · CDP |
 | | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
 | | DELAY 2 | COLR · MIX |
@@ -180,7 +188,7 @@ ou **LVL** (tremolo só nele).
 ### A cadeia de efeitos (1.2)
 
 No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 7 slots (4 aqui, 3 em
-CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB.
+CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, EQ.
 
 - Escolher um efeito num slot **liga** o efeito (numa quantidade que já se ouve) e faz a página de detalhes dele
   aparecer depois de CHAIN 2. Voltar o slot para **--** desliga o efeito e esconde a página.
@@ -195,6 +203,26 @@ CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR
 | **PHASER** | O INSERT do SLOOP como PHASR (MIX · RATE · DEPTH · FDBK). |
 | **FILTER** | O filtro DJ do track (passa-baixa para a esquerda, passa-alta para a direita). |
 | **CHORUS, DELAY, REVERB** | Os envios do SLOOP e os ajustes globais deles, na mesma página. |
+
+### EQ de 4 bandas (1.5)
+
+Ponha **EQ** num slot da FX CHAIN e aparecem as páginas **EQ 1** e **EQ 2**, com a **curva** do EQ desenhada como numa
+DAW: o ganho (±15 dB) em função da frequência (30 Hz a 16 kHz), com linhas em 0 dB e em 100 Hz, 1 kHz e 10 kHz.
+
+| Banda | Tipo | Knobs |
+| --- | --- | --- |
+| **LOW** | shelf (graves) | EQ 1: KNOB 1 frequência, KNOB 2 ganho |
+| **MID1** | sino | EQ 1: KNOB 3 frequência, KNOB 4 ganho |
+| **MID2** | sino | EQ 2: KNOB 1 frequência, KNOB 2 ganho |
+| **HIGH** | shelf (agudos) | EQ 2: KNOB 3 frequência, KNOB 4 ganho |
+
+- Cada banda é um **ponto** no gráfico, na frequência e no ganho dela, na cor do seu knob de frequência (azul KNOB 1,
+  amarelo KNOB 3); as da outra página aparecem em cinza.
+- O EQ começa **plano** (100 Hz, 500 Hz, 2 kHz, 8 kHz, todos em 0 dB) e fica na ordem da cadeia junto com DRIVE,
+  PHASER e FILTER. Tirar o EQ da cadeia desliga, sem perder os ajustes.
+- Os filtros são os SVF do Andrew Simper (os mesmos do filtro do synth): shelves sem o "afundamento" depois do corte.
+  Uma banda em 0 dB não gasta nada.
+- O EQ fica salvo com o som: nos projetos e nos presets de usuário.
 
 ### Delay: MODE SYNC / MS (1.4)
 
@@ -238,6 +266,14 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 
 ## Fora do modo synth
 
+### REC em tempo real (1.5)
+
+O **REC grava em tempo real** de fábrica: cada nota fica no passo mais perto e o **micro-timing** do passo (1/64 de um
+passo, ~2 ms a 120 BPM em 1/16) guarda o tempo em que você tocou. Para gravar **quantizado**, na tela **REC READY**
+(REC com o transporte parado) gire o **KNOB 4 (QUANT)** para a direita: **ON**; para a esquerda volta a **OFF**. A
+escolha fica salva no FM-1. Um passo tem um micro-timing só: num acorde, ou com dois sons da bateria no mesmo passo,
+vale o da primeira nota.
+
 ### REPEAT da bateria (1.4)
 
 Com a **bateria** (track 4) selecionada, um **toque no ARP** liga o **REPEAT** (o ARP fica aceso): cada tecla
@@ -247,11 +283,12 @@ as batidas são gravadas (mais rápidas que o passo viram ratchets). Outro toque
 A divisão é a do roll: **ARP + KNOB 1** — **1/2T, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64** (1.4.1: 1/4T
 e 1/2T). Segurar ARP + teclas continua sendo o roll de sempre, em qualquer track.
 
-**Tercinas gravadas (1.4.1).** Os passos da bateria são, de fábrica, de 1/16, e uma tercina cai entre dois passos. Ao
-gravar uma tercina (1/2T, 1/4T, 1/8T, 1/16T) num padrão **vazio**, o padrão passa sozinho para passos de **16T**,
-com a mesma duração (16 passos de 1/16 viram 24 de 16T), e cada batida cai no lugar certo. Num padrão que já tem
-batidas em 1/16, a grade fica como está e a tela avisa **TRIPLETS: DIV 16T** (PATTERN → DIV muda a grade antes de
-gravar). 1/32T grava certo também em 1/16 (três por passo, ratchet x3).
+**Tercinas gravadas (1.4.2).** O REPEAT toca cada figura no tempo exato (a 480 ticks por semínima: 1/2T = 640,
+1/4T = 320, 1/8T = 160, 1/16T = 80). Ao gravar, cada batida vai para o passo mais perto e o **micro-timing (nudge)**
+desse passo guarda o tempo dela: **1/2T, 1/4T e 1/8T ficam exatas na grade normal de 1/16**. Um passo tem um nudge só:
+se ele já tem outra batida, a nova fica na grade e a tela avisa **TRIPLETS: DIV 16T**; o 1/16T põe duas batidas num
+passo de 1/16, então para ele use PATTERN → DIV 16T. 1/32T grava certo em 1/16 (três por passo, ratchet x3). A grade
+do padrão nunca muda sozinha (a 1.4.1 mudava para 16T, e aí até o 1/16 tocava em tercina).
 
 ### ARP: todas as tercinas (1.4)
 
@@ -307,7 +344,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.4.1: 573.928 de 581.564 bytes de flash (7,6 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.5: 576.164 de 581.564 bytes de flash (5,3 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 

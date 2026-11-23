@@ -1212,8 +1212,8 @@ UI_SMALL static void syn_presets(int32_t s)
 UI_SMALL static void ui_input(void)
 {
     static uint32_t env_t0;                             /* (BONBLOOP) ENV's press time: held, the SYNTH MODE */
-    if (trip_msg) {                                     /* (1.4.1) a triplet roll recorded on the drums (seq.c roll_fit) */
-        ui_message(trip_msg == 2u ? "DRUMS: DIV 16T" : "TRIPLETS: DIV 16T");
+    if (trip_msg) {                                     /* (1.4.2) a roll's hit that could not keep its time (seq.c) */
+        ui_message("TRIPLETS: DIV 16T");
         trip_msg = 0;
     }
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;

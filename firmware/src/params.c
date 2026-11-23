@@ -428,7 +428,7 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK, SC_SONG, SC_DRUM };
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_INS,
-       GR_WAVE };                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
+       GR_WAVE, GR_EQ };                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
 
 typedef struct {
     const char *title;
@@ -514,6 +514,8 @@ static const page_t PAGES[] = {
     {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
     {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
     {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
+    {"EQ 1", FAM_SYN, SC_TRACK, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* (1.5) LOW, MID 1 */
+    {"EQ 2", FAM_SYN, SC_TRACK, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},   /* MID 2, HIGH */
     {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, 0xFF}},
     {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DFIX}},   /* (MODE) */
     {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, 0xFF, 0xFF}},
@@ -546,6 +548,7 @@ static uint32_t syn_fx_of(const page_t *pg)
     case P_CHOR: return FXI_CHORUS;
     case P_DLY: case VG0 + VG_DCOLOR: return FXI_DELAY;
     case P_REV: return FXI_REVERB;
+    case VX0 + SX_EF1: case VX0 + SX_EF3: return FXI_EQ;
     default: return 0;
     }
 }

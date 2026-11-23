@@ -684,6 +684,8 @@ static void track_fx_run(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
             t->ins_res = (uint16_t)(b[n - 1u] < 0 ? (-b[n - 1u] > 65535 ? 65535 : -b[n - 1u])
                                                   : (b[n - 1u] > 65535 ? 65535 : b[n - 1u]));   /* (its tail's end) */
         }
+    } else if (fx == FXI_EQ) {
+        eq_run(t, b, n);                                /* (BONBLOOP 1.5) eng_wave.c */
     } else {
         tsvf_t fc;
         djf_t *f = &tflt[(uint32_t)(t - trk) % NTRK];
@@ -723,7 +725,7 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
             uint32_t done = 0, s, fx;
             for (s = 0; s < SX_NSLOT + 3u; s++) {
                 fx = s < SX_NSLOT ? (uint32_t)sx_get((uint32_t)(t - trk), SX_C1 + s) : s - SX_NSLOT + FXI_DRIVE;
-                if (fx >= FXI_DRIVE && fx <= FXI_FILTER && !((done >> fx) & 1u)) {
+                if (((fx >= FXI_DRIVE && fx <= FXI_FILTER) || fx == FXI_EQ) && !((done >> fx) & 1u)) {   /* (1.5: EQ) */
                     done |= 1u << fx;
                     track_fx_run(t, b, n, fx);
                 }

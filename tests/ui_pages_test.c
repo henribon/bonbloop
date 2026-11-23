@@ -682,13 +682,19 @@ int main(int argc, char **argv)
         check((lights_word() >> 9 & 3u) == 3u, "REC screen: MODE and START saved with the settings");
         encs[panel.enc[EN_K4]] = -1; frame();         /* (2.7) KNOB 4: QUANT off */
         {
-            int ok = rec_quant_off == 1u && (lights_word() >> 31 & 1u);
+            int ok = rec_quant_off == 1u && !(lights_word() >> 31 & 1u);   /* (BONBLOOP 1.4.2: bit 31 = QUANT ON) */
             ui.force = 1; frame(); ppm("live-rec-quant");
             lights_from_word(lights_word());
             ok &= rec_quant_off == 1u;
             encs[panel.enc[EN_K4]] = 1; frame();
-            ok &= rec_quant_off == 0u && !(lights_word() >> 31 & 1u);
-            check(ok, "REC screen (2.7): KNOB 4 -> QUANT off / on, saved with the settings (bit 31)");
+            ok &= rec_quant_off == 0u && (lights_word() >> 31 & 1u);
+            {
+                uint32_t keep = lights_word();
+                lights_from_word(keep & ~(1u << 31));
+                ok &= rec_quant_off == 1u;              /* (a word of before, bit 31 clear: real time) */
+                lights_from_word(keep);
+            }
+            check(ok, "REC screen (2.7): KNOB 4 -> QUANT off / on, saved (bit 31 = ON); 1.4.2: off unless saved ON");
         }
         ci_on = 1; ci_beat = 1; ui.force = 1; frame(); ppm("live-rec-countin");
         encs[panel.enc[EN_K1]] = -1; frame();

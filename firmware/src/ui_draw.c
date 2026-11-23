@@ -190,6 +190,46 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
  * axis is the parameter value (the times themselves are exponential). */
+/* BONBLOOP 1.5: the EQ's curve (pages EQ 1, EQ 2), as a DAW's: the gain against frequency, 30 Hz .. 16 kHz on the
+ * filter's scale, +-15 dB (3 px a dB), lines at 0 dB and at 100 Hz, 1 kHz, 10 kHz; each band its shape (the filters'
+ * response at +12 dB, computed from eng_wave.c eq_run's: EQ_BELL by the distance in the scale's steps / 2, EQ_SHELF a
+ * LOW shelf from -64 to +64 steps) scaled by its GAIN, the shapes added in dB; a dot per band at its FREQ and GAIN */
+static const int8_t EQ_BELL[33] = {127, 126, 124, 120, 115, 109, 103, 96, 89, 81, 74, 67, 61, 54, 48, 43, 37, 33, 28, 24,
+                                   21, 18, 15, 13, 11, 9, 7, 6, 5, 4, 3, 3, 2};
+static const int8_t EQ_SHELF[65] = {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+                                    127, 126, 126, 126, 125, 124, 122, 120, 117, 114, 108, 102, 94, 85, 74, 64, 53, 42, 33,
+                                    25, 19, 13, 10, 7, 5, 3, 2, 1, 1, 1};   /* (the rest 0) */
+UI_SMALL static void graph_eq(const track_t *t, uint16_t c)
+{
+    uint32_t part = (uint32_t)(t - trk) % NPART, b, mine = cur_page()->id[0] == VX0 + SX_EF3 ? 1u : 0u;
+    int32_t x, py = 0, f[4], g[4];
+    static const uint8_t GRID_F[3] = {24, 71, 118};    /* 100 Hz, 1 kHz, 10 kHz */
+    for (b = 0; b < 4u; b++)
+        f[b] = sx_get(part, SX_EF1 + 2u * b), g[b] = sx_get(part, SX_EG1 + 2u * b);
+    for (b = 0; b < 3u; b++)
+        cv_line(6 + GRID_F[b] * 226 / 127, 10, 6 + GRID_F[b] * 226 / 127, 100, TE_G2);
+    cv_line(6, 55, 232, 55, TE_G2);
+    for (x = 6; x <= 232; x++) {
+        int32_t fi = (x - 6) * 127 / 226, db = 0, y;
+        for (b = 0; b < 4u; b++) {
+            int32_t d = fi - f[b];
+            if (b == 1u || b == 2u)
+                db += g[b] * EQ_BELL[clamp((d < 0 ? -d : d) / 2, 0, 32)];
+            else
+                db += g[b] * EQ_SHELF[clamp(((b ? -d : d) + 64) / 2, 0, 64)];
+        }
+        y = clamp(55 - db * 3 / 127, 10, 100);
+        if (x > 6)
+            cv_line(x - 1, py, x, y, c);
+        py = y;
+    }
+    for (b = 0; b < 4u; b++) {                        /* (this page's: its FREQ knob's colour, KNOB 1 or 3; the others
+                                                       * grey) */
+        int32_t r = (b >> 1) == mine ? 3 : 2;
+        cv_rect(6 + f[b] * 226 / 127 - r, clamp(55 - g[b] * 3, 10, 100) - r, 2 * r + 1, 2 * r + 1,
+                (b >> 1) == mine ? TE_COL[(b & 1u) * 2u] : TE_G3);
+    }
+}
 UI_SMALL static void graph_adsr(const track_t *t, uint16_t c)
 {
     uint32_t id = cur_page()->id[0], o = id == VX0 + SX_A2 ? 1u : id == VX0 + SX_A3 ? 2u : 0u;   /* (BONBLOOP 1.3: a
@@ -534,7 +574,8 @@ UI_SMALL static uint32_t graph_signature(void)
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
-    for (i = 0; song.sel < NPART && i < 4u; i++)    /* (BONBLOOP 1.3) the synth's extras: OSC 2 and 3's ENV drawn */
+    for (i = 0; song.sel < NPART && i < NELEM(synx[0].w); i++)   /* (BONBLOOP 1.3) the synth's extras: OSC 2 and 3's
+                                                         * ENV drawn; 1.5 the EQ's curve */
         h = (h ^ synx[song.sel].w[i]) * 16777619u;
     h ^= ui.page * 2654435761u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u;
@@ -870,6 +911,9 @@ UI_SMALL static void draw_graph(void)
         switch (pg->graph) {
         case GR_ADSR:
             graph_adsr(t, c);
+            break;
+        case GR_EQ:                                  /* BONBLOOP 1.5 */
+            graph_eq(t, c);
             break;
         case GR_LFO:
             graph_lfo(t, c);

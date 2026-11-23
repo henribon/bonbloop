@@ -329,6 +329,44 @@ int main(int argc, char **argv)
                 n2 += sx_chain_has(part, i) != 0;
             check(n2 == 2u, "the chain: CHORUS and FILTR");
         }
+        {   /* 1.5: the EQ: in the chain its two pages, the curve; a band's GAIN changes the sound */
+            int32_t p0, p1, p2;
+            uint32_t sig;
+            turn(EN_K2, FXI_EQ);
+            check(sx_get(part, SX_C2) == FXI_EQ && sx_get(part, SX_EF1) == 24 && sx_get(part, SX_EG1) == 0,
+                  "SLOT2 EQ: in, flat, LOW at 100 Hz");
+            tap(B_FX); tap(B_FX); tap(B_FX);
+            check(str_eq(pg_title(), "EQ 1") && cur_page()->graph == GR_EQ, "FX three times: CHAIN 2, DJ FILT, EQ 1 (its curve)");
+            shot("synth-eq-flat");
+            fm1_in.notes |= 1u << 12;
+            frames(4);
+            p0 = peak_of(200);
+            sig = graph_signature();
+            turn(EN_K1, 127);
+            turn(EN_K2, 15);
+            snprintf(b, sizeof b, "EQ 1: KNOB 1 LOW's FREQ (%d: 16 kHz), KNOB 2 its GAIN (%d dB), the curve redrawn",
+                     sx_get(part, SX_EF1), sx_get(part, SX_EG1));
+            check(sx_get(part, SX_EF1) == 127 && sx_get(part, SX_EG1) == 15 && graph_signature() != sig, b);
+            frames(4);
+            p1 = peak_of(200);
+            turn(EN_K2, -30);
+            frames(4);
+            p2 = peak_of(200);
+            snprintf(b, sizeof b, "EQ LOW up to 16 kHz: peak %d flat, %d at +15 dB (the limiter), %d at -15 dB", p0, p1, p2);
+            check(p1 >= p0 && p2 * 4 < p0, b);
+            turn(EN_K2, 15);
+            turn(EN_K3, 40 - sx_get(part, SX_EF2));
+            turn(EN_K4, 9);
+            shot("synth-eq");
+            tap(B_FX);
+            check(str_eq(pg_title(), "EQ 2"), "FX again: EQ 2 (MID 2, HIGH)");
+            turn(EN_K4, -8);
+            shot("synth-eq2");
+            fm1_in.notes &= ~(1u << 12);
+            frames(40);
+            sx_set(part, SX_C2, 0);                     /* (out of the chain again: its pages hidden) */
+            frames(2);
+        }
     }
     tap(B_EDIT);
     {   /* SELECT walks every synth page shown, stopping at the ends */

@@ -98,29 +98,34 @@ static int wave_track(const track_t *t) { return t < &trk[NPART] && t >= &trk[0]
  * and the FX chain (7 slots, the synth pages' FX: fx.c runs DRIVE, PHASER and FILTER in its order). Kept in the side
  * records of the projects (project.c bbx_*) and of the user preset banks (upreset.c: w[0..2] there, w[3]'s 16 bits in
  * the record's spare parameter); none: sx_default */
-typedef struct { uint32_t w[4]; } synx_t;
+typedef struct { uint32_t w[6]; } synx_t;   /* (1.5: w[4] w[5] the EQ) */
 static synx_t synx[NPART];
 enum { SX_LR1, SX_LD1, SX_LT1, SX_LR2, SX_LD2, SX_LT2, SX_LR3, SX_LD3, SX_LT3,
        SX_A2, SX_D2, SX_S2, SX_R2, SX_A3, SX_D3, SX_S3, SX_R3,
-       SX_C1, SX_C2, SX_C3, SX_C4, SX_C5, SX_C6, SX_C7, SX_N };
+       SX_C1, SX_C2, SX_C3, SX_C4, SX_C5, SX_C6, SX_C7,
+       SX_EF1, SX_EG1, SX_EF2, SX_EG2, SX_EF3, SX_EG3, SX_EF4, SX_EG4, SX_N };   /* (1.5) the EQ: each band's FREQ, GAIN */
+#define EQ_W4 (24u | 57u << 7 | 85u << 14 | 113u << 21)   /* the EQ's FREQs as it starts: 100 Hz, 500 Hz, 2 kHz, 8 kHz */
 #define SX_LFO 3u                                     /* (an oscillator's LFO: SX_LR1 + SX_LFO k ..) */
 #define SX_NSLOT 7u                                   /* (the chain: one slot per effect) */
-enum { FXI_NONE, FXI_DRIVE, FXI_PHASER, FXI_FILTER, FXI_CHORUS, FXI_DELAY, FXI_REVERB, FXI_N };   /* (1.4.1: no TRANS) */
-static const char *const N_FXID[FXI_N] = {"--", "DRIVE", "PHASR", "FILTR", "CHORS", "DELAY", "REVRB"};
+enum { FXI_NONE, FXI_DRIVE, FXI_PHASER, FXI_FILTER, FXI_CHORUS, FXI_DELAY, FXI_REVERB, FXI_EQ, FXI_N };   /* (1.4.1: no
+                                                       * TRANS; 1.5: EQ, where TRANS was) */
+static const char *const N_FXID[FXI_N] = {"--", "DRIVE", "PHASR", "FILTR", "CHORS", "DELAY", "REVRB", "EQ"};
 static const char *const N_LDEST[] = {"POS", "PITCH", "LVL"};
 #define SXS 0x80u                                     /* (bits: a signed field) */
 static const uint8_t SXF[SX_N][3] = {   /* word, shift, bits | SXS. w[3]: 16 bits only (a user preset's spare parameter) */
     {2, 0, 4}, {2, 4, 4 | SXS}, {0, 28, 2}, {2, 8, 4}, {2, 12, 4 | SXS}, {1, 28, 2}, {2, 16, 4}, {2, 20, 4 | SXS}, {1, 30, 2},
     {0, 0, 7}, {0, 7, 7}, {0, 14, 7}, {0, 21, 7}, {1, 0, 7}, {1, 7, 7}, {1, 14, 7}, {1, 21, 7},
     {2, 24, 3}, {2, 27, 3}, {3, 0, 3}, {3, 3, 3}, {3, 6, 3}, {3, 9, 3}, {3, 12, 3},
+    {4, 0, 7}, {5, 0, 5 | SXS}, {4, 7, 7}, {5, 5, 5 | SXS}, {4, 14, 7}, {5, 10, 5 | SXS}, {4, 21, 7}, {5, 15, 5 | SXS},
 };
 #define SXD_LFO {"RATE", F_INT, 0, 15, 0, 0, 0}, {"DEPTH", F_INT, -8, 7, 0, 0, 0}, {"DEST", F_ENUM, 0, 2, 0, N_LDEST, 0}
 #define SXD_ENV {"ATK", F_INT, 0, 127, 0, 0, 0}, {"DEC", F_INT, 0, 127, 0, 0, 0}, {"SUS", F_INT, 0, 127, 0, 0, 0}, \
                 {"REL", F_INT, 0, 127, 0, 0, 0}   /* (shown as SLOOP's ENV: params.c wave_field) */
 #define SXD_SLOT(l) {l, F_ENUM, 0, FXI_N - 1, 0, N_FXID, 0}
+#define SXD_EQ(l) {l, F_CUTOFF, 0, 127, 0, 0, 0}, {"GAIN", F_INT, -15, 15, 0, 0, "dB"}
 static const param_desc_t SXD[SX_N] = {SXD_LFO, SXD_LFO, SXD_LFO, SXD_ENV, SXD_ENV, SXD_SLOT("SLOT1"), SXD_SLOT("SLOT2"),
                                        SXD_SLOT("SLOT3"), SXD_SLOT("SLOT4"), SXD_SLOT("SLOT5"), SXD_SLOT("SLOT6"),
-                                       SXD_SLOT("SLOT7")};
+                                       SXD_SLOT("SLOT7"), SXD_EQ("LOW"), SXD_EQ("MID1"), SXD_EQ("MID2"), SXD_EQ("HIGH")};
 static int32_t sx_get(uint32_t part, uint32_t k)
 {
     const uint8_t *f = SXF[k];
@@ -149,6 +154,7 @@ static void sx_default(const track_t *t)
     memset(&synx[part], 0, sizeof synx[part]);
     for (i = 0; i < 8u; i++)
         sx_set(part, SX_A2 + i, t->p[P_ATK + (i & 3u)]);
+    synx[part].w[4] = EQ_W4;                          /* (1.5: the EQ flat, its bands where they start) */
 }
 /* (1.3) to / from a user preset (upreset.c): w[0..2] marked by w[0]'s top bits 10 (1.2 wrote 01, an erased side record
  * reads 11, none 00), w[3] beside; not marked: sx_default */
@@ -158,15 +164,18 @@ static void sx_give(uint32_t part, uint32_t *w)
     if (part < NPART)
         w[0] = synx[part].w[0] | SX_MARK, w[1] = synx[part].w[1], w[2] = synx[part].w[2];
 }
-static void sx_take(const track_t *t, const uint32_t *w, uint32_t w3)
+static int sx_take(const track_t *t, const uint32_t *w, uint32_t w3)   /* 1: taken (upreset.c: then the EQ) */
 {
     uint32_t part = (uint32_t)(t - trk);
     if (part >= NPART)
-        return;
-    if (w && (w[0] >> 30) == 2u)
+        return 0;
+    if (w && (w[0] >> 30) == 2u) {
         synx[part].w[0] = w[0] & ~SX_MARK, synx[part].w[1] = w[1], synx[part].w[2] = w[2], synx[part].w[3] = w3 & 0xFFFFu;
-    else
-        sx_default(t);
+        synx[part].w[4] = EQ_W4, synx[part].w[5] = 0;
+        return 1;
+    }
+    sx_default(t);
+    return 0;
 }
 static uint32_t sx_chain_has(uint32_t part, uint32_t fx)   /* fx in the chain: its slot + 1, 0 = not there */
 {
@@ -198,10 +207,10 @@ UI_SMALL static const param_desc_t *wv_desc(const track_t *t, uint32_t vid, int1
 /* (1.2) the synth's FX chain: an effect in (on: at a usable amount if it was off) or out (off) */
 static void syn_fx_set(track_t *t, uint32_t fx, int on)
 {
-    static const uint8_t ID[FXI_N] = {0, P_DIST, P_ITYPE, P_TFLT, P_CHOR, P_DLY, P_REV};
-    static const int8_t AMT[FXI_N] = {0, 40, 6, -24, 50, 40, 45}   /* (6: fx.c IT_PHASER) */;
+    static const uint8_t ID[FXI_N] = {0, P_DIST, P_ITYPE, P_TFLT, P_CHOR, P_DLY, P_REV, 0};
+    static const int8_t AMT[FXI_N] = {0, 40, 6, -24, 50, 40, 45, 0}   /* (6: fx.c IT_PHASER) */;
     int16_t *p = t->p;
-    if (!fx || fx >= FXI_N)
+    if (!fx || fx >= FXI_EQ)                          /* (1.5: the EQ keeps its settings, out of the chain it is off) */
         return;
     if (fx == FXI_PHASER)                               /* (the INSERT: on as a PHASER at its MIX, off: none) */
         p[P_ITYPE] = 0;
@@ -701,6 +710,48 @@ static void wave_drive(track_t *t, int32_t *b, uint32_t n, int32_t d)
         t->dist_lp1 += mulq15(y - t->dist_lp1, k);      /* TONE: two poles */
         t->dist_lp2 += mulq15(t->dist_lp1 - t->dist_lp2, k);
         b[i] = mulq15(t->dist_lp2, mk);
+    }
+}
+
+/* BONBLOOP 1.5: the synth's EQ (FX chain EQ; pages EQ 1, EQ 2): a LOW shelf, MID 1 and MID 2 bells, a HIGH shelf; each a
+ * FREQ (the filter's scale, 30 Hz .. 16 kHz) and a GAIN (-15 .. +15 dB), on the part's block in the chain's order (fx.c).
+ * Andrew Simper's SVF (dsp.c tsvf_coef) with his EQ outputs, y = c0 x + c1 band + c2 low, A = 10^(dB / 40): the shelves
+ * on a cutoff moved by sqrt A (no dip below or above), the bells A^2 at their FREQ. A band at 0 dB costs nothing */
+#define EQ_K 5799                                     /* the damping at reso 40: sqrt 2 (Q 0.71), Q12 */
+static const int16_t EQ_A[31] = {1727, 1830, 1938, 2053, 2175, 2303, 2440, 2584, 2738, 2900, 3072, 3254, 3446, 3651, 3867,
+                                 4096, 4339, 4596, 4868, 5157, 5462, 5786, 6129, 6492, 6876, 7284, 7715, 8173, 8657, 9170,
+                                 9713};   /* A, Q12, -15 .. +15 dB */
+static int32_t eq_s[NPART][4][2];
+static void eq_run(track_t *t, int32_t *b, uint32_t n)
+{
+    uint32_t part = (uint32_t)(t - trk), k, i;
+    for (k = 0; part < NPART && k < 4u; k++) {
+        int32_t db = sx_get(part, SX_EG1 + 2u * k), a, a2, c0 = 4096, c1, c2 = 0, sh = 0, *s = eq_s[part][k];
+        tsvf_t c;
+        if (!db)
+            continue;
+        a = EQ_A[clamp(db, -15, 15) + 15];
+        a2 = (a * a) >> 12;
+        if (!k) {                                     /* LOW: 1, k (A - 1), A^2 - 1; the cutoff / sqrt A */
+            c1 = (EQ_K * (a - 4096)) >> 12;
+            c2 = a2 - 4096;
+            sh = -db * 298;                           /* (1.16 of the scale's steps a dB, << 8) */
+        } else if (k == 3u) {                         /* HIGH: A^2, k (1 - A) A, 1 - A^2; the cutoff x sqrt A */
+            c0 = a2;
+            c1 = (((EQ_K * (4096 - a)) >> 12) * a) >> 12;
+            c2 = 4096 - a2;
+            sh = db * 298;
+        } else {                                      /* MID: 1, k (A^2 - 1), 0 */
+            c1 = (EQ_K * (a2 - 4096)) >> 12;
+        }
+        tsvf_coef(&c, (sx_get(part, SX_EF1 + 2u * k) << 8) + sh, 40);
+        for (i = 0; i < n; i++) {
+            int32_t x = clamp(b[i], -65535, 65535), v3 = x - s[1];
+            int32_t v1 = (c.a1 * s[0] + c.a2 * v3) >> 13, v2 = s[1] + ((c.a2 * s[0] + c.a3 * v3) >> 13);
+            s[0] = clamp(2 * v1 - s[0], -150000, 150000);
+            s[1] = clamp(2 * v2 - s[1], -150000, 150000);
+            b[i] = clamp(((c0 * x) >> 12) + ((c1 * (v1 >> 1)) >> 11) + ((c2 * (v2 >> 1)) >> 11), -65535, 65535);
+        }
     }
 }
 

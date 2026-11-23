@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.4.1"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.5"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -505,7 +505,7 @@ UI_SMALL static void note_name(char *b, uint32_t n)
  * nothing of it is saved, the sound is the track's like any other */
 static uint8_t syn_mode;
 static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
-static const uint8_t SYN_GRP[5] = {0, 6, 10, 16, 25};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
+static const uint8_t SYN_GRP[5] = {0, 6, 10, 16, 27};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
 static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
 UI_SMALL static int syn_group_of(uint32_t fam)
 {
@@ -525,7 +525,7 @@ UI_SMALL static void syn_chain_fill(track_t *t)
 {
     const int16_t *p = t->p;
     uint32_t part = (uint32_t)(t - trk), fx, s;
-    uint8_t on[FXI_N] = {0, p[P_DIST] != 0, p[P_ITYPE] != 0, p[P_TFLT] != 0, p[P_CHOR] != 0, p[P_DLY] != 0, p[P_REV] != 0};
+    uint8_t on[FXI_N] = {0, p[P_DIST] != 0, p[P_ITYPE] != 0, p[P_TFLT] != 0, p[P_CHOR] != 0, p[P_DLY] != 0, p[P_REV] != 0, 0};
     if (is_drum(t) || t->eng_req % NENGINES != ENGI_WAVE)
         return;
     for (fx = 1; fx < FXI_N; fx++)
