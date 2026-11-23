@@ -8,7 +8,9 @@ cadeia de efeitos própria (drive estilo Decapitator, transient shaper, phaser, 
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.3** — no MODO SYNTH não existe mais o envelope da voz: **cada oscilador tem o seu envelope completo**
+**Versão 1.3.1** — correção: nas páginas OSC2 ENV e OSC3 ENV o desenho do envelope agora acompanha os knobs.
+
+**1.3** — no MODO SYNTH não existe mais o envelope da voz: **cada oscilador tem o seu envelope completo**
 (ATK · DEC · SUS · REL, igual ao do SLOOP).
 (1.2: LFO por oscilador, cadeia de efeitos que você monta, DRIVE mais pesado, delay 1/2, 1/2T, livre em ms e FIX,
 voicings de acorde no SEL, REC + SAVE para limpar o synth. 1.1: 3 osciladores, 16 formas de onda, REV, efeitos do
@@ -274,7 +276,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.3: 580.400 de 581.564 bytes de flash (1,1 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.3.1: 580.448 de 581.564 bytes de flash (1,1 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 

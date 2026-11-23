@@ -111,7 +111,7 @@
   <pre id="log"></pre>
   <div class="doors">
     <a class="door ed" href="../editor/" data-t="editor"></a>
-    <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.3.html" data-t="edOffline"></a>
+    <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.3.1.html" data-t="edOffline"></a>
     <button id="app" class="door ed" hidden data-t="appInstall"></button>
     <a class="door" href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">Source code and guide</a>
   </div>
@@ -606,7 +606,7 @@ const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; $("status").textCont
 const say = (txt) => { lastKey = null; $("status").textContent = txt; };
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
-const meta = {"version": "1.3", "product": "FM-1_900", "pkg": "../../firmware/bonbloop-1.3.fwsc", "sha256": "b1912ad65f8fe771a2fae7eaa9c80ecd06823b8840a5a642c2919baa5aa33684"};
+const meta = {"version": "1.3.1", "product": "FM-1_900", "pkg": "../../firmware/bonbloop-1.3.1.fwsc", "sha256": "2215a50dc37af15eea6d59da6c701ec54e88f8f9577a940f52a18d8ae7bacf5b"};
 
 let writing = false;
 const lockAll = (on) => {
