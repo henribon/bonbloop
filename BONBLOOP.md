@@ -8,8 +8,15 @@ cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, de
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.6** — a **FX CHAIN é do projeto** (uma só, para as tracks 1 a 3), cada track com o seu **mixer** (TRACK FX)
-e os seus **MIX** (FX MIX); **MIX** também no reverb e no chorus; **copiar e colar** o padrão de uma track em outra.
+**Versão 1.7** — **páginas FX novas** fora do modo synth: o **MIXER** da track (DST · MOD · DLY · REV, tudo em
+paralelo), um **COMP** (glue) e um **EQ** de 4 bandas no master, os ajustes de DIST, MOD (chorus / flanger / phaser),
+DELAY e REVERB, o FILTER e, por último, o SLICER. No modo synth: **FX MIX** (um knob por efeito da cadeia, no lugar
+de TRACK FX + FX MIX), **OSC MIX** (o volume de cada oscilador) e **SAVE** abre a página **PRESET** para salvar o
+som. O CLICK ON agora se chama **PL+REC**. Correção: girar um GAIN do EQ ou um MIX passando por 1–6 ligava e
+desligava efeitos (desde a 1.5).
+
+**1.6** — a **FX CHAIN é do projeto** (uma só, para os sons do synth), com os **MIX** de cada efeito; **MIX** também
+no reverb e no chorus; **copiar e colar** o padrão de uma track em outra.
 
 **1.5** — um **EQ de 4 bandas** com a curva na tela, como o de uma DAW (FX CHAIN → EQ); o **REC grava em tempo
 real** de fábrica (o QUANT da tela REC READY liga a quantização).
@@ -57,9 +64,12 @@ Um toque rápido em ENV continua abrindo a página ENV, como sempre; só **segur
 
 Dentro do MODO SYNTH você **não sai sem querer**:
 
-- **ARP, SEQ, SEL, GLO e SAVE** tocados rapidamente não abrem nada (a tela avisa *HOLD ENV: SYNTH OFF*).
+- **ARP, SEQ, SEL e GLO** tocados rapidamente não abrem nada (a tela avisa *HOLD ENV: SYNTH OFF*).
   **Segurados**, as camadas deles funcionam como sempre (passos no SEQ, mute/solo no GLO, seções no SAVE, roll
   no ARP...) e, ao soltar, você volta ao synth.
+- **SAVE** tocado rapidamente abre a página **PRESET** do synth (1.7): **SLOT · LOAD · ERASE · SAVE**, os presets de
+  usuário (os mesmos de SAVE → USER). Escolha o slot no KNOB 1 e gire o KNOB 4 duas vezes para salvar o som da track
+  (osciladores, envelopes, LFOs, EQ, MIX e envios). Ele aparece no navegador de PRESETS.
 - **HOME** volta à página OSC 1 (segurar HOME ainda abre o menu).
 - **ALGORITHM** (troca de track) só passa pelos tracks de synth 1 a 3.
 - Se algo trocar a tela (carregar um projeto, o editor web), ela volta ao synth.
@@ -72,9 +82,10 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 
 | Botão | Página | KNOB 1 · KNOB 2 · KNOB 3 · KNOB 4 |
 | --- | --- | --- |
-| **EDIT** | OSC 1 | WAVE · POS · LVL · REV |
-| | OSC 2 | WAVE · POS · LVL · REV |
-| | OSC 3 | WAVE · POS · LVL · REV |
+| **EDIT** | OSC 1 | WAVE · POS · LVL1 · REV |
+| | OSC 2 | WAVE · POS · LVL2 · REV |
+| | OSC 3 | WAVE · POS · LVL3 · REV |
+| | OSC MIX | LVL1 · LVL2 · LVL3 · LEVEL — **o volume de cada oscilador e o da track** (1.7) |
 | | TUNE | SEMI2 · FINE2 · SEMI3 · FINE3 |
 | | FILTER | CUT · RES · TYPE (LP/BP/HP) · FLT (quanto o envelope abre o filtro) |
 | | VOICE | WARP · VCE (POLY/MONO/LEG/UNI) · DTUNE (abertura do unison) · GLD |
@@ -88,17 +99,18 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
 | | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
-| | TRACK FX | DST · CHO · DLY · REV — **a quantidade de cada efeito nesta track** (1.6) |
-| | FX MIX | DRIVE · PHASR · FILTR · EQ — **o MIX (seco / molhado) de cada um nesta track** (1.6) |
+| | FX MIX | **um knob por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER, FILTER e EQ o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio |
+| | FX MIX 2 | os efeitos dos slots 5 a 7 (só aparece com 5 efeitos ou mais) |
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
 | | DJ FILT | FILT (filtro DJ do track) |
 | | EQ 1 | LOW (Hz) · GAIN · MID1 (Hz) · GAIN — com a curva (1.5) |
 | | EQ 2 | MID2 (Hz) · GAIN · HIGH (Hz) · GAIN — com a curva |
-| | CHORUS | CHO (envio) · CRT · CDP · **MIX** (o retorno, 1.6) |
+| | CHORUS | MOD (envio) · CRT · CDP · **MIX** (o retorno, 1.6) — o TYPE (chorus / flanger / phaser) fica em FX → MOD |
 | | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
 | | DELAY 2 | COLR · MIX |
 | | REVERB | REV (envio) · SIZE · DAMP · **MIX** (o retorno, 1.6) |
+| **SAVE** | PRESET | SLOT · LOAD · ERASE · SAVE — **salvar o som** (1.7) |
 
 As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
 
@@ -192,11 +204,12 @@ ou **LVL** (tremolo só nele).
 
 ### A cadeia de efeitos (1.2; do projeto desde a 1.6)
 
-**1.6: a FX CHAIN é uma só, do projeto.** Os efeitos escolhidos e a ordem deles valem para as **tracks 1, 2 e 3**,
-dentro e fora do modo synth, com qualquer som. Cada track regula **quanto** de cada efeito na página **TRACK FX**
-(DST, CHO, DLY, REV: o mixer de sempre do SLOOP) e o **MIX** seco/molhado de DRIVE, PHASER, FILTER e EQ na página
-**FX MIX**; o EQ tem as bandas de cada track. Tirar um efeito da cadeia desliga ele nas três tracks. A bateria
-continua com os envios dela. Num projeto salvo antes da 1.6, a cadeia que vale é a que estava na track 1.
+**A FX CHAIN é uma só, do projeto (1.6):** os efeitos escolhidos e a ordem deles valem para **todas as tracks com som
+do synth** (1.7: só elas; as outras tracks usam as páginas FX normais, ver *Efeitos fora do modo synth*). Cada track
+regula **quanto** de cada efeito na página **FX MIX** (1.7): um knob por efeito, na ordem da cadeia — o **MIX**
+seco/molhado de DRIVE, PHASER, FILTER e EQ, o **envio** de CHORUS, DELAY e REVERB. O EQ tem as bandas de cada track.
+Tirar um efeito da cadeia desliga ele nas três tracks. Num projeto salvo antes da 1.6, a cadeia que vale é a que
+estava na track 1.
 
 
 No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 7 slots (4 aqui, 3 em
@@ -238,7 +251,7 @@ DAW: o ganho (±15 dB) em função da frequência (30 Hz a 16 kHz), com linhas e
 
 ### Delay: MODE SYNC / MS (1.4)
 
-O delay tem um **MODE** (KNOB 4 da página DELAY; fora do modo synth, FX → DLY 2):
+O delay tem um **MODE** (KNOB 4 da página DELAY, dentro e fora do modo synth):
 
 - **SYNC**: o **TIME** é uma figura, no BPM: **1/2, 1/2T, 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D,
   1/32, 1/32T** — o knob anda nessa ordem, uma figura por clique.
@@ -278,6 +291,42 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 
 ## Fora do modo synth
 
+### Efeitos fora do modo synth (1.7)
+
+O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar):
+
+| Página | KNOB 1 · KNOB 2 · KNOB 3 · KNOB 4 | De quem |
+| --- | --- | --- |
+| **MIXER** | DST · MOD · DLY · REV | da track |
+| **COMP** | THRS (0 dB = desligado, até −40 dB) · RATIO (2:1, 4:1, 10:1) · ATK (0,1–30 ms) · REL (0,1–1,2 s) | do master |
+| **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | do master |
+| **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF) | do projeto |
+| **MOD** | TYPE (CHOR, FLANG, PHASR) · RATE · DEPTH · FDBK | do projeto |
+| **DELAY** | TIME · FDBK · COLR · MODE (SYNC / MS) | do projeto |
+| **REVERB** | SIZE · DAMP | do projeto |
+| **FILTER** | FILT (o filtro DJ da track) | da track |
+| **SLICER** | SLCR · PAT · RATE · DEPTH | da track |
+
+- **Tudo em paralelo:** no MIXER, cada knob soma o efeito ao som seco, que fica inteiro. **DST** soma o som
+  distorcido (o DIST da página DIST); **MOD**, **DLY** e **REV** são os envios para o MOD, o delay e o reverb. Em 0, a
+  track sai exatamente como sem o efeito.
+- O **MOD** é o barramento do chorus, agora com três tipos: **CHOR** (o chorus de sempre), **FLANG** e **PHASR**
+  (estéreo, um lado meia volta atrás do outro). O FDBK vale para FLANG e PHASR.
+- O **COMP** é um *glue compressor* no master (depois dos efeitos, antes do volume): estéreo, com make-up automático
+  (devolve metade do que o compressor tira em fundo de escala). Em THRS 0 dB não faz nada.
+- O **EQ** do master é o mesmo EQ de 4 bandas do synth, para a mistura inteira. Plano, não gasta nada.
+- Na **bateria**, DST e MOD são dela; DLY e REV são os envios da bateria (os mesmos de GLO → DRUMS).
+- **Sem MIX nestas páginas:** os MIX (seco/molhado e retornos) ficam só no modo synth.
+- O antigo **INSERT** saiu destas páginas: as distorções dele são o DIST, e PHASR / FLANG / CHOR são o MOD. Ele continua
+  existindo só como o PHASER da cadeia do synth. Num som antigo com INSERT, ele deixa de soar nas tracks do SLOOP; o
+  DST antigo agora soa em paralelo, com o DIST do projeto.
+- Tudo fica salvo no projeto (num projeto antigo: COMP desligado, MOD em CHOR, EQ do master plano).
+
+### CLICK: PL+REC (1.7)
+
+O metrônomo fica em **GLO → GLOBAL → KNOB 3 (CLICK)**: **OFF**, **REC** (só gravando) ou **PL+REC** (tocando e
+gravando; antes se chamava ON).
+
 ### Copiar e colar um padrão (1.6)
 
 **SAVE → TOOLS → COPY** (KNOB 3) guarda o padrão da track selecionada: os passos, o micro-timing, as condições de
@@ -289,7 +338,7 @@ PASTE.
 ### MIX do reverb e do chorus (1.6)
 
 Reverb e chorus são envios: a quantidade em cada track é o som molhado, e o seco fica inteiro. O **MIX** de cada um
-(na página REVERB / CHORUS do modo synth, ou em FX → REV/CHO 2) é o nível do retorno, como o MIX do delay.
+(nas páginas REVERB / CHORUS do modo synth) é o nível do retorno, como o MIX do delay.
 
 ### REC em tempo real (1.5)
 
@@ -369,7 +418,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.6: 577.364 de 581.564 bytes de flash (4,2 KB livres); RAM 60.860 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.7: 578.732 de 581.564 bytes de flash (2,8 KB livres); RAM 62.316 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 
@@ -382,8 +431,8 @@ Tamanho do 1.6: 577.364 de 581.564 bytes de flash (4,2 KB livres); RAM 60.860 de
   um campo só, os 3 osciladores tocando, os efeitos, o modo segurando a tela (ARP/SEQ/SEL/GLO/SAVE/HOME/ALGO),
   sair, a bateria selecionada; grava as telas em `synth-*.ppm`.
 
-A suíte de regressão (`tests/regress.c`) confirma que **nenhum som do SLOOP mudou**: as 182 renderizações batem
-bit a bit com o `golden.txt`; as 16 do WAVE foram atualizadas.
+A suíte de regressão (`tests/regress.c`) confere as 199 renderizações bit a bit com o `golden.txt`. Na 1.7 mudaram
+só as que usam o DST (os presets de fábrica com distorção, os testes de envio): o DST agora é em paralelo.
 
 ## Créditos
 

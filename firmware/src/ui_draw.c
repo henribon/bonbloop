@@ -201,7 +201,9 @@ static const int8_t EQ_SHELF[65] = {127, 127, 127, 127, 127, 127, 127, 127, 127,
                                     25, 19, 13, 10, 7, 5, 3, 2, 1, 1, 1};   /* (the rest 0) */
 UI_SMALL static void graph_eq(const track_t *t, uint16_t c)
 {
-    uint32_t part = (uint32_t)(t - trk) % NPART, b, mine = cur_page()->id[0] == VX0 + SX_EF3 ? 1u : 0u;
+    uint32_t part = cur_page()->scope == SC_GLOBAL ? NPART : (uint32_t)(t - trk) % NPART, b;   /* (1.7: FX > EQ, the
+                                                         * master's) */
+    uint32_t mine = cur_page()->id[0] == VX0 + SX_EF3 ? 1u : 0u;
     int32_t x, py = 0, f[4], g[4];
     static const uint8_t GRID_F[3] = {24, 71, 118};    /* 100 Hz, 1 kHz, 10 kHz */
     for (b = 0; b < 4u; b++)
@@ -505,8 +507,10 @@ UI_SMALL static void graph_scale(const track_t *t, uint16_t c)
 UI_SMALL static void graph_fx(const track_t *t, uint16_t c)
 {
     uint32_t i;
-    for (i = 0; i < 4u; i++) {
-        int32_t h = t->p[P_DIST + i] * 80 / 127, x = (int32_t)i * 60 + 28;
+    (void)t;
+    for (i = 0; i < 4u; i++) {                          /* (1.7: the page's values, the drums' DLY REV too) */
+        int16_t *vp;
+        int32_t h = page_desc(cur_page(), i, &vp) && vp ? clamp(*vp, 0, 127) * 80 / 127 : 0, x = (int32_t)i * 60 + 28;
         cv_rect(x, 10, 1, 80, C_LINE);
         cv_rect(x, 90 - h, 1, h, c);
         cv_rect(x - 3, 90 - h, 7, 1, c);
@@ -577,6 +581,7 @@ UI_SMALL static uint32_t graph_signature(void)
     for (i = 0; song.sel < NPART && i < NELEM(synx[0].w); i++)   /* (BONBLOOP 1.3) the synth's extras: OSC 2 and 3's
                                                          * ENV drawn; 1.5 the EQ's curve */
         h = (h ^ synx[song.sel].w[i]) * 16777619u;
+    h = (((h ^ synx[NPART].w[4]) * 16777619u) ^ synx[NPART].w[5]) * 16777619u;   /* (1.7) FX > EQ's, the master's */
     h ^= ui.page * 2654435761u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u;
     {   /* (2.7) the favourites: the PRESETS list and its FAV column */

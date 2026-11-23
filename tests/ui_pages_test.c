@@ -1230,8 +1230,12 @@ int main(int argc, char **argv)
         check(!strcmp(PT(), "LFO 2"), "SELECT left: the page before");
         SEL(-1);
         check(!strcmp(PT(), "LFO"), "SELECT left: LFO");
-        tap(B_FX); SEL(1);
-        check(!strcmp(PT(), "FILTER"), "SELECT on FX: next page, the track FILTER");
+        tap(B_FX);
+        check(!strcmp(PT(), "MIXER") && !strcmp(TP[P_CHOR].label, "MOD"), "BONBLOOP 1.7: FX opens the track's MIXER (DST MOD DLY REV)");
+        SEL(1);
+        check(!strcmp(PT(), "COMP"), "SELECT on FX: next page, COMP (the master's)");
+        SEL(7);
+        check(!strcmp(PT(), "FILTER"), "SELECT on FX: EQ 1, EQ 2, DIST, MOD, DELAY, REVERB, then the track FILTER");
         TSEL->p[P_TFLT] = -32; ui.force = 1; frames(2); ppm("page-filter");
         check(!strcmp(ui.big_l[0], "FILT") && !strcmp(ui.big_v[0], "LP50") && !ui.big_l[1][0],
               "FILTER page: its one value drawn large (LP50 %)");
@@ -1244,7 +1248,7 @@ int main(int argc, char **argv)
         }
         TSEL->p[P_TFLT] = 0;
         SEL(9);
-        check(!strcmp(PT(), "REV/CHO 2"), "SELECT on FX: on to the last page, REV/CHO 2 (BONBLOOP 1.6: their MIX)");
+        check(!strcmp(PT(), "SLICER"), "SELECT on FX: on to the last page, the SLICER (BONBLOOP 1.7)");
         tap(B_EDIT); SEL(-9);
         check(!strcmp(PT(), "EDIT 1"), "SELECT on EDIT: back to the first page");
         SEL(9);
@@ -1698,8 +1702,8 @@ int main(int argc, char **argv)
         check(er_mute == 0u, "2.7: a black key again: back to erasing, also after EDIT is let go");
         drum_mute = 0;
         TDRUM->dstep[0] = (dstep_t){0};
-        WALK(FAM_FX, "INSERT", ins_d);
-        check(ins_d, "the drum track: the INSERT page in FX");
+        WALK(FAM_FX, "MIXER", ins_d);
+        check(ins_d, "the drum track: the MIXER page in FX (BONBLOOP 1.7)");
         go_home(); frames(16);
 
         song.sel = 0; set_engine_of(&trk[0], 0); trk[0].engine = trk[0].eng_req; go_home(); frame();

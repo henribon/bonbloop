@@ -74,7 +74,7 @@ static const param_desc_t WVD[WV_N] = {
     {"WAVE", F_ENUM, 0, WM_N - 1, WM_TAB, N_WMODE, 0}, {"POS", F_PCT, 0, 127, 64, 0, 0}, {"REV", F_ENUM, 0, 1, 0, N_WOFFON, 0},
     {"WAVE", F_ENUM, 0, WM_N - 1, 0, N_WMODE, 0}, {"POS", F_PCT, 0, 127, 64, 0, 0}, {"REV", F_ENUM, 0, 1, 0, N_WOFFON, 0},
     {"WAVE", F_ENUM, 0, WM_N - 1, 0, N_WMODE, 0}, {"POS", F_PCT, 0, 127, 64, 0, 0}, {"REV", F_ENUM, 0, 1, 0, N_WOFFON, 0},
-    {"LVL", F_PCT, 0, 31, 31, 0, 0}, {"LVL", F_PCT, 0, 31, 24, 0, 0}, {"LVL", F_PCT, 0, 31, 24, 0, 0},
+    {"LVL1", F_PCT, 0, 31, 31, 0, 0}, {"LVL2", F_PCT, 0, 31, 24, 0, 0}, {"LVL3", F_PCT, 0, 31, 24, 0, 0},
     {"SEMI2", F_SEMI, -24, 24, 0, 0, 0}, {"FINE2", F_INT, -16, 15, 0, 0, "ct"},
     {"SEMI3", F_SEMI, -24, 24, 0, 0, 0}, {"FINE3", F_INT, -16, 15, 0, 0, "ct"},
     {"CUT", F_CUTOFF, 0, 127, 110, 0, 0}, {"RES", F_PCT, 0, 127, 10, 0, 0}, {"WARP", F_PCT, 0, 127, 0, 0, 0},
@@ -99,7 +99,7 @@ static int wave_track(const track_t *t) { return t < &trk[NPART] && t >= &trk[0]
  * records of the projects (project.c bbx_*) and of the user preset banks (upreset.c: w[0..2] there, w[3]'s 16 bits in
  * the record's spare parameter); none: sx_default */
 typedef struct { uint32_t w[6]; } synx_t;   /* (1.5: w[4] w[5] the EQ) */
-static synx_t synx[NPART];
+static synx_t synx[NPART + 1];                  /* (1.7: synx[NPART], the master's: FX > EQ, w[4] w[5] only) */
 enum { SX_LR1, SX_LD1, SX_LT1, SX_LR2, SX_LD2, SX_LT2, SX_LR3, SX_LD3, SX_LT3,
        SX_A2, SX_D2, SX_S2, SX_R2, SX_A3, SX_D3, SX_S3, SX_R3,
        SX_C1, SX_C2, SX_C3, SX_C4, SX_C5, SX_C6, SX_C7,
@@ -140,7 +140,7 @@ static int32_t sx_get(uint32_t part, uint32_t k)
     uint32_t b, v;
     if (k >= SX_C1 && k <= SX_C7)
         part = 0;                                     /* (1.6: the project's chain) */
-    b = f[2] & 15u, v = (synx[part % NPART].w[f[0]] >> f[1]) & ((1u << b) - 1u);
+    b = f[2] & 15u, v = (synx[part > NPART ? 0u : part].w[f[0]] >> f[1]) & ((1u << b) - 1u);
     if (f[2] & SXI)
         return (int32_t)(((1u << b) - 1u) - v);
     return f[2] & SXS ? (int32_t)(v ^ (1u << (b - 1u))) - (int32_t)(1u << (b - 1u)) : (int32_t)v;
@@ -154,7 +154,8 @@ static void sx_set(uint32_t part, uint32_t k, int32_t v)
     v = clamp(v, SXD[k].min, SXD[k].max);
     if (f[2] & SXI)
         v = (int32_t)m - v;
-    synx[part % NPART].w[f[0]] = (synx[part % NPART].w[f[0]] & ~(m << f[1])) | (((uint32_t)v & m) << f[1]);
+    part = part > NPART ? 0u : part;
+    synx[part].w[f[0]] = (synx[part].w[f[0]] & ~(m << f[1])) | (((uint32_t)v & m) << f[1]);
 }
 /* (1.3) oscillator o's envelope, i: 0 ATK, 1 DEC, 2 SUS, 3 REL. OSC 1's is the track's ENV (P_ATK .. P_REL) */
 static int32_t wv_envp(const track_t *t, uint32_t o, uint32_t i)
@@ -270,7 +271,8 @@ UI_SMALL static int wv_commit(track_t *t, const int16_t *vp)
     if (k >= VX0) {
         uint32_t was = (uint32_t)sx_get(part, k - VX0);
         sx_set(part, k - VX0, wv_tmp);
-        if (k >= VX0 + SX_C1)                         /* a slot of the chain: what it adds or takes out */
+        if (k >= VX0 + SX_C1 && k <= VX0 + SX_C7)     /* a slot of the chain: what it adds or takes out (1.7: only
+                                                       * those; an EQ GAIN or a MIX at 1..6 took effects in and out) */
             syn_chain_changed(t, was, (uint32_t)wv_tmp);
     } else {
         wv_set(t->p, k - VP0, wv_tmp);
@@ -753,12 +755,12 @@ static void wave_drive(track_t *t, int32_t *b, uint32_t n, int32_t d)
 static const int16_t EQ_A[31] = {1727, 1830, 1938, 2053, 2175, 2303, 2440, 2584, 2738, 2900, 3072, 3254, 3446, 3651, 3867,
                                  4096, 4339, 4596, 4868, 5157, 5462, 5786, 6129, 6492, 6876, 7284, 7715, 8173, 8657, 9170,
                                  9713};   /* A, Q12, -15 .. +15 dB */
-static int32_t eq_s[NPART][4][2];
-static void eq_run(track_t *t, int32_t *b, uint32_t n)
+static int32_t eq_s[NPART + 2][4][2];           /* (the parts', the master's left and right) */
+static void eq_bands(uint32_t part, int32_t (*st)[2], int32_t *b, uint32_t n)
 {
-    uint32_t part = (uint32_t)(t - trk), k, i;
-    for (k = 0; part < NPART && k < 4u; k++) {
-        int32_t db = sx_get(part, SX_EG1 + 2u * k), a, a2, c0 = 4096, c1, c2 = 0, sh = 0, *s = eq_s[part][k];
+    uint32_t k, i;
+    for (k = 0; k < 4u; k++) {
+        int32_t db = sx_get(part, SX_EG1 + 2u * k), a, a2, c0 = 4096, c1, c2 = 0, sh = 0, *s = st[k];
         tsvf_t c;
         if (!db)
             continue;
@@ -785,6 +787,25 @@ static void eq_run(track_t *t, int32_t *b, uint32_t n)
             b[i] = clamp(((c0 * x) >> 12) + ((c1 * (v1 >> 1)) >> 11) + ((c2 * (v2 >> 1)) >> 11), -65535, 65535);
         }
     }
+}
+static void eq_run(track_t *t, int32_t *b, uint32_t n)
+{
+    uint32_t part = (uint32_t)(t - trk);
+    if (part < NPART)
+        eq_bands(part, eq_s[part], b, n);
+}
+/* (1.7) FX > EQ: the master's, at half its scale (the mix is louder than a part); flat: nothing runs */
+static void eq_master(int32_t *l, int32_t *r, uint32_t n)
+{
+    uint32_t i;
+    if (!(synx[NPART].w[5] & 0xFFFFFu))               /* (the four GAINs at 0 dB: their bits 0) */
+        return;
+    for (i = 0; i < n; i++)
+        l[i] >>= 1, r[i] >>= 1;
+    eq_bands(NPART, eq_s[NPART], l, n);
+    eq_bands(NPART, eq_s[NPART + 1u], r, n);
+    for (i = 0; i < n; i++)
+        l[i] <<= 1, r[i] <<= 1;
 }
 
 /* the sounds: preset_t.e holds bytes, so each one's words are here (params.c preset_extras: wave_preset_words) */

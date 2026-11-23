@@ -37,7 +37,8 @@ UI_SMALL static uint32_t cur_btn(void)                      /* the button of the
     if (!ui.home && cur_page()->scope == SC_DRUM)
         return B_SEQ;
     if (on_syn_page())                                      /* BONBLOOP: the button of the synth page's group */
-        return SYN_BTN[syn_group_at(ui.page) & 3u];
+        return ui.page >= page_first(FAM_SYN) + SYN_GRP[4] ? B_SAVE : SYN_BTN[syn_group_at(ui.page) & 3u];   /* (1.7:
+                                                         * PRESET, SAVE's) */
     return FAM_BTN[cur_fam()];
 }
 
@@ -491,6 +492,7 @@ UI_SMALL static void project_new(void)
             i != G_BEND && i != G_FXCH && i != G_DRMAP && i != G_RMCH && i != G_CLKOUT && i != G_FXFADE)                                                                     /* (the
                                                                  * FM-1's settings: GLO > MIDI 2.6) */
             song.g[i] = GP[i].def;
+    synx[NPART].w[4] = EQ_W4, synx[NPART].w[5] = 0;     /* (BONBLOOP 1.7) FX > EQ, the master's: flat */
     song.solo = 0;
     song.octave = 0;
     sync_reload = 1;
@@ -547,7 +549,7 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     int16_t *vp;
     const page_t *pg = cur_page();
     const param_desc_t *d;
-    uint32_t id = pg->id[slot];
+    uint32_t id = page_id(pg, slot);                      /* (BONBLOOP 1.7: FX MIX's, the drums' MIXER) */
     int32_t v;
     int glob = pg->scope == SC_GLOBAL;
     if (is_drum(TSEL) && !page_for_drum(pg))
@@ -616,7 +618,8 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
                 : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
     }
     *vp = (int16_t)v;
-    if (wv_commit(TSEL, vp))                              /* BONBLOOP: a field of WAVE's packed words (no lock, no learn) */
+    if (wv_commit(glob ? &trk[NPART] : TSEL, vp))         /* BONBLOOP: a field of WAVE's packed words (no lock, no learn;
+                                                         * 1.7: on FX > EQ the master's) */
         return;
     if (id >= VG0 && id < VG0 + VG_N)                     /* (1.2) a global on a synth page: as on its own page */
         id = VG_MAP[id - VG0], glob = 1;
@@ -860,8 +863,17 @@ UI_SMALL static void layer_tap(uint32_t layer)
         ui_say(rep_on ? "REPEAT " : "REPEAT OFF", rep_on ? N_ROLL[clamp(song.g[G_ROLL], 0, 9)] : "");
         return;
     }
-    if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL,
-                                                       * GLO and SAVE tapped open nothing (held, their layers as ever) */
+    if (syn_mode && layer == LY_SONG) {                 /* (BONBLOOP 1.7) SAVE in the SYNTH MODE: its PRESET page (the user
+                                                         * presets: SLOT LOAD ERASE SAVE) */
+        ui.page = (uint8_t)(page_first(FAM_SYN) + SYN_GRP[4]);
+        ui.fam_last[FAM_SYN] = ui.page;
+        ui.home = 0;
+        ui.force = 1;
+        page_entered();
+        return;
+    }
+    if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL
+                                                       * and GLO tapped open nothing (held, their layers as ever) */
         ui_message("HOLD ENV: SYNTH OFF");
         return;
     }

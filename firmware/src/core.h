@@ -112,6 +112,10 @@ enum {                          /* global parameters */
     G_DFIX,                     /* .. and (1.4) its MODE, SYNC / MS (ui_input.c) */
     G_PCOPY, G_PPASTE,          /* BONBLOOP 1.6: SAVE > TOOLS COPY, TOOLS 2 PASTE (GO buttons): a track's pattern to another */
     G_CMIX, G_RMIX,             /* 1.6: the chorus' and the reverb's MIX, their return (a project keeps them: side record) */
+    G_XTYPE, G_XA, G_XB, G_XC,  /* 1.7, FX > DIST: the tracks' DIST in parallel, TYPE (the INSERT's drives, CRUSH), its A B C */
+    G_MTYPE, G_MFDBK,           /* .. FX > MOD: the chorus' bus CHOR / FLANG / PHASR (RATE, DEPTH: G_CRATE, G_CDEPTH), FDBK */
+    G_KTHR, G_KRAT, G_KATK, G_KREL,   /* .. FX > COMP: the master's glue compressor, THRS (0 dB: off) RATIO ATK REL. A
+                                       * project keeps them all (side record) */
     G_COUNT
 };
 

@@ -111,6 +111,20 @@ int main(int argc, char **argv)
     check(wt_peek(TSEL)->sl[2].ready && wt_peek(TSEL)->sl[2].want == WT_VOCAL + 1u, "OSC 3's table built in its own slot");
     shot("synth-osc3-vocal");
     tap(B_EDIT);
+    {   /* 1.7: OSC MIX, the three oscillators' levels and the track's */
+        int16_t *vp;
+        const param_desc_t *d1 = page_desc(cur_page(), 0, &vp), *d3, *d4;
+        int32_t l2 = field(WV_L2);
+        d3 = page_desc(cur_page(), 2, &vp);
+        d4 = page_desc(cur_page(), 3, &vp);
+        check(on_syn_page() && str_eq(pg_title(), "OSC MIX") && d1 && str_eq(d1->label, "LVL1") && d3 &&
+              str_eq(d3->label, "LVL3") && d4 == &TP[P_LEVEL] && vp == &TSEL->p[P_LEVEL],
+              "1.7: EDIT again: OSC MIX (LVL1 LVL2 LVL3, the track's LEVEL)");
+        turn(EN_K2, -3);
+        check(field(WV_L2) == l2 - 3, "1.7: OSC MIX: KNOB 2 OSC 2's level");
+        turn(EN_K2, 3);
+    }
+    tap(B_EDIT);
     check(on_syn_page() && str_eq(pg_title(), "TUNE"), "EDIT again: TUNE");
     turn(EN_K1, -12);
     check(field(WV_S2) <= -10, "KNOB 1 on TUNE: OSC 2 down (SEMI2)");
@@ -246,10 +260,8 @@ int main(int argc, char **argv)
         tap(B_FX);
         check(str_eq(pg_title(), "CHAIN 2"), "FX again: CHAIN 2");
         tap(B_FX);
-        check(str_eq(pg_title(), "TRACK FX") && page_desc(cur_page(), 0, &(int16_t *){0}) == &TP[P_DIST],
-              "FX again: TRACK FX (1.6: this track's amounts, DST CHO DLY REV)");
-        tap(B_FX);
-        check(str_eq(pg_title(), "FX MIX"), "FX again: FX MIX (1.6: the MIXes)");
+        check(str_eq(pg_title(), "FX MIX") && !page_desc(cur_page(), 0, &(int16_t *){0}),
+              "FX again: FX MIX (1.7: one knob per effect of the chain; none yet)");
         tap(B_FX);
         check(str_eq(pg_title(), "FX CHAIN"), "FX again: back to FX CHAIN (no effect: no page of one)");
         turn(EN_K1, FXI_DRIVE);
@@ -260,8 +272,20 @@ int main(int argc, char **argv)
         check(TSEL->p[P_ITYPE] == IT_PHASER && TSEL->p[P_IMIX] > 0, "SLOT2 PHASR: the INSERT as a PHASER");
         check(TSEL->p[P_TFLT] != 0 && TSEL->p[P_DLY] > 0, "SLOT3 FILTR (the DJ filter), SLOT4 DELAY: on");
         shot("synth-chain");
-        tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX);
-        check(str_eq(pg_title(), "DRIVE"), "FX four times: CHAIN 2, TRACK FX, FX MIX, then DRIVE (in the chain)");
+        tap(B_FX); tap(B_FX);
+        {   /* 1.7: FX MIX follows the chain: DRIVE's MIX, PHASER's, FILTER's, DELAY's send */
+            int16_t *v0, *v3;
+            const param_desc_t *d0 = page_desc(cur_page(), 0, &v0), *d3 = page_desc(cur_page(), 3, &v3);
+            check(str_eq(pg_title(), "FX MIX") && d0 && str_eq(d0->label, "DRIVE") && d3 && str_eq(d3->label, "DELAY") &&
+                  v3 == &TSEL->p[P_DLY], "1.7: FX MIX: the chain's effects in its order, DELAY's knob its send");
+            turn(EN_K1, -5);
+            check(sx_get(part, SX_MXD) == 10, "1.7: FX MIX KNOB 1: DRIVE's MIX");
+            turn(EN_K1, 5);
+            turn(EN_K4, 6);
+            check(TSEL->p[P_DLY] > 40, "1.7: FX MIX KNOB 4: DELAY's send");
+        }
+        tap(B_FX);
+        check(str_eq(pg_title(), "DRIVE"), "FX: then DRIVE (FX MIX 2 hidden: four effects)");
         turn(EN_K1, 30);
         turn(EN_K2, 3);
         turn(EN_K4, 1);
@@ -340,9 +364,9 @@ int main(int argc, char **argv)
             turn(EN_K2, FXI_EQ);
             check(sx_get(part, SX_C2) == FXI_EQ && sx_get(part, SX_EF1) == 24 && sx_get(part, SX_EG1) == 0,
                   "SLOT2 EQ: in, flat, LOW at 100 Hz");
-            tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX);
+            tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX);
             check(str_eq(pg_title(), "EQ 1") && cur_page()->graph == GR_EQ,
-                  "FX five times: CHAIN 2, TRACK FX, FX MIX, DJ FILT, EQ 1 (its curve)");
+                  "FX four times: CHAIN 2, FX MIX, DJ FILT, EQ 1 (its curve)");
             shot("synth-eq-flat");
             fm1_in.notes |= 1u << 12;
             frames(4);
@@ -382,8 +406,8 @@ int main(int argc, char **argv)
             turn(EN_SELECT, 1);
             n += ui.page != was;
         }
-        snprintf(b, sizeof b, "SELECT walks every synth page shown (%u), last CHORUS", n);
-        check(n == 22u && str_eq(pg_title(), "CHORUS") && on_syn_page(), b);
+        snprintf(b, sizeof b, "SELECT walks every synth page shown (%u), last PRESET (1.7)", n);
+        check(n == 23u && str_eq(pg_title(), "PRESET") && on_syn_page(), b);
         for (i = 0; i < 40u; i++)
             turn(EN_SELECT, -1);
         check(str_eq(pg_title(), "OSC 1"), "SELECT back to OSC 1");
@@ -436,15 +460,20 @@ int main(int argc, char **argv)
 
     /* the mode keeps the screen */
     {
-        static const uint8_t OTHER[5] = {B_ARP, B_SEQ, B_SCL, B_GLO, B_SAVE};
-        static const char *const ON[5] = {"ARP", "SEQ", "SEL", "GLO", "SAVE"};
+        static const uint8_t OTHER[4] = {B_ARP, B_SEQ, B_SCL, B_GLO};
+        static const char *const ON[4] = {"ARP", "SEQ", "SEL", "GLO"};
         tap(B_LFO);
-        for (i = 0; i < 5u; i++) {
+        for (i = 0; i < 4u; i++) {
             tap(OTHER[i]);
             frames(2);
             snprintf(b, sizeof b, "%s tapped: still the synth (LFO page), the mode on", ON[i]);
             check(syn_mode && on_syn_page() && str_eq(pg_title(), "LFO"), b);
         }
+        tap(B_SAVE);
+        frames(2);
+        check(syn_mode && on_syn_page() && str_eq(pg_title(), "PRESET") && cur_page()->graph == GR_USER &&
+              cur_btn() == B_SAVE, "1.7: SAVE tapped: the synth's PRESET page (SLOT LOAD ERASE SAVE), SAVE lit, the mode on");
+        tap(B_LFO);
         tap(B_HOME);
         frames(2);
         check(syn_mode && on_syn_page() && str_eq(pg_title(), "OSC 1"), "HOME tapped: OSC 1, the mode on");
@@ -568,6 +597,116 @@ int main(int argc, char **argv)
         frames(4);
         kept = trk[2].step[0].n == 0 && trk[2].step[5].n == 0;
         check(kept, "1.6: EDIT + OCT- after a PASTE: the track as it was");
+    }
+    {   /* 1.7: an EQ GAIN (or a MIX) turned through 1..6 takes no effect in or out of the chain (1.5 .. 1.6 did) */
+        int16_t *vp;
+        track_t *t = &trk[0];
+        int16_t flt = t->p[P_TFLT], dly = t->p[P_DLY], rev = t->p[P_REV];
+        set_engine_of(t, ENGI_WAVE);
+        t->engine = t->eng_req;
+        wv_desc(t, VX0 + SX_EG2, &vp);
+        *vp = 3;                                        /* (FXI_FILTER's number) */
+        wv_commit(t, vp);
+        wv_desc(t, VX0 + SX_MXD, &vp);
+        *vp = 5;                                        /* (FXI_DELAY's) */
+        wv_commit(t, vp);
+        check(t->p[P_TFLT] == flt && t->p[P_DLY] == dly && t->p[P_REV] == rev && sx_get(0, SX_EG2) == 3,
+              "1.7: EQ GAIN 3, DRIVE MIX 5: their values only, no effect in or out");
+        sx_set(0, SX_EG2, 0), sx_set(0, SX_MXD, 15);
+    }
+    {   /* 1.7: FX > COMP's gain: full scale at THRS -30 dB, 10:1, held: -27 dB, + 13.5 of make-up; quiet: the make-up */
+        static int32_t l[CTL], r[CTL];
+        int32_t k, j, hi, lo;
+        song.g[G_KTHR] = -30, song.g[G_KRAT] = 2, song.g[G_KATK] = 0, song.g[G_KREL] = 0;
+        for (k = 0; k < 400; k++) {
+            for (j = 0; j < CTL; j++)
+                l[j] = r[j] = 32768;
+            comp_process(l, r, CTL);
+        }
+        hi = l[CTL - 1];
+        for (k = 0; k < 2000; k++) {
+            for (j = 0; j < CTL; j++)
+                l[j] = r[j] = 328;
+            comp_process(l, r, CTL);
+        }
+        lo = l[CTL - 1];
+        snprintf(b, sizeof b, "1.7: COMP THRS -30 10:1: full scale out at %d (~6900), -40 dB out at %d (~1550)", hi, lo);
+        check(hi > 6200 && hi < 7600 && lo > 1400 && lo < 1700, b);
+        song.g[G_KTHR] = 0;
+        for (j = 0; j < CTL; j++)
+            l[j] = r[j] = 12345;
+        comp_process(l, r, CTL);
+        check(l[0] == 12345 && r[CTL - 1] == 12345 && kmp.g == 4096, "1.7: COMP THRS 0 dB: off, the mix bit for bit");
+        song.g[G_KATK] = GP[G_KATK].def, song.g[G_KREL] = GP[G_KREL].def, song.g[G_KRAT] = GP[G_KRAT].def;
+    }
+    {   /* 1.7: FX > EQ, the master's: flat nothing; LOW -15 dB under a 60 Hz sine: it drops */
+        static int32_t l[CTL], r[CTL];
+        int32_t k, j, pk = 0;
+        uint32_t ph = 0;
+        for (j = 0; j < CTL; j++)
+            l[j] = r[j] = 777;
+        eq_master(l, r, CTL);
+        check(l[0] == 777 && r[CTL - 1] == 777, "1.7: the master's EQ flat: the mix bit for bit");
+        sx_set(NPART, SX_EF1, 24), sx_set(NPART, SX_EG1, -15);
+        for (k = 0; k < 300; k++) {
+            for (j = 0; j < CTL; j++, ph += 5843626u)       /* (60 Hz) */
+                l[j] = r[j] = osc_sine(ph);
+            eq_master(l, r, CTL);
+            for (j = 0; k > 200 && j < CTL; j++)
+                pk = l[j] > pk ? l[j] : pk;
+        }
+        snprintf(b, sizeof b, "1.7: the master's EQ, LOW -15 dB: a 60 Hz sine of 32767 out at %d", pk);
+        check(pk > 3000 && pk < 9000, b);
+        sx_set(NPART, SX_EG1, 0);
+    }
+    {   /* 1.7: FX > MIXER on the drum track: DST and MOD its own, DLY and REV the drums' sends (GLO > DRUMS) */
+        const page_t *mx = 0;
+        int16_t *vp;
+        for (i = 0; i < NPAGES; i++)
+            if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "MIXER"))
+                mx = &PAGES[i];
+        track_select(TRK_DRUM);
+        frames(2);
+        check(mx && page_for_drum(mx) && page_desc(mx, 2, &vp) == &GP[G_DRDLY] && vp == &song.g[G_DRDLY] &&
+              page_desc(mx, 3, &vp) == &GP[G_DRREV] && vp == &song.g[G_DRREV] && page_desc(mx, 1, &vp) &&
+              vp == &TDRUM->p[P_CHOR], "1.7: the drums' MIXER: DST, MOD theirs, DLY REV the GLO > DRUMS sends");
+        track_select(0);
+        frames(2);
+    }
+    {   /* 1.7: the parallel DIST on SLOOP's engines; FX > MOD a flanger, a phaser: each its own sound, bounded */
+        track_t *t = &trk[2];
+        int32_t p0, p1, pc, pf, pp;
+        set_engine_of(t, 0);
+        t->engine = t->eng_req;
+        apply_preset_to(t, 0);
+        t->p[P_DIST] = 0, t->p[P_CHOR] = 0;
+        track_select(2);
+        frames(4);
+        fm1_in.notes |= 1u << 12;
+        frames(6);
+        p0 = peak_of(100);
+        song.g[G_XTYPE] = 2, song.g[G_XA] = 120;       /* FOLD, driven */
+        t->p[P_DIST] = 127;
+        frames(6);
+        p1 = peak_of(100);
+        t->p[P_DIST] = 0;
+        t->p[P_CHOR] = 127;
+        frames(6);
+        pc = peak_of(100);
+        song.g[G_MTYPE] = 1;
+        frames(6);
+        pf = peak_of(100);
+        song.g[G_MTYPE] = 2;
+        frames(6);
+        pp = peak_of(100);
+        fm1_in.notes &= ~(1u << 12);
+        frames(60);
+        snprintf(b, sizeof b, "1.7: DST 127 FOLD: peak %d (dry %d); MOD CHOR %d, FLANG %d, PHASR %d", p1, p0, pc, pf, pp);
+        check(p1 != p0 && pc != pf && pf != pp && pf > 1000 && pp > 1000 && pf < 2000000 && pp < 2000000, b);
+        song.g[G_MTYPE] = 0, song.g[G_XTYPE] = 0, song.g[G_XA] = GP[G_XA].def;
+        t->p[P_CHOR] = 0;
+        track_select(0);
+        frames(2);
     }
     printf(fails ? "synth mode: %d FAILED\n" : "synth mode: PASS\n", fails);
     return fails != 0;
