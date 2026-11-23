@@ -738,7 +738,11 @@ static const preset_t WAVE_PRESETS[] = {
     {"CHIP WAVE", {0}, {0, 60, 100, 20}, 0, 1, FX(0, 0, 0, 0), XP(P_LD_SHP + 1, 20, P_LRATE + 1, 70)},
     /* BONBLOOP 1.1: OSC 1 backwards (it swells in over DEC and stops), OSC 2 forwards an octave up: a reversed pluck */
     {"REV SWELL", {0}, {0, 100, 0, 60}, 0, 0, FX(0, 0, 0, 0), XP(P_ED_SHP + 1, 20)},
+    /* BONBLOOP 1.4: the SYNTH MODE's start (ui_input.c syn_sine): OSC 1 a sine, OSC 2 and 3 off, the filter open, no
+     * effect, no LFO */
+    {"SINE", {0}, {2, 60, 127, 30}, 0, 0, FX(0, 0, 0, 0)},
 };
+#define WAVE_SINE (NELEM(WAVE_PRESETS) - 1u)
 static const uint16_t WAVE_WORDS[][8] = {
     /* OSC 1, OSC 2, OSC 3, LVL 1 2 3, TUNE 2 (+ ATTCK), TUNE 3 (+ SUSTN), CUT RES, WARP TONE */
     {WW_OSC(WT_T(WT_BASIC), 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 24, 24),
@@ -773,6 +777,8 @@ static const uint16_t WAVE_WORDS[][8] = {
      WW_TUNE(12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(127, 0), WW_MISC(0, 0)},
     {WW_OSC(WT_T(WT_BASIC), 50, 1, 0), WW_OSC(WM_TRI, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 14, 24),
      WW_TUNE(12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(105, 10), WW_MISC(0, 0)},
+    {WW_OSC(WM_SIN, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 24, 24),
+     WW_TUNE(0, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(127, 0), WW_MISC(0, 0)},   /* SINE */
 };
 _Static_assert(sizeof WAVE_WORDS / sizeof WAVE_WORDS[0] == sizeof WAVE_PRESETS / sizeof WAVE_PRESETS[0],
                "a set of words per WAVE preset");
@@ -789,7 +795,7 @@ static void wave_preset_words(int16_t *p, uint32_t k)
 
 /* each preset's level trim, 1/2 dB (engines.c preset_trim: P_ED_FX), as tools/level_presets.py makes them for the others:
  * measured against ANALOG's trimmed presets (a note through its ADSR; tests/wave_test.c prints them) */
-static const int8_t WAVE_TRIM[] = {3, 0, 13, 12, 2, -3, 3, 22, 22, 10, 14, -3, 7, -5, -6, 21};
+static const int8_t WAVE_TRIM[] = {3, 0, 13, 12, 2, -3, 3, 22, 22, 10, 14, -3, 7, -5, -6, 21, -5};
 _Static_assert(sizeof WAVE_TRIM == sizeof WAVE_PRESETS / sizeof WAVE_PRESETS[0], "a trim per WAVE preset");
 
 static const engine_t ENG_WAVE = {

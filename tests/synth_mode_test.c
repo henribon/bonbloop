@@ -66,10 +66,17 @@ int main(int argc, char **argv)
     release(B_ENV);
     check(syn_mode == 1, "ENV held 0.8 s: SYNTH MODE on");
     check(song.sel == 1 && TSEL->eng_req == ENGI_WAVE, "the selected track (2) plays WAVE");
+    check(TSEL->preset == WAVE_SINE && field(WV_W1) == WM_SIN && field(WV_W2) == WM_OFF && field(WV_W3) == WM_OFF &&
+          !TSEL->p[P_DIST] && !TSEL->p[P_CHOR] && !TSEL->p[P_DLY] && !TSEL->p[P_REV] && !TSEL->p[P_ITYPE] && !TSEL->p[P_TFLT] &&
+          !TSEL->p[P_LD_PIT] && !TSEL->p[P_LD_SHP] && !sx_get(1, SX_LD1),
+          "1.4: it starts as SINE: OSC 1 a sine, OSC 2 and 3 off, no effect, no LFO");
     check(on_syn_page() && str_eq(pg_title(), "OSC 1"), "OSC 1 opens");
     shot("synth-splash");
     check(cur_btn() == B_EDIT, "OSC 1's light: EDIT");
+    for (i = 0; i < WM_TAB + WT_BASIC - WM_SIN; i++)
+        turn(EN_K1, 1);
     frames(60);
+    check(field(WV_W1) == WM_TAB + WT_BASIC, "KNOB 1 on OSC 1: SIN -> TRI -> SAW -> SQR -> NOISE -> the BASIC table");
     check(TSEL->engine == ENGI_WAVE && wt_peek(TSEL) && wt_peek(TSEL)->sl[0].ready, "OSC 1's table built in the arena");
     shot("synth-osc1");
 
@@ -263,22 +270,31 @@ int main(int argc, char **argv)
         shot("synth-transient");
         tap(B_FX);
         check(str_eq(pg_title(), "DELAY"), "FX again: DELAY (CHORUS hidden)");
-        turn(EN_K2, 9 - song.g[G_DTIME]);
-        check(song.g[G_DTIME] == 9 && !strcmp(GP[G_DTIME].names[9], "1/2"), "DELAY: KNOB 2 TIME 1/2");
+        turn(EN_K2, -5);
+        check(song.g[G_DTIME] == 9 && !strcmp(GP[G_DTIME].names[9], "1/2"),
+              "DELAY: KNOB 2 five to the left: 1/8 1/4D 1/4T 1/4 1/2T 1/2 (1.4: musical order)");
         turn(EN_K2, 1);
         check(song.g[G_DTIME] == 10, "DELAY: TIME 1/2T");
+        {   /* 1.4: KNOB 4 the delay's MODE: MS keeps the time in ms, KNOB 2 then the ms; SYNC back to the note value */
+            uint32_t want = dly_samples(10) * 10u / 441u;
+            int16_t *vp;
+            turn(EN_K4, 1);
+            snprintf(b, sizeof b, "DELAY: KNOB 4 MODE MS: %d ms, the 1/2T at %d BPM kept", song.g[G_DMS], song.g[G_BPM]);
+            check(song.g[G_DTIME] == (int16_t)DLY_FREE && song.g[G_DMS] == (int16_t)want, b);
+            check(page_desc(cur_page(), 1, &vp) == &GP[G_DMS] && vp == &song.g[G_DMS] &&
+                  page_desc(cur_page(), 3, &vp) == &GP[G_DFIX] && vp && *vp == 1, "MODE MS: KNOB 2 is the time in ms, MODE shows MS");
+            song.g[G_BPM] = (int16_t)(song.g[G_BPM] + 30);
+            check(delay_samples() == want * 441u / 10u, "MODE MS: the tempo changes, the delay's time does not");
+            song.g[G_BPM] = (int16_t)(song.g[G_BPM] - 30);
+            turn(EN_K2, 3);
+            check(song.g[G_DMS] > (int16_t)want && song.g[G_DTIME] == (int16_t)DLY_FREE, "MODE MS: KNOB 2 turns the ms");
+            shot("synth-delay-ms");
+            turn(EN_K4, -1);
+            check(song.g[G_DTIME] == 10, "MODE SYNC: back to 1/2T");
+        }
         shot("synth-delay");
         tap(B_FX);
         check(str_eq(pg_title(), "DELAY 2"), "FX again: DELAY 2");
-        {
-            uint32_t want = dly_samples(10) * 10u / 441u;
-            turn(EN_K3, 1);
-            snprintf(b, sizeof b, "DELAY 2: KNOB 3 FIX: FREE at %d ms (1/2T at %d BPM)", song.g[G_DMS], song.g[G_BPM]);
-            check(song.g[G_DTIME] == (int16_t)DLY_FREE && song.g[G_DMS] == (int16_t)want && !song.g[G_DFIX], b);
-            song.g[G_BPM] = (int16_t)(song.g[G_BPM] + 30);
-            check(delay_samples() == want * 441u / 10u, "FIXED: the tempo changes, the delay's time does not");
-            song.g[G_BPM] = (int16_t)(song.g[G_BPM] - 30);
-        }
         tap(B_FX);
         check(str_eq(pg_title(), "FX CHAIN"), "FX again: round to FX CHAIN (REVERB hidden)");
         fm1_in.notes |= 1u << 14;
@@ -354,7 +370,7 @@ int main(int argc, char **argv)
         frames(3);
         check(!sx_chain_has(part, FXI_CHORUS) && !sx_chain_has(part, FXI_TRANS) && !TSEL->p[P_CHOR] && !field(WV_TATK) &&
               sx_get(part, SX_A2) == TSEL->p[P_ATK] && sx_get(part, SX_R3) == TSEL->p[P_REL] && !sx_get(part, SX_LD1) &&
-              TSEL->eng_req == ENGI_WAVE && TSEL->preset == 0u,
+              TSEL->eng_req == ENGI_WAVE && TSEL->preset == WAVE_SINE,
               "REC + SAVE held 2 s: the synth back to its first sound, every effect off, no LFO, the ENVs as the sound's");
         snprintf(b, sizeof b, "... its notes kept (%d), REC as it was (%u %u), OSC 1 (%s)", !memcmp(&TSEL->step[0], &st0, sizeof st0),
                  (unsigned)song.rec, (unsigned)rec0, pg_title());

@@ -225,6 +225,8 @@ UI_SMALL static void ui_leds(void)
     }
     led_put(nl, panel.btn[ui.layer != LY_PLAY ? LAYER_BTN[ui.layer] : cur_btn()],
             ly_lock == LY_PLAY || ((fm1_ms / 300u) & 1u) != 0u || (fm1_in.buttons & ly_bit[ly_lock % LY_COUNT]) != 0u);   /* locked: blinks */
+    if (rep_on && is_drum(TSEL))
+        led_put(nl, panel.btn[B_ARP], 1);               /* (1.4) REPEAT */
     led_put(nl, panel.btn[B_PLAY], play_led() || (song.playing && !song.rec && ft_on) ||
                                       (ci_on && ci_u % BEAT_U < BEAT_U / 4u));   /* (the count-in's beats) */
     led_put(nl, panel.btn[B_REC], song.rec != 0u || ft_on || (rec_wait && ((fm1_ms / 125u) & 1u)) ||
@@ -560,13 +562,31 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     d = page_desc(pg, slot, &vp);
     if (!d || !vp || d->max == d->min)
         return;
-    v = d->names == ESYNC_NAMES || d->names == N_IBITS || d->names == N_IRATE ? names_turn(d, *vp, steps)   /* (a name a detent) */
-                                    : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
+    {
+        uint32_t no;
+        const uint8_t *o = note_order(d, &no);
+        v = d->names == ESYNC_NAMES || d->names == N_IBITS || d->names == N_IRATE ? names_turn(d, *vp, steps)   /* (a name a
+                                                                                                            * detent) */
+            : o ? order_turn(o, no, *vp, steps)         /* (1.4: the note values in order) */
+                : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
+    }
     *vp = (int16_t)v;
     if (wv_commit(TSEL, vp))                              /* BONBLOOP: a field of WAVE's packed words (no lock, no learn) */
         return;
     if (id >= VG0 && id < VG0 + VG_N)                     /* (1.2) a global on a synth page: as on its own page */
         id = VG_MAP[id - VG0], glob = 1;
+    if (glob && id == G_DFIX) {                           /* (1.4) the delay's MODE: MS from the note value playing (its
+                                                         * time kept), SYNC back to the note value it had */
+        static uint8_t div = 1;
+        if (v && song.g[G_DTIME] != (int16_t)DLY_FREE) {
+            div = (uint8_t)song.g[G_DTIME];
+            song.g[G_DMS] = (int16_t)clamp((int32_t)(dly_samples(div) * 10u / 441u), GP[G_DMS].min, GP[G_DMS].max);
+            song.g[G_DTIME] = (int16_t)DLY_FREE;
+        } else if (!v && song.g[G_DTIME] == (int16_t)DLY_FREE) {
+            song.g[G_DTIME] = div;
+        }
+        return;
+    }
     if (!glob && p_lockable(id))
         ui.lock_par = (uint8_t)id;                        /* the SEQ layer's lock parameter: the last one touched */
     if (!glob)
@@ -585,17 +605,6 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     if (!glob)
         return;
     switch (id) {                                         /* GO buttons: act, then back to 0 */
-    case G_DFIX: {                                        /* (BONBLOOP 1.2) the delay's time, kept: FREE at its ms */
-        char b[8];
-        *vp = 0;
-        if (song.g[G_DTIME] != DLY_FREE)
-            song.g[G_DMS] = (int16_t)clamp((int32_t)(dly_samples((uint32_t)song.g[G_DTIME]) * 10u / 441u),
-                                           GP[G_DMS].min, GP[G_DMS].max);
-        song.g[G_DTIME] = DLY_FREE;
-        fmt_int(b, song.g[G_DMS]);
-        ui_say("DELAY FIXED MS ", b);
-        break;
-    }
     case G_LOAD:
         *vp = 0;
         project_load((uint32_t)song.g[G_SLOT] - 1u);
@@ -795,6 +804,12 @@ UI_SMALL static uint32_t btn_hold(uint32_t *t0, uint32_t label, uint32_t now, in
 /* a layer button tapped (pressed and let go, nothing touched): its pages, as before the layers */
 UI_SMALL static void layer_tap(uint32_t layer)
 {
+    if (layer == LY_ROLL && is_drum(TSEL)) {            /* (BONBLOOP 1.4) ARP on the drum track: REPEAT on / off (ARP
+                                                         * lit): the keys held roll at ARP + KNOB 1's rate */
+        rep_on ^= 1u;
+        ui_say(rep_on ? "REPEAT " : "REPEAT OFF", rep_on ? N_ROLL[clamp(song.g[G_ROLL], 0, 7)] : "");
+        return;
+    }
     if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL,
                                                        * GLO and SAVE tapped open nothing (held, their layers as ever) */
         ui_message("HOLD ENV: SYNTH OFF");
@@ -1146,6 +1161,13 @@ UI_SMALL static void remote_poll(void)
 /* BONBLOOP: ENV held 0.7 s: the SYNTH MODE on, or off again (ui.c syn_mode). On: the selected track (track 1 when the
  * drums are selected) plays WAVE, its first sound unless it plays WAVE already; the wavetable page opens. Off: the ENV
  * page, as SLOOP (the sound stays: PRESETS gives the others back) */
+/* (1.4) the synth as it starts: SINE (OSC 1 a sine, the others off, no effect, no LFO; the track's filter open) */
+UI_SMALL static void syn_sine(void)
+{
+    set_engine(ENGI_WAVE);
+    apply_preset(WAVE_SINE);
+    TSEL->p[P_TFLT] = 0;
+}
 UI_SMALL static void syn_toggle(void)
 {
     if (syn_mode) {
@@ -1158,10 +1180,8 @@ UI_SMALL static void syn_toggle(void)
     }
     if (is_drum(TSEL))
         track_select(0);
-    if (TSEL->eng_req % NENGINES != ENGI_WAVE) {
-        set_engine(ENGI_WAVE);                          /* (its sound: every effect off, 1.2) */
-        TSEL->p[P_TFLT] = 0;
-    }
+    if (TSEL->eng_req % NENGINES != ENGI_WAVE)
+        syn_sine();                                     /* (1.4: a sine; a track already WAVE keeps its sound) */
     syn_mode = 1;
     syn_splash = 50;
     syn_route(FAM_EDIT);
@@ -1170,8 +1190,7 @@ UI_SMALL static void syn_toggle(void)
 /* (1.2) REC + SAVE held in the SYNTH MODE: the selected track's synth as it starts, its notes kept */
 UI_SMALL static void syn_clear(void)
 {
-    set_engine(ENGI_WAVE);                              /* (its first sound, every effect off, the chain empty) */
-    TSEL->p[P_TFLT] = 0;
+    syn_sine();                                         /* (1.4: the sine, every effect off, the chain empty) */
     syn_home();                                         /* (OSC 1) */
     ui_message("SYNTH CLEARED");
 }

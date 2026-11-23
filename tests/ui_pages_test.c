@@ -421,11 +421,27 @@ int main(int argc, char **argv)
     /* ---- ARP layer: a roll, rate knob */
     press(B_ARP); frames(10);
     encs[panel.enc[EN_K1]] = 1; frame();
-    check(song.g[G_ROLL] == 2, "ARP + KNOB 1: the roll rate (1/32)");
+    check(song.g[G_ROLL] == 7, "ARP + KNOB 1: the roll rate, after 1/16: 1/16T (BONBLOOP 1.4: in musical order)");
+    encs[panel.enc[EN_K1]] = 1; frame();
+    check(song.g[G_ROLL] == 2, "ARP + KNOB 1 again: 1/32");
     fm1_in.notes = 1u << 7; frames(3); check(roll[0].on, "ARP + a key: it rolls");
     ppm("layer-roll");
     fm1_in.notes = 0; frame(); check(!roll[0].on, "key up: the roll ends");
     release(B_ARP);
+    {   /* ---- (BONBLOOP 1.4) REPEAT: ARP tapped on the drum track */
+        uint32_t was = song.sel;
+        song.sel = TRK_DRUM; frame();
+        rep_on = 0;                                     /* (an ARP tap on the drums above turned it on) */
+        tap(B_ARP); frames(2);
+        check(rep_on == 1, "drum track: ARP tapped: REPEAT on");
+        fm1_in.notes = 1u << 7; frames(3); check(roll[0].on, "REPEAT: a key held rolls, ARP up");
+        fm1_in.notes = 0; frame(); check(!roll[0].on, "REPEAT: key up, it stops");
+        tap(B_ARP); frames(2);
+        check(!rep_on, "ARP tapped again: REPEAT off");
+        fm1_in.notes = 1u << 7; frames(3); check(!roll[0].on, "REPEAT off: a key plays once, no roll");
+        fm1_in.notes = 0; frame();
+        song.sel = (uint8_t)was; frame();
+    }
 
     /* ---- SEL: the key of the song; GLO: mute, solo, tap */
     song.sel = 0; go_home(); frame();

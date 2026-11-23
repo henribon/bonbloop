@@ -40,10 +40,12 @@ static const char *const N_AMODE[] = {"OFF", "UP", "DN", "UPDN", "RND", "ORD",  
 static const char *const N_MOUT[] = {"KEYS", "SEQ"};
 static const char *const N_MIN[] = {"NOTES", "CLOCK", "CH 1", "CH 2", "CH 3", "CH 4", "CH 5", "CH 6", "CH 7", "CH 8", "CH 9",
                                      "CH 10", "CH 11", "CH 12", "CH 13", "CH 14", "CH 15", "CH 16"};  /* G_ROUTE: MIDI in, notes and clock, the clock only, or (2.6) one channel only, on the selected track (seq.c) */    /* G_MIDI: what goes to MIDI OUT (seq.c seq_out_on) */
-static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T"};
+static const char *const N_DIV[] = {"1/4", "1/8", "1/16", "1/32", "1/8T", "1/16T", "1/2", "1/2T", "1/4T", "1/32T"};   /* the
+                                                       * arp's RATE (core.h ARP_NV; BONBLOOP 1.4: 1/2 .. 1/32T) */
 static const char *const N_SDIV[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/2", "1BAR", "2BAR"};   /* core.h div_units */
-static const char *const N_DLY[] = {"1/4", "1/8", "1/16", "1/32", "8T", "16T", "1/8D", "1/16D", "1/4D",
-                                     "1/2", "1/2T", "FREE"};   /* (BONBLOOP 1.2: 1/2, 1/2T, FREE = G_DMS ms; core.h DLY_FREE) */   /* core.h dly_units
+static const char *const N_DLY[] = {"1/4", "1/8", "1/16", "1/32", "1/8T", "1/16T", "1/8D", "1/16D", "1/4D",
+                                     "1/2", "1/2T", "FREE", "1/4T", "1/32T"};   /* (BONBLOOP 1.2: 1/2, 1/2T, FREE = MODE MS;
+                                                       * 1.4: 1/4T, 1/32T. core.h NOTE_V) */   /* core.h dly_units
                                                                           * (2.6: 1/4D, after Felucca 1.5.1) */
 static const char *const N_SCALE[] = {"CHR", "MAJ", "MIN", "DOR", "MIX", "PEN", "MPEN", "HARM",
                                     "PHRY", "LYD", "LOC", "MEL", "BLUES", "WHOLE", "DIMHW", "DIMWH"};
@@ -68,7 +70,9 @@ static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
 static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
 static const char *const N_CHORD[] = {"OFF", "TRIAD", "7TH", "9TH", "SUS4", "POWER"};   /* seq.c CHORD_DEG */
-static const char *const N_ROLL[] = {"1/8", "1/16", "1/32", "32T", "1/64"};   /* seq.c ROLL_DEN */
+static const char *const N_ROLL[] = {"1/8", "1/16", "1/32", "1/32T", "1/64", "1/4", "1/8T", "1/16T"};   /* seq.c ROLL_DEN
+                                                       * (BONBLOOP 1.4: 1/4, 1/8T, 1/16T) */
+static const char *const N_DMODE[] = {"SYNC", "MS"};
 static const char *const N_ENGNAME[] = {"ANALOG", "DIGITAL", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN",
                                         "FM6", "PHYS", "NOISE", "WAVE",
 #if FELUCCA_SLICE
@@ -211,8 +215,9 @@ static const param_desc_t GP[G_COUNT] = {
     [G_RMCH] = PE("REMOTE", N_MCH, 0),           /* 2.7, GLO > MIDI 3: the buttons over MIDI (CC 102..115, seq.c remote_cc) */        /* 2.7, GLO > MIDI 3: MIDI notes -> drum sounds (seq.c midi_drum_lane) */            /* 2.7, GLO > MIDI 3: the punch-in FX's channel (seq.c midi_fx) */
     [G_BEND] = PD("BEND", F_SEMI, 1, 12, 2),      /* 2.6, GLO > MIDI 2: MIDI pitch bend's range (a setting of the FM-1) */
     [G_FXFADE] = PD("FADE", F_INT, 0, 15, 0),     /* 2.7.2: the punch-in FX fade (FX layer SELECT), 0 off .. 15 (punch.c) */
-    [G_DMS] = {"MS", F_INT, 10, 1480, 250, 0, "ms"},   /* (BONBLOOP 1.2) the delay's FREE time */
-    [G_DFIX] = PE("FIX", N_GO, 0),                /* (BONBLOOP 1.2) the time the tempo gives, kept as FREE ms */
+    [G_DMS] = {"MS", F_INT, 10, 1480, 250, 0, "ms"},   /* (BONBLOOP 1.2) the delay's time in MODE MS */
+    [G_DFIX] = PE("MODE", N_DMODE, 0),            /* (1.4) the delay's MODE: SYNC (TIME a note value) or MS (TIME in ms,
+                                                   * from the note value playing): G_DTIME == DLY_FREE (page_desc) */
 };
 
 static const param_desc_t DRUM_KIT_DESC = PE("KIT", DRUM_KIT_NAMES, 0);
@@ -266,6 +271,28 @@ static int32_t names_turn(const param_desc_t *d, int32_t v, int32_t steps)
         n++;
     k = clamp((clamp(v, d->min, d->max) - d->min) * n / range + steps, 0, n - 1);
     return d->min + (k * range + n - 1) / n;
+}
+
+/* (BONBLOOP 1.4) the note values as a musician reads them, a value a detent (the lists stay append-only: projects keep
+ * their numbers): 1/2 1/2T 1/4 1/4T (1/4D) 1/8 ... The delay's FREE is its MODE MS, not on the knob */
+static const uint8_t ORD_DIV[] = {6, 7, 0, 8, 1, 4, 2, 5, 3, 9};
+static const uint8_t ORD_DLY[] = {9, 10, 0, 12, 8, 1, 4, 6, 2, 5, 7, 3, 13};
+static const uint8_t ORD_ROLL[] = {5, 0, 6, 1, 7, 2, 3, 4};
+static int32_t note_pos(const uint8_t *o, uint32_t n, int32_t v)   /* (not in the order: the first) */
+{
+    int32_t i = 0;
+    while (i < (int32_t)n && o[i] != v)
+        i++;
+    return i == (int32_t)n ? 0 : i;
+}
+static int32_t order_turn(const uint8_t *o, uint32_t n, int32_t v, int32_t steps)
+{
+    return o[clamp(note_pos(o, n, v) + steps, 0, (int32_t)n - 1)];
+}
+static const uint8_t *note_order(const param_desc_t *d, uint32_t *n)
+{
+    *n = d->names == N_DIV ? sizeof ORD_DIV : d->names == N_DLY ? sizeof ORD_DLY : sizeof ORD_ROLL;
+    return d->names == N_DIV ? ORD_DIV : d->names == N_DLY ? ORD_DLY : d->names == N_ROLL ? ORD_ROLL : 0;
 }
 
 /* value string (<= 5 chars) and unit for a parameter value */
@@ -428,7 +455,7 @@ static const page_t PAGES[] = {
     {"INSERT", FAM_FX, SC_TRACK, GR_INS, {P_ITYPE, P_IA, P_IB, P_IC}},   /* 2.6 (Felucca 1.5): the track's INSERT (fx.c), */
     {"INSERT 2", FAM_FX, SC_TRACK, GR_INS, {P_IMIX, 0xFF, 0xFF, 0xFF}},  /* .. its dry / wet; the drum track too */
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
-    {"DLY 2", FAM_FX, SC_GLOBAL, GR_NONE, {G_DMS, G_DFIX, 0xFF, 0xFF}},       /* (BONBLOOP 1.2) TIME FREE: its ms; FIX */
+    {"DLY 2", FAM_FX, SC_GLOBAL, GR_NONE, {G_DFIX, 0xFF, 0xFF, 0xFF}},      /* (BONBLOOP 1.4) MODE: SYNC / MS */
     {"REV/CHO", FAM_FX, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
     {"SEL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_CHORD}},
     {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, 0xFF}},   /* (2.4: the chords played) */
@@ -489,8 +516,8 @@ static const page_t PAGES[] = {
     {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
     {"TRANSNT", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_TATK, VP0 + WV_TSUS, 0xFF, 0xFF}},
     {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, 0xFF}},
-    {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DMS}},
-    {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, VG0 + VG_DFIX, 0xFF}},
+    {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DFIX}},   /* (MODE) */
+    {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, 0xFF, 0xFF}},
     {"REVERB", FAM_SYN, SC_TRACK, GR_NONE, {P_REV, VG0 + VG_RSIZE, VG0 + VG_RDAMP, 0xFF}},
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
@@ -557,9 +584,21 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         return 0;
     }
     if (id >= VG0 && id < VG0 + VG_N) {               /* (BONBLOOP 1.2) a global on a synth page */
-        *valp = &song.g[VG_MAP[id - VG0]];
-        return &GP[VG_MAP[id - VG0]];
+        id = VG_MAP[id - VG0];
+        *valp = &song.g[id];
+    } else if (pg->scope != SC_GLOBAL) {
+        id = 0xFFu;
     }
+    if (id == G_DFIX || (id == G_DTIME && song.g[G_DTIME] == (int16_t)DLY_FREE)) {   /* (1.4) the delay's MODE; in MS
+                                                       * its TIME is the ms */
+        static int16_t mode;
+        mode = song.g[G_DTIME] == (int16_t)DLY_FREE;
+        *valp = id == G_DFIX ? &mode : &song.g[G_DMS];
+        return &GP[id == G_DFIX ? G_DFIX : G_DMS];
+    }
+    if (id != 0xFFu && pg->scope != SC_GLOBAL)
+        return &GP[id];
+    id = pg->id[slot];
     if (pg->scope == SC_GLOBAL) {
         *valp = &song.g[id];
         return &GP[id];

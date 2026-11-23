@@ -8,7 +8,10 @@ cadeia de efeitos própria (drive estilo Decapitator, transient shaper, phaser, 
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.3.1** — correção: nas páginas OSC2 ENV e OSC3 ENV o desenho do envelope agora acompanha os knobs.
+**Versão 1.4** — **REPEAT** na bateria (toque no ARP); o ARP com **1/2, 1/2T, 1/4T e 1/32T**; o delay com
+**todas as tercinas** e um **MODE SYNC / MS**; as divisões em ordem musical no knob; o modo synth **começa num seno puro**.
+
+**1.3.1** — correção: nas páginas OSC2 ENV e OSC3 ENV o desenho do envelope agora acompanha os knobs.
 
 **1.3** — no MODO SYNTH não existe mais o envelope da voz: **cada oscilador tem o seu envelope completo**
 (ATK · DEC · SUS · REL, igual ao do SLOOP).
@@ -29,8 +32,8 @@ synth, o modo segura a tela.)
 
 Ao ligar:
 
-- o **track selecionado** passa a tocar o engine **WAVE** (o primeiro som dele, *WT BASIC*), a menos que já
-  esteja em WAVE — aí o som é mantido;
+- o **track selecionado** passa a tocar o engine **WAVE** no som **SINE** (1.4): só o OSC 1, numa senoide, OSC 2
+  e 3 desligados, filtro aberto, sem efeitos e sem LFO — a menos que já esteja em WAVE: aí o som é mantido;
 - se a **bateria** (track 4) estiver selecionada, o modo pega o **track 1**;
 - o cabeçalho mostra o selo **SYNTH** na cor do track e a linha sob ele fica colorida.
 
@@ -76,8 +79,8 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | DJ FILT | FILT (filtro DJ do track) |
 | | TRANSNT | ATTCK · SUSTN |
 | | CHORUS | CHO (envio) · CRT · CDP |
-| | DELAY | DLY (envio) · TIME (1/4 … 1/2, 1/2T, FREE) · FDBK · MS |
-| | DELAY 2 | COLR · MIX · **FIX** |
+| | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
+| | DELAY 2 | COLR · MIX |
 | | REVERB | REV (envio) · SIZE · DAMP |
 
 As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
@@ -190,16 +193,19 @@ CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR
 | **FILTER** | O filtro DJ do track (passa-baixa para a esquerda, passa-alta para a direita). |
 | **CHORUS, DELAY, REVERB** | Os envios do SLOOP e os ajustes globais deles, na mesma página. |
 
-### Delay: 1/2, 1/2T, livre e FIX (1.2)
+### Delay: MODE SYNC / MS (1.4)
 
-O **TIME** do delay ganhou **1/2** (2 tempos), **1/2T** (tercina de mínima) e **FREE**: no FREE o tempo é o **MS**
-(10–1480 ms) e não muda com o BPM. O **FIX** (DELAY 2, ou FX → DLY 2 fora do modo) **fixa** o tempo atual: converte
-a divisão que está tocando no BPM de agora em ms e passa para FREE — mude o andamento e o eco fica onde estava.
+O delay tem um **MODE** (KNOB 4 da página DELAY; fora do modo synth, FX → DLY 2):
+
+- **SYNC**: o **TIME** é uma figura, no BPM: **1/2, 1/2T, 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D,
+  1/32, 1/32T** — o knob anda nessa ordem, uma figura por clique.
+- **MS**: o **TIME** vira **ms** (10–1480) e não muda com o BPM. Ao passar para MS, o tempo que estava tocando vira
+  ms (é o antigo FIX: mude o andamento e o eco fica onde estava). De volta a SYNC, volta a figura de antes.
 
 ### Limpar o synth: REC + SAVE (1.2)
 
 No MODO SYNTH, segure **SAVE** e **REC** juntos: depois de ~0,7 s aparece o anel **clear / synth sound**; segure
-até ele fechar (~1,3 s) e o track volta ao **primeiro som do WAVE**, com todos os efeitos desligados, a cadeia
+até ele fechar (~1,3 s) e o track volta ao **SINE**, com todos os efeitos desligados, a cadeia
 vazia, sem LFO nos osciladores e os três envelopes iguais ao do som. **As notas do track ficam** (para apagar as notas, REC sozinho segurado,
 como no SLOOP). Soltou antes: nada acontece.
 
@@ -227,7 +233,23 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 
 ---
 
-## Fora do modo synth: VOICING (1.2)
+## Fora do modo synth
+
+### REPEAT da bateria (1.4)
+
+Com a **bateria** (track 4) selecionada, um **toque no ARP** liga o **REPEAT** (o ARP fica aceso): cada tecla
+segurada repete no tempo, como o *note repeat* de uma drum machine, sem precisar segurar nada. Com **REC** ligado,
+as batidas são gravadas (mais rápidas que o passo viram ratchets). Outro toque no ARP desliga.
+
+A divisão é a do roll: **ARP + KNOB 1** — **1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64**. Segurar ARP + teclas
+continua sendo o roll de sempre, em qualquer track.
+
+### ARP: todas as tercinas (1.4)
+
+O **RATE** do arpejador ganhou **1/2, 1/2T, 1/4T e 1/32T** e anda em ordem musical: 1/2, 1/2T, 1/4, 1/4T, 1/8, 1/8T,
+1/16, 1/16T, 1/32, 1/32T. Os valores antigos continuam com o mesmo número (projetos abrem iguais).
+
+### VOICING (1.2)
 
 Com o **CHORD** ligado (SEL → página SEL 2), o antigo **VLEAD** virou **VOIC**, o voicing do acorde:
 
@@ -276,7 +298,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.3.1: 580.448 de 581.564 bytes de flash (1,1 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.4: 581.140 de 581.564 bytes de flash (424 bytes livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 

@@ -869,9 +869,41 @@ static void t_longdiv(void)
     check(dly_samples(8) == (uint32_t)FS * 60u / 120u * 3u / 2u && !strcmp(GP[G_DTIME].names[8], "1/4D"),
           "2.6: delay TIME 1/4D = 1.5 beats, after 1/16D (older projects keep their value)");
     check(dly_samples(9) == (uint32_t)FS * 60u / 120u * 2u && dly_samples(10) == (uint32_t)FS * 60u / 120u * 4u / 3u &&
-          GP[G_DTIME].max == (int16_t)DLY_FREE && !strcmp(GP[G_DTIME].names[9], "1/2") &&
-          !strcmp(GP[G_DTIME].names[10], "1/2T") && !strcmp(GP[G_DTIME].names[DLY_FREE], "FREE"),
-          "BONBLOOP 1.2: delay TIME 1/2 = 2 beats, 1/2T = 4/3 beat, then FREE (GLO > DLY 2 > MS)");
+          !strcmp(GP[G_DTIME].names[9], "1/2") && !strcmp(GP[G_DTIME].names[10], "1/2T") &&
+          !strcmp(GP[G_DTIME].names[DLY_FREE], "FREE"),
+          "BONBLOOP 1.2: delay TIME 1/2 = 2 beats, 1/2T = 4/3 beat, then FREE (MODE MS)");
+    check(dly_samples(12) == (uint32_t)FS * 60u / 120u * 2u / 3u && dly_samples(13) == (uint32_t)FS * 60u / 120u / 12u &&
+          GP[G_DTIME].max == 13 && !strcmp(GP[G_DTIME].names[12], "1/4T") && !strcmp(GP[G_DTIME].names[13], "1/32T") &&
+          !strcmp(GP[G_DTIME].names[4], "1/8T"), "BONBLOOP 1.4: delay TIME 1/4T = 2/3 beat, 1/32T = 1/12 beat");
+    {   /* 1.4: the knob in musical order: 1/2 1/2T 1/4 1/4T 1/4D 1/8 1/8T 1/8D ... 1/32 1/32T, never FREE */
+        uint32_t i;
+        int32_t v = 13, ok = 1;
+        static const int8_t WANT[13] = {9, 10, 0, 12, 8, 1, 4, 6, 2, 5, 7, 3, 13};
+        for (i = 0; i < 13u; i++)
+            v = order_turn(ORD_DLY, sizeof ORD_DLY, v, -1);
+        ok &= v == 9;
+        for (i = 0; i < 13u; i++, v = order_turn(ORD_DLY, sizeof ORD_DLY, v, 1))
+            ok &= v == WANT[i];
+        ok &= order_turn(ORD_DLY, sizeof ORD_DLY, DLY_FREE, 0) == 9;
+        check(ok, "BONBLOOP 1.4: delay TIME a value a detent, in musical order (1/2 .. 1/32T), FREE not on the knob");
+    }
+    {   /* 1.4: the arp's RATE: 1/2, 1/2T, 1/4T, 1/32T on the clock's grid (beat 5.5) */
+        uint32_t into, len, a, b, c, d, i2, i3, i4;
+        int ok;
+        clk_beat = 5, clk_pos = BEAT_U / 2u;
+        a = grid_nv(4, 3, 0, &into, &len);
+        ok = a == 4u && len == BEAT_U * 4u / 3u && into == BEAT_U / 6u;
+        b = grid_nv(2, 3, 0, &i2, &len);
+        ok &= b == 8u && len == BEAT_U * 2u / 3u && i2 == BEAT_U / 6u;
+        c = grid_nv(2, 1, 0, &i3, &len);
+        ok &= c == 2u && i3 == BEAT_U * 3u / 2u;
+        d = grid_nv(1, 12, 0, &i4, &len);
+        ok &= d == 66u && i4 == 0u;
+        ok &= grid_nv(1, 4, 0, &i4, &len) == 22u && dly_units(ARP_NV[2]) == div_units(2);   /* (1/16 as before) */
+        clk_beat = 0, clk_pos = 0;
+        check(ok && !strcmp(TP[P_ARATE].names[6], "1/2") && !strcmp(TP[P_ARATE].names[9], "1/32T") && TP[P_ARATE].max == 9,
+              "BONBLOOP 1.4: arp RATE 1/2, 1/2T, 1/4T, 1/32T on the grid (steps of 2, 4/3, 2/3, 1/12 beat)");
+    }
     song.g[G_DTIME] = (int16_t)DLY_FREE;
     song.g[G_DMS] = 300;
     check(delay_samples() == 300u * 441u / 10u, "BONBLOOP 1.2: delay FREE: its MS, whatever the tempo");

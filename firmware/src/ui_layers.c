@@ -520,7 +520,7 @@ UI_SMALL static void layer_knobs(uint32_t layer)
             break;
         case LY_ROLL:
             if (k == 0u)
-                song.g[G_ROLL] = (int16_t)clamp(song.g[G_ROLL] + s, 0, 4);
+                song.g[G_ROLL] = (int16_t)order_turn(ORD_ROLL, sizeof ORD_ROLL, song.g[G_ROLL], s);
             break;
         case LY_STEP:
             if (ui.step_held) {                         /* SOUND / NOTE  LEVEL  RATCHET  NUDGE */
@@ -803,8 +803,8 @@ UI_SMALL static void layer_screen_draw(void)
                 str_cpy(sub, undo.valid ? (undo.undone ? "oct+ redo" : "oct- undo") : sub, sizeof sub);
         } else {
             lab[0] = "rate";
-            str_cpy(v[0], N_ROLL[clamp(song.g[G_ROLL], 0, 4)], 8);
-            ratio[0] = song.g[G_ROLL] * 250;
+            str_cpy(v[0], N_ROLL[clamp(song.g[G_ROLL], 0, 7)], 8);
+            ratio[0] = note_pos(ORD_ROLL, sizeof ORD_ROLL, song.g[G_ROLL]) * 1000 / 7;
         }
         break;
     }

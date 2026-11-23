@@ -448,6 +448,13 @@ static uint32_t grid_at(uint32_t div, uint32_t sw, uint32_t *into, uint32_t *len
     m = DIV_BEATS[(div - NDIV_SHORT) % 3u];              /* whole beats: the step from the beat count */
     return grid_swing(clk_beat / m, (clk_beat % m) * BEAT_U + clk_pos, BEAT_U * m, sw, into, len);
 }
+/* (BONBLOOP 1.4) the clock on a grid of steps of num / den beats (the arp's RATE: 1/2, 1/2T, 1/4T ...): den steps
+ * every num beats, from the beat count */
+static uint32_t grid_nv(uint32_t num, uint32_t den, uint32_t sw, uint32_t *into, uint32_t *len)
+{
+    uint32_t u = BEAT_U * num / den, x = (clk_beat % num) * BEAT_U + clk_pos;
+    return grid_swing(clk_beat / num * den + x / u, x % u, u, sw, into, len);
+}
 /* swing is for the straight grids inside a beat: off on the triplet grids (on 8T the odd steps would
  * change from one beat to the next, as on most machines) and on steps of whole beats */
 static uint32_t swings(uint32_t div) { return div < 4u; }
@@ -1736,7 +1743,7 @@ static int arp_step(track_t *t)
  * each note it plays is recorded (what you hear) */
 static void arp_tick(track_t *t, uint32_t adv)
 {
-    uint32_t div = (uint32_t)t->p[P_ARATE] % NDIV_SHORT, u = div_units(div), into, slen, abs = 0, fire = 0;
+    uint32_t div = ARP_NV[(uint32_t)t->p[P_ARATE] % 10u], u = dly_units(div), into, slen, abs = 0, fire = 0;
     if (t->arp_note) {
         if (t->arp_off <= adv) {
             arp_end(t);
@@ -1751,7 +1758,7 @@ static void arp_tick(track_t *t, uint32_t adv)
         return;
     }
     if (song.playing) {
-        abs = grid_at(div, swings(div) ? swing_units(t->p[P_ASWING], u) : 0u, &into, &slen);
+        abs = grid_nv(NOTE_V[div][0], NOTE_V[div][1], swings(div) ? swing_units(t->p[P_ASWING], u) : 0u, &into, &slen);
         if (t->arp_new) {
             t->arp_new = 0;
             t->arp_abs = into * 4u >= slen * 3u ? abs : abs - 1u;   /* the last quarter: the grid plays it */
@@ -1996,10 +2003,12 @@ static void drum_input(uint32_t lane, uint32_t lvl, uint32_t rat, int rec)
 }
 
 /* -------------------------------------------------------------- roll --- */
-/* ARP + key: note repeat. The key plays at G_ROLL (1/8, 1/16, 1/32, 32T, 1/64) on the transport's grid
+/* ARP + key: note repeat. The key plays at G_ROLL (1/8, 1/16, 1/32, 32T, 1/64; BONBLOOP 1.4: 1/4, 1/8T, 1/16T) on the
+ * transport's grid
  * (stopped: from the press) until it or ARP is up. Recorded, a roll faster than the track's steps
  * becomes ratchets (1/32 on 1/16 steps: x2, 32T: x3, 1/64: x4). */
-static const uint8_t ROLL_DEN[5] = {2, 4, 8, 12, 16};
+static const uint8_t ROLL_DEN[8] = {2, 4, 8, 12, 16, 1, 3, 6};
+static uint8_t rep_on;                  /* (BONBLOOP 1.4) the drum track's REPEAT (ARP tapped): its keys roll, ARP up */
 #define NROLL 4u
 static struct {
     uint8_t on, key, trk, note, lvl;    /* note: the synth note, or the lane */
@@ -2007,7 +2016,7 @@ static struct {
     uint32_t off;                       /* synth: units to its note-off, 0 = not sounding */
     uint32_t rec_abs;                   /* the step its last recorded hit went into */
 } roll[NROLL];
-static uint32_t roll_den(void) { return ROLL_DEN[(uint32_t)clamp(song.g[G_ROLL], 0, 4)]; }
+static uint32_t roll_den(void) { return ROLL_DEN[(uint32_t)clamp(song.g[G_ROLL], 0, 7)]; }
 /* the lanes / notes a roll plays live on track t: the pattern does not play them meanwhile (no flam
  * with what was recorded, nor with what this roll is recording) */
 static uint32_t roll_lanes(const track_t *t)
@@ -2281,7 +2290,7 @@ static void key_down(uint32_t k)
         uint32_t lane = lane_of_key(k), lvl = key_lvl();
         kb_nt[k][0] = (uint8_t)lane;
         kb_n[k] = 1;
-        if (layer == LY_ROLL) {
+        if (layer == LY_ROLL || (rep_on && layer == LY_PLAY)) {   /* (1.4: REPEAT on, ARP up) */
             kb_kind[k] = KS_ROLL;
             roll_start(k, t, lane, lvl);
             return;
@@ -2426,7 +2435,8 @@ static void keyboard_block(void)
     audition_block();
     /* (2.7: MUTE mode stays when EDIT is let go, until a black key again: the mutes at hand, live; 2.6 went back to
      * erasing) */
-    if (!(layer_buttons() & ly_bit[LY_ROLL]))         /* ARP up (and not locked): the rolls end (the keys stay silent) */
+    if (!(layer_buttons() & ly_bit[LY_ROLL]) && !rep_on)   /* ARP up (and not locked, no REPEAT): the rolls end (the
+                                                         * keys stay silent) */
         for (r = 0; r < NROLL; r++)
             if (roll[r].on && roll[r].key < 27u)        /* (2.7: not the LIVE page's, key 0x80 + note: its pad ends them) */
                 roll_end(r);
