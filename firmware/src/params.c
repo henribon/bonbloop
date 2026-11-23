@@ -70,8 +70,8 @@ static const char *const N_GO[] = {"--", "GO"};
 static const char *const N_SLCR[] = {"OFF", "GATE", "STUT"};             /* SL_OFF .. SL_STUT (slicer.c) */
 static const char *const N_SLDIV[] = {"1/8", "1/16", "1/32", "8T", "16T", "32T"};   /* SL_DEN */
 static const char *const N_CHORD[] = {"OFF", "TRIAD", "7TH", "9TH", "SUS4", "POWER"};   /* seq.c CHORD_DEG */
-static const char *const N_ROLL[] = {"1/8", "1/16", "1/32", "1/32T", "1/64", "1/4", "1/8T", "1/16T"};   /* seq.c ROLL_DEN
-                                                       * (BONBLOOP 1.4: 1/4, 1/8T, 1/16T) */
+static const char *const N_ROLL[] = {"1/8", "1/16", "1/32", "1/32T", "1/64", "1/4", "1/8T", "1/16T", "1/4T", "1/2T"};   /* seq.c
+                                                       * ROLL_NV (BONBLOOP 1.4: 1/4, 1/8T, 1/16T; 1.4.1: 1/4T, 1/2T) */
 static const char *const N_DMODE[] = {"SYNC", "MS"};
 static const char *const N_ENGNAME[] = {"ANALOG", "DIGITAL", "PHASE", "LOFI", "SAMPLE", "VOICE", "TRIO", "WHEEL", "GRAIN",
                                         "FM6", "PHYS", "NOISE", "WAVE",
@@ -277,7 +277,7 @@ static int32_t names_turn(const param_desc_t *d, int32_t v, int32_t steps)
  * their numbers): 1/2 1/2T 1/4 1/4T (1/4D) 1/8 ... The delay's FREE is its MODE MS, not on the knob */
 static const uint8_t ORD_DIV[] = {6, 7, 0, 8, 1, 4, 2, 5, 3, 9};
 static const uint8_t ORD_DLY[] = {9, 10, 0, 12, 8, 1, 4, 6, 2, 5, 7, 3, 13};
-static const uint8_t ORD_ROLL[] = {5, 0, 6, 1, 7, 2, 3, 4};
+static const uint8_t ORD_ROLL[] = {9, 5, 8, 0, 6, 1, 7, 2, 3, 4};
 static int32_t note_pos(const uint8_t *o, uint32_t n, int32_t v)   /* (not in the order: the first) */
 {
     int32_t i = 0;
@@ -514,7 +514,6 @@ static const page_t PAGES[] = {
     {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
     {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
     {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
-    {"TRANSNT", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_TATK, VP0 + WV_TSUS, 0xFF, 0xFF}},
     {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, 0xFF}},
     {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DFIX}},   /* (MODE) */
     {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, 0xFF, 0xFF}},
@@ -544,7 +543,6 @@ static uint32_t syn_fx_of(const page_t *pg)
     case P_DIST: return FXI_DRIVE;
     case P_IMIX: return FXI_PHASER;
     case P_TFLT: return FXI_FILTER;
-    case VP0 + WV_TATK: return FXI_TRANS;
     case P_CHOR: return FXI_CHORUS;
     case P_DLY: case VG0 + VG_DCOLOR: return FXI_DELAY;
     case P_REV: return FXI_REVERB;

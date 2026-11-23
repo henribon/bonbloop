@@ -238,7 +238,7 @@ int main(int argc, char **argv)
     {
         uint32_t part = (uint32_t)(TSEL - trk);
         check(!TSEL->p[P_DIST] && !TSEL->p[P_CHOR] && !TSEL->p[P_DLY] && !TSEL->p[P_REV] && !TSEL->p[P_ITYPE] &&
-              !TSEL->p[P_TFLT] && !field(WV_TATK) && !field(WV_TSUS) && !sx_chain_has(part, FXI_DRIVE),
+              !TSEL->p[P_TFLT] && !sx_chain_has(part, FXI_DRIVE),
               "the synth's sound: every effect off, the chain empty");
         tap(B_FX);
         check(on_syn_page() && str_eq(pg_title(), "FX CHAIN") && cur_btn() == B_FX, "FX tapped: FX CHAIN, FX lit");
@@ -249,11 +249,11 @@ int main(int argc, char **argv)
         check(str_eq(pg_title(), "FX CHAIN"), "FX again: back to FX CHAIN (no effect: no page of one)");
         turn(EN_K1, FXI_DRIVE);
         turn(EN_K2, FXI_PHASER);
-        turn(EN_K3, FXI_TRANS);
+        turn(EN_K3, FXI_FILTER);
         turn(EN_K4, FXI_DELAY);
         check(sx_get(part, SX_C1) == FXI_DRIVE && TSEL->p[P_DIST] > 0, "SLOT1 DRIVE: in, at a usable drive");
         check(TSEL->p[P_ITYPE] == IT_PHASER && TSEL->p[P_IMIX] > 0, "SLOT2 PHASR: the INSERT as a PHASER");
-        check(field(WV_TATK) > 0 && TSEL->p[P_DLY] > 0, "SLOT3 TRANS, SLOT4 DELAY: on");
+        check(TSEL->p[P_TFLT] != 0 && TSEL->p[P_DLY] > 0, "SLOT3 FILTR (the DJ filter), SLOT4 DELAY: on");
         shot("synth-chain");
         tap(B_FX); tap(B_FX);
         check(str_eq(pg_title(), "DRIVE"), "FX twice: CHAIN 2, then DRIVE (in the chain)");
@@ -266,8 +266,7 @@ int main(int argc, char **argv)
         check(str_eq(pg_title(), "PHASER"), "FX again: PHASER");
         shot("synth-phaser");
         tap(B_FX);
-        check(str_eq(pg_title(), "TRANSNT"), "FX again: TRANSNT (DJ FILT is not in the chain: hidden)");
-        shot("synth-transient");
+        check(str_eq(pg_title(), "DJ FILT"), "FX again: DJ FILT (in the chain)");
         tap(B_FX);
         check(str_eq(pg_title(), "DELAY"), "FX again: DELAY (CHORUS hidden)");
         turn(EN_K2, -5);
@@ -328,7 +327,7 @@ int main(int argc, char **argv)
             uint32_t n2 = 0;
             for (i = 1; i < FXI_N; i++)
                 n2 += sx_chain_has(part, i) != 0;
-            check(n2 == 2u, "the chain: CHORUS and TRANS");
+            check(n2 == 2u, "the chain: CHORUS and FILTR");
         }
     }
     tap(B_EDIT);
@@ -368,7 +367,7 @@ int main(int argc, char **argv)
         release(B_REC);
         release(B_SAVE);
         frames(3);
-        check(!sx_chain_has(part, FXI_CHORUS) && !sx_chain_has(part, FXI_TRANS) && !TSEL->p[P_CHOR] && !field(WV_TATK) &&
+        check(!sx_chain_has(part, FXI_CHORUS) && !sx_chain_has(part, FXI_FILTER) && !TSEL->p[P_CHOR] && !TSEL->p[P_TFLT] &&
               sx_get(part, SX_A2) == TSEL->p[P_ATK] && sx_get(part, SX_R3) == TSEL->p[P_REL] && !sx_get(part, SX_LD1) &&
               TSEL->eng_req == ENGI_WAVE && TSEL->preset == WAVE_SINE,
               "REC + SAVE held 2 s: the synth back to its first sound, every effect off, no LFO, the ENVs as the sound's");

@@ -11,7 +11,7 @@
  *             with the others
  *   WARP      every table read with its phase bent (the first half squeezed: brighter), its DC taken out
  *   FILTER    CUT RES and TYPE (P_FTYPE, as ANALOG's: LP BP HP), key-tracked by half
- *   TRANSNT   ATTACK: the first ~25 ms of each note up to +12 dB or faded in; SUSTAIN: the rest up +6 dB or down
+ *   (TRANSNT, 1.1 .. 1.4: taken out in 1.4.1, its bits in words 4 and 5 free)
  * The tables are built in the part's engine arena (engines.c eng_arena_of, shared with GRAIN / FM6 / PHYS: no RAM
  * more), one for each oscillator that plays one, a few harmonics a block (~23 ms a table), frame by frame over the one
  * playing. 8 frames of 128 samples, the additive ones band-limited to 24 harmonics.
@@ -62,13 +62,13 @@ static wt_part_t *wt_of(const track_t *t) { return (wt_part_t *)eng_arena_of(t, 
 
 /* ------------------------------------------------------------------------------------- the parameters --- */
 enum { WV_W1, WV_P1, WV_R1, WV_W2, WV_P2, WV_R2, WV_W3, WV_P3, WV_R3, WV_L1, WV_L2, WV_L3, WV_S2, WV_F2, WV_S3, WV_F3,
-       WV_CUT, WV_RES, WV_WARP, WV_DSTY, WV_DTONE, WV_PUN, WV_TATK, WV_TSUS, WV_N };
+       WV_CUT, WV_RES, WV_WARP, WV_DSTY, WV_DTONE, WV_PUN, WV_N };
 #define VP0 0xA0u                /* page / macro ids VP0 + WV_*: a packed field (params.c page_desc, ui.c home_param) */
 _Static_assert(VP0 > P_COUNT && VP0 + WV_N <= 0xFEu, "the packed fields' ids: past the parameters, under 0xFF");
 static const uint8_t WVF[WV_N][3] = {   /* word (P_E0 + w), shift, bits */
     {0, 0, 5}, {0, 5, 7}, {0, 12, 1}, {1, 0, 5}, {1, 5, 7}, {1, 12, 1}, {2, 0, 5}, {2, 5, 7}, {2, 12, 1},
     {3, 0, 5}, {3, 5, 5}, {3, 10, 5}, {4, 0, 6}, {4, 6, 5}, {5, 0, 6}, {5, 6, 5},
-    {6, 0, 7}, {6, 7, 7}, {7, 0, 7}, {0, 13, 3}, {7, 7, 5}, {1, 13, 1}, {4, 11, 5}, {5, 11, 5},
+    {6, 0, 7}, {6, 7, 7}, {7, 0, 7}, {0, 13, 3}, {7, 7, 5}, {1, 13, 1},
 };
 static const param_desc_t WVD[WV_N] = {
     {"WAVE", F_ENUM, 0, WM_N - 1, WM_TAB, N_WMODE, 0}, {"POS", F_PCT, 0, 127, 64, 0, 0}, {"REV", F_ENUM, 0, 1, 0, N_WOFFON, 0},
@@ -79,7 +79,6 @@ static const param_desc_t WVD[WV_N] = {
     {"SEMI3", F_SEMI, -24, 24, 0, 0, 0}, {"FINE3", F_INT, -16, 15, 0, 0, "ct"},
     {"CUT", F_CUTOFF, 0, 127, 110, 0, 0}, {"RES", F_PCT, 0, 127, 10, 0, 0}, {"WARP", F_PCT, 0, 127, 0, 0, 0},
     {"STYLE", F_ENUM, 0, 4, 0, N_DSTY, 0}, {"TONE", F_INT, -16, 15, 0, 0, 0}, {"PUNSH", F_ENUM, 0, 1, 0, N_WOFFON, 0},
-    {"ATTCK", F_INT, -16, 15, 0, 0, 0}, {"SUSTN", F_INT, -16, 15, 0, 0, 0},
 };
 static int32_t wv_get(const int16_t *p, uint32_t k)
 {
@@ -106,8 +105,8 @@ enum { SX_LR1, SX_LD1, SX_LT1, SX_LR2, SX_LD2, SX_LT2, SX_LR3, SX_LD3, SX_LT3,
        SX_C1, SX_C2, SX_C3, SX_C4, SX_C5, SX_C6, SX_C7, SX_N };
 #define SX_LFO 3u                                     /* (an oscillator's LFO: SX_LR1 + SX_LFO k ..) */
 #define SX_NSLOT 7u                                   /* (the chain: one slot per effect) */
-enum { FXI_NONE, FXI_DRIVE, FXI_PHASER, FXI_FILTER, FXI_CHORUS, FXI_DELAY, FXI_REVERB, FXI_TRANS, FXI_N };
-static const char *const N_FXID[FXI_N] = {"--", "DRIVE", "PHASR", "FILTR", "CHORS", "DELAY", "REVRB", "TRANS"};
+enum { FXI_NONE, FXI_DRIVE, FXI_PHASER, FXI_FILTER, FXI_CHORUS, FXI_DELAY, FXI_REVERB, FXI_N };   /* (1.4.1: no TRANS) */
+static const char *const N_FXID[FXI_N] = {"--", "DRIVE", "PHASR", "FILTR", "CHORS", "DELAY", "REVRB"};
 static const char *const N_LDEST[] = {"POS", "PITCH", "LVL"};
 #define SXS 0x80u                                     /* (bits: a signed field) */
 static const uint8_t SXF[SX_N][3] = {   /* word, shift, bits | SXS. w[3]: 16 bits only (a user preset's spare parameter) */
@@ -189,6 +188,8 @@ UI_SMALL static const param_desc_t *wv_desc(const track_t *t, uint32_t vid, int1
     *vp = &wv_tmp;
     if (vid >= VX0) {
         wv_tmp = (int16_t)sx_get((uint32_t)(t - trk), vid - VX0);
+        if (wv_tmp > SXD[vid - VX0].max)
+            wv_tmp = 0;                               /* (1.4.1: a slot of 1.4 on TRANS: --) */
         return &SXD[vid - VX0];
     }
     wv_tmp = (int16_t)wv_get(t->p, vid - VP0);
@@ -197,16 +198,9 @@ UI_SMALL static const param_desc_t *wv_desc(const track_t *t, uint32_t vid, int1
 /* (1.2) the synth's FX chain: an effect in (on: at a usable amount if it was off) or out (off) */
 static void syn_fx_set(track_t *t, uint32_t fx, int on)
 {
-    static const uint8_t ID[FXI_N] = {0, P_DIST, P_ITYPE, P_TFLT, P_CHOR, P_DLY, P_REV, 0};
-    static const int8_t AMT[FXI_N] = {0, 40, 6, -24, 50, 40, 45, 0}   /* (6: fx.c IT_PHASER) */;
+    static const uint8_t ID[FXI_N] = {0, P_DIST, P_ITYPE, P_TFLT, P_CHOR, P_DLY, P_REV};
+    static const int8_t AMT[FXI_N] = {0, 40, 6, -24, 50, 40, 45}   /* (6: fx.c IT_PHASER) */;
     int16_t *p = t->p;
-    if (fx == FXI_TRANS) {
-        if (!on)
-            wv_set(p, WV_TATK, 0), wv_set(p, WV_TSUS, 0);
-        else if (!wv_get(p, WV_TATK) && !wv_get(p, WV_TSUS))
-            wv_set(p, WV_TATK, 6);
-        return;
-    }
     if (!fx || fx >= FXI_N)
         return;
     if (fx == FXI_PHASER)                               /* (the INSERT: on as a PHASER at its MIX, off: none) */
@@ -248,7 +242,7 @@ static const uint8_t WAVE_EDIT[8] = {WV_W1, WV_P1, WV_W2, WV_P2, WV_CUT, WV_RES,
 /* the words of a sound (the presets below: preset_t.e holds bytes) */
 #define WW_OSC(w, p, r, x) ((w) | (p) << 5 | (r) << 12 | (x) << 13)   /* WAVE POS REV, + STYLE (OSC 1) / PUNSH (OSC 2) */
 #define WW_LVL(a, b, c) ((a) | (b) << 5 | (c) << 10)
-#define WW_TUNE(s, f, t) (((s) + 24) | ((f) + 16) << 6 | ((t) + 16) << 11)   /* SEMI FINE, + ATTCK (2) / SUSTN (3) */
+#define WW_TUNE(s, f, t) (((s) + 24) | ((f) + 16) << 6)   /* SEMI FINE (t: the TRANSNT of 1.1 .. 1.4, unused) */
 #define WW_FLT(c, r) ((c) | (r) << 7)
 #define WW_MISC(wp, tone) ((wp) | ((tone) + 16) << 7)
 #define WWS(x) ((int16_t)(uint16_t)(x))
@@ -468,8 +462,8 @@ static void wave_block(track_t *t)
 }
 
 /* ------------------------------------------------------------------------------------------ the voice --- */
-/* voice state: ph[0..2] the oscillators, s[0] s[1] the filter, s[2] NOISE's generator, s[3] its colour filter, s[6]
- * the transient (Q15); the oscillators' envelopes: the arena's oenv / ost (1.3) */
+/* voice state: ph[0..2] the oscillators, s[0] s[1] the filter, s[2] NOISE's generator, s[3] its colour filter; the
+ * oscillators' envelopes: the arena's oenv / ost (1.3) */
 #define WR_START 328             /* the REV swell's start: -40 dB */
 static void wave_note_on(track_t *t, voice_t *v)
 {
@@ -481,7 +475,6 @@ static void wave_note_on(track_t *t, voice_t *v)
     }
     if (!v->s[2])
         v->s[2] = 0x2468ACE + (int32_t)v->age;
-    v->s[6] = 32767;                                  /* every note: the transient from the start */
     {   /* (1.3) the oscillators' envelopes: their attack (from 0 on a fresh note, from where they are retriggered;
          * REV: the swell from -40 dB) */
         wt_part_t *w = wt_of(t);
@@ -497,16 +490,14 @@ static void wave_note_on(track_t *t, voice_t *v)
 }
 
 /* the voice's amplitude (voice.c: once a block; ENG_WAVE.ownenv: env is 1.0, or the fade of a voice given up): the
- * velocity and the transient shaper's gain. (1.3) Each oscillator's envelope a step on, as voice.c env_tick steps
+ * velocity. (1.3) Each oscillator's envelope a step on, as voice.c env_tick steps
  * SLOOP's ENV (its coefficients: w->ek, esync_coef, ENV SYNC too); REV: its decay turned round, a swell from -40 dB
  * as fast as DEC falls, then SUS */
 static int32_t wave_amp(track_t *t, voice_t *v, int32_t env)
 {
     const int16_t *p = t->p;
-    int32_t ta = wv_get(p, WV_TATK), ts = wv_get(p, WV_TSUS), tr = v->s[6], g;
     wt_part_t *w = wt_of(t);
     uint32_t o, vi = (uint32_t)(v - t->v) % NVOICE;
-    v->s[6] = tr - (tr >> 5);                         /* the transient: ~25 ms */
     for (o = 0; w && o < WT_NOSC; o++) {
         int32_t *e = &w->oenv[vi][o], sus = wv_envp(t, o, 2u) << 17, rev = wv_get(p, WV_R1 + 3u * o);
         const uint32_t *ek = w->ek[o];
@@ -522,11 +513,7 @@ static int32_t wave_amp(track_t *t, voice_t *v, int32_t env)
             *e += mulq16(sus - *e, ek[1]);
         }
     }
-    env = mulq15(env, v->vel * 258);
-    if (!(ta | ts))
-        return env;
-    g = 4096 + ((ta * (ta > 0 ? 819 : 256) * (tr >> 3)) >> 12) + ((ts * (ts > 0 ? 273 : 256) * ((32767 - tr) >> 3)) >> 12);
-    return (env * clamp(g, 0, 4 * 4096)) >> 12;
+    return mulq15(env, v->vel * 258);
 }
 /* (1.3) released, the voice ends when every oscillator that sounds has faded (voice.c: ENG_WAVE.ownenv) */
 static int wave_done(track_t *t, voice_t *v)
@@ -727,7 +714,8 @@ static const preset_t WAVE_PRESETS[] = {
     {"WT CHOIR", {0}, {60, 90, 118, 80}, 0, 0, FX(0, 0, 0, 0), XP(P_LD_SHP + 1, 12, P_LRATE + 1, 20)},
     {"PWM STRNG", {0}, {50, 85, 115, 70}, 0, 0, FX(0, 0, 0, 0), XP(P_LD_SHP + 1, 30, P_LRATE + 1, 40)},
     {"WT ORGAN", {0}, {2, 60, 120, 30}, 0, 0, FX(0, 0, 0, 0), XP(P_LD_PIT + 1, 1, P_LRATE + 1, 88)},
-    {"WT PLUCK", {0}, {0, 70, 0, 50}, 30, 0, FX(0, 0, 0, 0), XP(P_ED_SHP + 1, 50)},
+    {"WT PLUCK", {0}, {0, 84, 0, 50}, 30, 0, FX(0, 0, 0, 0), XP(P_ED_SHP + 1, 50)},   /* (1.4.1: DEC 70 -> 84, OSC 2
+                                                       * louder: its punch was the TRANSNT's) */
     {"WT BELLS", {0}, {0, 88, 0, 70}, 0, 0, FX(0, 0, 0, 0), XP(P_ED_SHP + 1, 30)},
     {"RESO BASS", {0}, {0, 70, 60, 20}, 0, 1, FX(0, 0, 0, 0), XP(P_ED_SHP + 1, 50, P_TRANS + 1, -24, P_GLIDE + 1, 30)},
     {"DIGI BASS", {0}, {0, 60, 80, 20}, 30, 1, FX(0, 0, 0, 0), XP(P_TRANS + 1, -24)},
@@ -759,14 +747,14 @@ static const uint16_t WAVE_WORDS[][8] = {
      WW_TUNE(0, 10, 0), WW_TUNE(-12, 0, 0), WW_FLT(84, 6), WW_MISC(0, 0)},
     {WW_OSC(WT_T(WT_HARM), 90, 0, 0), WW_OSC(WM_SIN, 64, 0, 0), WW_OSC(WT_T(WT_HARM), 40, 0, 0), WW_LVL(31, 20, 14),
      WW_TUNE(-12, 0, 0), WW_TUNE(12, 0, 0), WW_FLT(115, 0), WW_MISC(0, 0)},
-    {WW_OSC(WT_T(WT_BASIC), 20, 0, 0), WW_OSC(WM_SQR, 30, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 12, 24),
-     WW_TUNE(12, 0, 8), WW_TUNE(0, 0, 0), WW_FLT(90, 20), WW_MISC(20, 0)},
+    {WW_OSC(WT_T(WT_BASIC), 20, 0, 0), WW_OSC(WM_SQR, 30, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 20, 24),
+     WW_TUNE(12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(90, 20), WW_MISC(20, 0)},
     {WW_OSC(WT_T(WT_BELL), 30, 0, 0), WW_OSC(WT_T(WT_BELL), 70, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 16, 24),
-     WW_TUNE(12, 0, 6), WW_TUNE(0, 0, 0), WW_FLT(120, 0), WW_MISC(0, 0)},
+     WW_TUNE(12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(120, 0), WW_MISC(0, 0)},
     {WW_OSC(WT_T(WT_RESO), 10, 0, 0), WW_OSC(WM_SIN, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 24, 24),
      WW_TUNE(-12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(110, 0), WW_MISC(0, 0)},
     {WW_OSC(WT_T(WT_DIGI), 70, 0, 0), WW_OSC(WM_SQR, 0, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 20, 24),
-     WW_TUNE(-12, 0, 6), WW_TUNE(0, 0, 0), WW_FLT(70, 30), WW_MISC(0, 0)},
+     WW_TUNE(-12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(70, 30), WW_MISC(0, 0)},
     {WW_OSC(WT_T(WT_FM), 40, 0, 3), WW_OSC(WM_SAW, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 18, 24),
      WW_TUNE(-12, 0, 0), WW_TUNE(0, 0, 0), WW_FLT(90, 30), WW_MISC(0, -4)},
     {WW_OSC(WT_T(WT_FOLD), 50, 0, 0), WW_OSC(WM_SAW, 64, 0, 0), WW_OSC(0, 64, 0, 0), WW_LVL(31, 18, 24),
@@ -795,7 +783,7 @@ static void wave_preset_words(int16_t *p, uint32_t k)
 
 /* each preset's level trim, 1/2 dB (engines.c preset_trim: P_ED_FX), as tools/level_presets.py makes them for the others:
  * measured against ANALOG's trimmed presets (a note through its ADSR; tests/wave_test.c prints them) */
-static const int8_t WAVE_TRIM[] = {3, 0, 13, 12, 2, -3, 3, 22, 22, 10, 14, -3, 7, -5, -6, 21, -5};
+static const int8_t WAVE_TRIM[] = {3, 0, 13, 12, 2, -3, 3, 23, 23, 10, 15, -3, 7, -5, -6, 21, -5};
 _Static_assert(sizeof WAVE_TRIM == sizeof WAVE_PRESETS / sizeof WAVE_PRESETS[0], "a trim per WAVE preset");
 
 static const engine_t ENG_WAVE = {

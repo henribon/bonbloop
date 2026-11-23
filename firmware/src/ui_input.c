@@ -807,7 +807,7 @@ UI_SMALL static void layer_tap(uint32_t layer)
     if (layer == LY_ROLL && is_drum(TSEL)) {            /* (BONBLOOP 1.4) ARP on the drum track: REPEAT on / off (ARP
                                                          * lit): the keys held roll at ARP + KNOB 1's rate */
         rep_on ^= 1u;
-        ui_say(rep_on ? "REPEAT " : "REPEAT OFF", rep_on ? N_ROLL[clamp(song.g[G_ROLL], 0, 7)] : "");
+        ui_say(rep_on ? "REPEAT " : "REPEAT OFF", rep_on ? N_ROLL[clamp(song.g[G_ROLL], 0, 9)] : "");
         return;
     }
     if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL,
@@ -1212,6 +1212,10 @@ UI_SMALL static void syn_presets(int32_t s)
 UI_SMALL static void ui_input(void)
 {
     static uint32_t env_t0;                             /* (BONBLOOP) ENV's press time: held, the SYNTH MODE */
+    if (trip_msg) {                                     /* (1.4.1) a triplet roll recorded on the drums (seq.c roll_fit) */
+        ui_message(trip_msg == 2u ? "DRUMS: DIV 16T" : "TRIPLETS: DIV 16T");
+        trip_msg = 0;
+    }
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
     uint32_t home = btn_hold(&ui.home_t0, B_HOME, now, 1);
     uint32_t envh = btn_hold(&env_t0, B_ENV, now, !ui.menu);

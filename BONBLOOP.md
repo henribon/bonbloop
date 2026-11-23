@@ -4,11 +4,16 @@
 (que por sua vez é baseado no [Felucca](https://github.com/hugelton/Felucca)). Ele é **idêntico ao SLOOP** —
 mesmos 4 tracks, sequenciador, bateria, efeitos, projetos, editor web — e acrescenta o **MODO SYNTH**: um
 sintetizador de **3 osciladores** (wavetables e formas analógicas, com **reverse**), filtro, envelope, LFO e uma
-cadeia de efeitos própria (drive estilo Decapitator, transient shaper, phaser, chorus, delay, reverb).
+cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, delay, reverb).
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.4** — **REPEAT** na bateria (toque no ARP); o ARP com **1/2, 1/2T, 1/4T e 1/32T**; o delay com
+**Versão 1.4.1** — tercinas do REPEAT gravadas no lugar; REPEAT com 1/4T e 1/2T; o **TRANSIENT saiu** (sobrava pouco
+uso para a flash que ocupava: 424 bytes). Os presets WT PLUCK, WT BELLS e DIGI BASS, que o usavam, foram reajustados. E as caudas
+já quase mudas de dois samples foram encurtadas (BASS: a partir de 0,8 s, abaixo de -27 dB; VIBES F3: a partir de
+0,7 s, abaixo de -40 dB): 7 KB de flash livres para o que vem (o EQ do synth).
+
+**1.4** — **REPEAT** na bateria (toque no ARP); o ARP com **1/2, 1/2T, 1/4T e 1/32T**; o delay com
 **todas as tercinas** e um **MODE SYNC / MS**; as divisões em ordem musical no knob; o modo synth **começa num seno puro**.
 
 **1.3.1** — correção: nas páginas OSC2 ENV e OSC3 ENV o desenho do envelope agora acompanha os knobs.
@@ -77,7 +82,6 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
 | | DJ FILT | FILT (filtro DJ do track) |
-| | TRANSNT | ATTCK · SUSTN |
 | | CHORUS | CHO (envio) · CRT · CDP |
 | | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
 | | DELAY 2 | COLR · MIX |
@@ -176,19 +180,18 @@ ou **LVL** (tremolo só nele).
 ### A cadeia de efeitos (1.2)
 
 No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 7 slots (4 aqui, 3 em
-CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, TRANS.
+CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB.
 
 - Escolher um efeito num slot **liga** o efeito (numa quantidade que já se ouve) e faz a página de detalhes dele
   aparecer depois de CHAIN 2. Voltar o slot para **--** desliga o efeito e esconde a página.
 - **DRIVE, PHASER e FILTER** tocam **na ordem dos slots** (ex.: PHASER antes do DRIVE soa diferente de DRIVE antes
-  do PHASER). TRANSIENT é por nota (antes de todos); CHORUS, DELAY e REVERB são envios (depois de todos).
+  do PHASER). CHORUS, DELAY e REVERB são envios (depois de todos).
 - Um efeito ligado por fora do modo (nas páginas normais do SLOOP, ou num projeto antigo) entra sozinho no primeiro
   slot livre: a cadeia sempre mostra tudo o que está soando.
 
 | Efeito | O que é |
 | --- | --- |
 | **DRIVE** | Estilo **Decapitator**, num track WAVE: 5 estilos — **A** fita, **E** válvula (harmônicos pares), **N** transformador, **T** triodo, **P** pentodo —, **TONE** (escuro ↔ aberto) e **PUNSH**. No 1.2 ficou bem mais pesado: mais ganho em todo o curso do DST e o PUNSH soma +18 dB. |
-| **TRANSIENT** | **ATTCK** sobe até +12 dB os primeiros ~25 ms de cada nota (negativo: entrada suave); **SUSTN** sobe até +6 dB o corpo da nota (negativo: só o ataque). |
 | **PHASER** | O INSERT do SLOOP como PHASR (MIX · RATE · DEPTH · FDBK). |
 | **FILTER** | O filtro DJ do track (passa-baixa para a esquerda, passa-alta para a direita). |
 | **CHORUS, DELAY, REVERB** | Os envios do SLOOP e os ajustes globais deles, na mesma página. |
@@ -241,8 +244,14 @@ Com a **bateria** (track 4) selecionada, um **toque no ARP** liga o **REPEAT** (
 segurada repete no tempo, como o *note repeat* de uma drum machine, sem precisar segurar nada. Com **REC** ligado,
 as batidas são gravadas (mais rápidas que o passo viram ratchets). Outro toque no ARP desliga.
 
-A divisão é a do roll: **ARP + KNOB 1** — **1/4, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64**. Segurar ARP + teclas
-continua sendo o roll de sempre, em qualquer track.
+A divisão é a do roll: **ARP + KNOB 1** — **1/2T, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64** (1.4.1: 1/4T
+e 1/2T). Segurar ARP + teclas continua sendo o roll de sempre, em qualquer track.
+
+**Tercinas gravadas (1.4.1).** Os passos da bateria são, de fábrica, de 1/16, e uma tercina cai entre dois passos. Ao
+gravar uma tercina (1/2T, 1/4T, 1/8T, 1/16T) num padrão **vazio**, o padrão passa sozinho para passos de **16T**,
+com a mesma duração (16 passos de 1/16 viram 24 de 16T), e cada batida cai no lugar certo. Num padrão que já tem
+batidas em 1/16, a grade fica como está e a tela avisa **TRIPLETS: DIV 16T** (PATTERN → DIV muda a grade antes de
+gravar). 1/32T grava certo também em 1/16 (três por passo, ratchet x3).
 
 ### ARP: todas as tercinas (1.4)
 
@@ -298,14 +307,14 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.4: 581.140 de 581.564 bytes de flash (424 bytes livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.4.1: 573.928 de 581.564 bytes de flash (7,6 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 
 `tests/run_tests.sh` roda tudo, incluindo os dois testes novos:
 
 - `tests/wave_test.c` — o engine sozinho: os 24 campos empacotados, todas as tabelas em cada oscilador, todos os
-  presets (limites, DC, volume), as formas varridas, REV, TRANSIENT, DRIVE, extremos, custo de CPU; grava
+  presets (limites, DC, volume), as formas varridas, REV, DRIVE, extremos, custo de CPU; grava
   `wave_presets.wav` e `wave_sweep.wav` para ouvir.
 - `tests/synth_mode_test.c` — a interface real: segurar ENV, os 4 grupos e as 18 páginas, cada knob mexendo
   um campo só, os 3 osciladores tocando, os efeitos, o modo segurando a tela (ARP/SEQ/SEL/GLO/SAVE/HOME/ALGO),

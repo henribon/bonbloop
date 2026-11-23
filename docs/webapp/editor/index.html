@@ -890,7 +890,7 @@
       <button id="connect" class="pri" data-t="connect" data-ic="port_usb_c"></button>
       <div class="links"><a class="dim" href="../installer/" data-t="installer"></a><button class="lang" id="lang"></button></div>
       <button id="install" class="pri" data-t="install" hidden></button>
-      <!--DL--><a class="dim" id="offline" href="sloop-editor.html" download="sloop-editor-1.4.html" data-t="offline"></a><!--/DL-->
+      <!--DL--><a class="dim" id="offline" href="sloop-editor.html" download="sloop-editor-1.4.1.html" data-t="offline"></a><!--/DL-->
     </div>
   </aside>
 
@@ -2958,7 +2958,7 @@ function makeMockDevice(opt = {}) {
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("CH4", ["OFF", ...Array.from({ length: 16 }, (_, i) => String(i + 1))], 10), D("LVL", F.INT, 0, 127, 100), D("REV", F.INT, 0, 127, 16),
     D("DUST", F.PCT, 0, 127, 0), D("DUCK", F.PCT, 0, 127, 0), D("FILT", F.FILT, -64, 63, 0),
-    E("ROLL", ["1/8", "1/16", "1/32", "1/32T", "1/64", "1/4", "1/8T", "1/16T"], 1), E("NEW", NGO, 0), D("DLY", F.INT, 0, 127, 0),
+    E("ROLL", ["1/8", "1/16", "1/32", "1/32T", "1/64", "1/4", "1/8T", "1/16T", "1/4T", "1/2T"], 1), E("NEW", NGO, 0), D("DLY", F.INT, 0, 127, 0),
     /* SLOOP 2.6: GLO > MIDI, each synth track's channel (OFF, 1..16) and the other channels (SEL / OFF) */
     ...[1, 2, 3].map((k) => E("CH" + k, ["OFF", ...Array.from({ length: 16 }, (_, i) => String(i + 1))], k)), E("OTHER", ["SEL", "OFF"], 0),
     /* GLO > TEXTURE (2.6): the bed under the mix */

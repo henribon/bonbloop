@@ -254,6 +254,54 @@ static void t_roll(void)
     }
 }
 
+/* BONBLOOP 1.4.1: a triplet roll recorded on the drums. An empty pattern on 1/16 goes to 16T (24 steps: as long) and
+ * each hit lands on its triplet step; a pattern with hits keeps its grid (the UI says why: trip_msg) */
+static uint32_t roll_take(uint32_t rate, uint32_t beats)    /* lane 3 rolled from beat 0, REC on: its steps as bits */
+{
+    uint32_t i, s, bits = 0;
+    song.g[G_ROLL] = (int16_t)rate;
+    song.sel = TRK_DRUM;
+    song.rec = 1u << TRK_DRUM;
+    trip_msg = 0;
+    transport_req = 1;
+    run_block();
+    fm1_in.buttons = ly_bit[LY_ROLL];
+    fm1_in.notes = 1u << 6;
+    for (i = 0; i < div_samples(0) * beats / CTL; i++)
+        run_block();
+    fm1_in.notes = 0;
+    fm1_in.buttons = 0;
+    run_block();
+    for (s = 0; s < 32u; s++)
+        bits |= (uint32_t)dstep_has(&TDRUM->dstep[s], 3) << s;
+    return bits;
+}
+static void t_roll_triplets(void)
+{
+    uint32_t b;
+    reset(120);
+    b = roll_take(6, 2);                              /* 1/8T, two beats */
+    check(TDRUM->p[P_SDIV] == 5 && TDRUM->p[P_SLEN] == 24 && trip_msg == 2u,
+          "1.4.1: a 1/8T roll recorded on an empty 1/16 drum pattern: it goes to 16T, 24 steps (as long)");
+    if (b != 0x555u)
+        printf("seq2:   1/8T steps %03x%c", b, 10);
+    check(b == 0x555u, "1.4.1: 1/8T on 16T: steps 0 2 4 6 8 10, the triplets");
+    reset(120);
+    b = roll_take(8, 2);                              /* 1/4T */
+    check(TDRUM->p[P_SDIV] == 5 && b == 0x111u, "1.4.1: 1/4T: steps 0 4 8 of 16T");
+    reset(120);
+    dstep_set(&TDRUM->dstep[0], 0, LV_NORM, 0);      /* a kick: the pattern is not empty */
+    b = roll_take(7, 1);                              /* 1/16T */
+    check(TDRUM->p[P_SDIV] == TP[P_SDIV].def && trip_msg == 1u && b,
+          "1.4.1: a pattern with hits on 1/16 keeps its grid, the UI says TRIPLETS: DIV 16T");
+    reset(120);
+    b = roll_take(2, 1);                              /* 1/32: straight, as before */
+    check(TDRUM->p[P_SDIV] == TP[P_SDIV].def && !trip_msg, "1.4.1: a straight roll leaves the grid as it is");
+    transport_req = 2;                               /* (stopped, as the tests after expect to start it) */
+    run_block();
+    trip_msg = 0;
+}
+
 static void t_erase_undo(void)
 {
     uint32_t i, left = 0, kept = 0;
@@ -265,6 +313,7 @@ static void t_erase_undo(void)
     }
     song.sel = TRK_DRUM;
     transport_req = 1;
+    run_block();                                     /* (the start first: the step left by the test before may be 4) */
     while (TDRUM->seq_idx != 4u)
         run_block();
     fm1_in.buttons = ly_bit[LY_ERASE];               /* EDIT held + the hat key (C4 = key 7) */
@@ -2215,6 +2264,7 @@ int main(void)
     t_len_phase();
     t_ratchet();
     t_roll();
+    t_roll_triplets();
     t_erase_undo();
     t_levels();
     t_chords();

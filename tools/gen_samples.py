@@ -47,6 +47,10 @@ TR = 22050                                   # stored sample rate
 CC0_SETS = [("PIANO", "piano"), ("BASS", "oneshot"), ("VIBES", "oneshot"), ("HORNS", "oneshot"),
             ("STRGS", "oneshot"), ("FLUTE", "sus"), ("SCRCH", "oneshot"), ("KIT", "kit")]
 MEASURED_TUNING = ()                         # sets recorded off A440 (measured near the named note)
+# (BONBLOOP 1.4.1) shorter tails where they are already quiet (flash for the synth's EQ, ~6.6 KB): BASS ends under
+# -27 dB after 0.8 s (each note 0.85 .. 0.9 s), VIBES F3 under -40 dB after 0.6 s. The 80 ms fade-out as ever
+KEEP_SET = {"BASS": 0.8}
+KEEP_ZONE = {("VIBES", 0): 0.7}
 
 # the preset of each set: name, {SET (filled in), TUNE, BITS, LOOP (filled in), CUT, -, DRV, -}, env, mono,
 # sends (DIST, CHORUS, DELAY, REVERB), more (track parameter, value) pairs (preset_t.x)
@@ -170,7 +174,7 @@ def cc0_entries(setname, kind):
         else:
             root = hz_to_midi(detect_hz(x, sr))
         x = resample(x, sr, TR)
-        keep = {"oneshot": 1.0, "sus": 0.95, "kit": 0.6, "piano": 1.0}[kind]
+        keep = KEEP_ZONE.get((setname, k), KEEP_SET.get(setname, {"oneshot": 1.0, "sus": 0.95, "kit": 0.6, "piano": 1.0}[kind]))
         x = x[:int(keep * TR)]
         n = len(x)
         if kind == "piano":                          # the attack, then a steady tone the envelope (DEC) fades:

@@ -803,8 +803,8 @@ UI_SMALL static void layer_screen_draw(void)
                 str_cpy(sub, undo.valid ? (undo.undone ? "oct+ redo" : "oct- undo") : sub, sizeof sub);
         } else {
             lab[0] = "rate";
-            str_cpy(v[0], N_ROLL[clamp(song.g[G_ROLL], 0, 7)], 8);
-            ratio[0] = note_pos(ORD_ROLL, sizeof ORD_ROLL, song.g[G_ROLL]) * 1000 / 7;
+            str_cpy(v[0], N_ROLL[clamp(song.g[G_ROLL], 0, 9)], 8);
+            ratio[0] = note_pos(ORD_ROLL, sizeof ORD_ROLL, song.g[G_ROLL]) * 1000 / 9;
         }
         break;
     }

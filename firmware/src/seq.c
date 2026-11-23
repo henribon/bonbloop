@@ -2007,8 +2007,10 @@ static void drum_input(uint32_t lane, uint32_t lvl, uint32_t rat, int rec)
  * transport's grid
  * (stopped: from the press) until it or ARP is up. Recorded, a roll faster than the track's steps
  * becomes ratchets (1/32 on 1/16 steps: x2, 32T: x3, 1/64: x4). */
-static const uint8_t ROLL_DEN[8] = {2, 4, 8, 12, 16, 1, 3, 6};
+static const uint8_t ROLL_NV[10][2] = {{1, 2}, {1, 4}, {1, 8}, {1, 12}, {1, 16}, {1, 1}, {1, 3}, {1, 6}, {2, 3}, {4, 3}};   /* beats
+                                         * = [0] / [1]: 1/8 .. 1/64, (1.4) 1/4 1/8T 1/16T, (1.4.1) 1/4T 1/2T */
 static uint8_t rep_on;                  /* (BONBLOOP 1.4) the drum track's REPEAT (ARP tapped): its keys roll, ARP up */
+static uint8_t trip_msg;                /* (1.4.1) for the UI: 2 the drum pattern went to 16T, 1 its grid can't hold them */
 #define NROLL 4u
 static struct {
     uint8_t on, key, trk, note, lvl;    /* note: the synth note, or the lane */
@@ -2016,7 +2018,26 @@ static struct {
     uint32_t off;                       /* synth: units to its note-off, 0 = not sounding */
     uint32_t rec_abs;                   /* the step its last recorded hit went into */
 } roll[NROLL];
-static uint32_t roll_den(void) { return ROLL_DEN[(uint32_t)clamp(song.g[G_ROLL], 0, 7)]; }
+static const uint8_t *roll_nv(void) { return ROLL_NV[(uint32_t)clamp(song.g[G_ROLL], 0, 9)]; }
+static uint32_t roll_u(void) { return BEAT_U * roll_nv()[0] / roll_nv()[1]; }
+static uint32_t roll_grid(uint32_t *into, uint32_t *slen) { return grid_nv(roll_nv()[0], roll_nv()[1], 0, into, slen); }
+/* (BONBLOOP 1.4.1) a roll of step u recorded on the drum track: its grid holds it if a hit falls every k steps or a step
+ * holds 2 .. 4 of them (ratchets); else (triplets on 1/16) an empty pattern goes to 16T, as long as it was; a pattern
+ * with hits keeps its grid and the UI says why the triplets land on it */
+static void roll_fit(track_t *t, uint32_t u)
+{
+    uint32_t su = div_units(trk_div(t)), i;
+    if ((su % u == 0u && su / u <= 4u) || u % su == 0u)
+        return;
+    for (i = 0; i < NSTEP && !(t->dstep[i].on[0] | t->dstep[i].on[1]); i++)
+        ;
+    trip_msg = 1;
+    if (i < NSTEP)
+        return;
+    t->p[P_SLEN] = (int16_t)clamp((int32_t)(trk_len(t) * (su / (BEAT_U / 24u)) / 4u), 1, NSTEP);
+    t->p[P_SDIV] = 5;                                /* (N_SDIV 16T) */
+    trip_msg = 2;
+}
 /* the lanes / notes a roll plays live on track t: the pattern does not play them meanwhile (no flam
  * with what was recorded, nor with what this roll is recording) */
 static uint32_t roll_lanes(const track_t *t)
@@ -2039,9 +2060,12 @@ static int roll_has(const track_t *t, uint32_t note)
 static void roll_hit(uint32_t r)
 {
     track_t *t = &trk[roll[r].trk % NTRK];
-    uint32_t u = BEAT_U / roll_den(), su = div_units((uint32_t)t->p[P_SDIV]);
-    uint32_t hits = su / u, rat = hits > 4u ? 3u : hits > 1u ? hits - 1u : 0u;
+    uint32_t u = roll_u(), su, hits, rat;
     uint32_t armed = ((song.rec >> trk_index(t)) & 1u) && song.playing, later, abs = 0, rec = 0;
+    if (armed && is_drum(t))
+        roll_fit(t, u);                              /* (1.4.1: triplets) */
+    su = div_units(trk_div(t));
+    hits = su / u, rat = hits > 4u ? 3u : hits > 1u ? hits - 1u : 0u;
     if (armed) {                                     /* one recorded hit a step: the ratchet does the rest */
         abs = rec_target(t, &later);
         rec = abs != roll[r].rec_abs;
@@ -2068,7 +2092,7 @@ static void roll_hit(uint32_t r)
 
 static void roll_start(uint32_t k, track_t *t, uint32_t note, uint32_t lvl)
 {
-    uint32_t r, den = roll_den(), into, slen, abs;
+    uint32_t r, into, slen, abs;
     for (r = 0; r < NROLL && roll[r].on; r++)
         ;
     if (r == NROLL)
@@ -2081,7 +2105,7 @@ static void roll_start(uint32_t k, track_t *t, uint32_t note, uint32_t lvl)
     roll[r].off = 0;
     roll[r].rec_abs = SEQ_NONE;
     if (song.playing) {
-        abs = grid_den(den, 0, &into, &slen);
+        abs = roll_grid(&into, &slen);
         roll[r].last = abs;
         if (into * 4u >= slen * 3u)
             return;                                  /* the grid is just ahead: it starts there */
@@ -2104,7 +2128,7 @@ static void roll_end(uint32_t r)
 
 static void roll_block(uint32_t adv)
 {
-    uint32_t r, den = roll_den(), u = BEAT_U / den, into, slen;
+    uint32_t r, u = roll_u(), into, slen;
     for (r = 0; r < NROLL; r++) {
         if (!roll[r].on)
             continue;
@@ -2118,7 +2142,7 @@ static void roll_block(uint32_t adv)
             }
         }
         if (song.playing) {
-            uint32_t abs = grid_den(den, 0, &into, &slen);
+            uint32_t abs = roll_grid(&into, &slen);
             if (abs != roll[r].last) {
                 roll[r].last = abs;
                 roll_hit(r);

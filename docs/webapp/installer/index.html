@@ -111,7 +111,7 @@
   <pre id="log"></pre>
   <div class="doors">
     <a class="door ed" href="../editor/" data-t="editor"></a>
-    <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.4.html" data-t="edOffline"></a>
+    <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.4.1.html" data-t="edOffline"></a>
     <button id="app" class="door ed" hidden data-t="appInstall"></button>
     <a class="door" href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">Source code and guide</a>
   </div>
@@ -541,7 +541,7 @@ const TEXT = {
     h1: "Firmware for the M-VAVE FM-1",
     lead: "SLOOP — the four-track live groovebox — exactly as it is, plus a synth mode: hold ENV and the selected track becomes a three-oscillator wavetable synth with its own filter, envelope, LFO and effects.",
     tile1: "each with its own envelope and LFO", tile2: "5 analog shapes + 10 wavetables", tile3: "an oscillator played backwards",
-    tile4: "your own chain: drive, phaser, filter, transient, chorus, delay, reverb", how: "Synth mode: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
+    tile4: "your own chain: drive, phaser, filter, chorus, delay, reverb", how: "Synth mode: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
     editor: "Open the editor",
     edOffline: "Download the editor (works offline)",
     appInstall: "Install as an app (offline, Android too)",
@@ -606,7 +606,7 @@ const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; $("status").textCont
 const say = (txt) => { lastKey = null; $("status").textContent = txt; };
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
-const meta = {"version": "1.4", "product": "FM-1_900", "pkg": "../../firmware/bonbloop-1.4.fwsc", "sha256": "177926280dac85253ff1c059e5c35e7245bbac4ef7f378b92847036086d53616"};
+const meta = {"version": "1.4.1", "product": "FM-1_900", "pkg": "../../firmware/bonbloop-1.4.1.fwsc", "sha256": "ac22b560f4dcafc3ed38acffd489098847874f89e30d4004f202019e4602d2c7"};
 
 let writing = false;
 const lockAll = (on) => {
