@@ -235,6 +235,10 @@ static const param_desc_t GP[G_COUNT] = {
     [G_KRAT] = PE("RATIO", N_KRAT, 1),
     [G_KATK] = PE("ATK", N_KATK, 4),
     [G_KREL] = PE("REL", N_KREL, 2),
+    [G_DRSTY] = PE("STYLE", N_DSTY, 0),           /* (1.7) the drums' DST, the synth's DRIVE (FX > DIST on the drums) */
+    [G_DRTONE] = PD("TONE", F_PCT, 0, 127, 64),
+    [G_DRPUN] = PE("PUNSH", N_WOFFON, 0),
+    [G_DRCLIP] = PD("CLIP", F_PCT, 0, 127, 0),    /* (1.7) the drums' soft clipper (FX > MIXER on the drums) */
     [G_DFIX] = PE("MODE", N_DMODE, 0),            /* (1.4) the delay's MODE: SYNC (TIME a note value) or MS (TIME in ms,
                                                    * from the note value playing): G_DTIME == DLY_FREE (page_desc) */
 };
@@ -447,7 +451,7 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK, SC_SONG, SC_DRUM };
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_INS,
-       GR_WAVE, GR_EQ };                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
+       GR_WAVE, GR_EQ, GR_COMP };                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
 
 typedef struct {
     const char *title;
@@ -457,9 +461,9 @@ typedef struct {
 
 /* (BONBLOOP 1.2) the globals the synth pages show beside the track's values: page ids VG0 + VG_* */
 enum { VG_CRATE, VG_CDEPTH, VG_DTIME, VG_DFDBK, VG_DCOLOR, VG_DMIX, VG_DFIX, VG_RSIZE, VG_RDAMP, VG_DMS, VG_CMIX, VG_RMIX,
-       VG_DRDLY, VG_DRREV, VG_N };   /* (1.7: the drums' DLY and REV on FX > MIXER: page_id) */
+       VG_DRCLIP, VG_DRREV, VG_N };   /* (1.7: the drums' CLIP and REV on FX > MIXER: page_id) */
 static const uint8_t VG_MAP[VG_N] = {G_CRATE, G_CDEPTH, G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX, G_DFIX, G_RSIZE, G_RDAMP, G_DMS,
-                                     G_CMIX, G_RMIX, G_DRDLY, G_DRREV};
+                                     G_CMIX, G_RMIX, G_DRCLIP, G_DRREV};
 #define VG0 0xE4u                                     /* (1.6: after the synx ids, 0xC0 .. 0xE3) */
 #define VS0 (VG0 + VG_N)                              /* (1.7) the synth's FX MIX: VS0 + k, the amount of the chain's slot k */
 _Static_assert(VX0 + SX_N <= VG0 && VS0 + SX_NSLOT < 0xFFu, "the synth's page ids");
@@ -473,8 +477,8 @@ static const page_t PAGES[] = {
     {"LFO DEST", FAM_LFO, SC_TRACK, GR_NONE, {P_LD_PIT, P_LD_FLT, P_LD_SHP, P_LD_AMP}},
     /* BONBLOOP 1.7: the track's MIXER (DST MOD DLY REV, each beside the dry: in parallel), the master's COMP and EQ, the
      * four effects' settings, the track's FILTER, its SLICER. No MIX here (the synth's pages have them) */
-    {"MIXER", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},   /* (drums: DLY REV the GLO > DRUMS sends) */
-    {"COMP", FAM_FX, SC_GLOBAL, GR_NONE, {G_KTHR, G_KRAT, G_KATK, G_KREL}},
+    {"MIXER", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},   /* (drums: CLIP for DLY, REV GLO > DRUMS') */
+    {"COMP", FAM_FX, SC_GLOBAL, GR_COMP, {G_KTHR, G_KRAT, G_KATK, G_KREL}},   /* (its meter: ui_draw.c graph_comp) */
     {"EQ 1", FAM_FX, SC_GLOBAL, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* the master's */
     {"EQ 2", FAM_FX, SC_GLOBAL, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},
     {"DIST", FAM_FX, SC_GLOBAL, GR_NONE, {G_XTYPE, G_XA, G_XB, G_XC}},
@@ -522,7 +526,7 @@ static const page_t PAGES[] = {
     {"OSC 1", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W1, VP0 + WV_P1, VP0 + WV_L1, VP0 + WV_R1}},   /* EDIT */
     {"OSC 2", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W2, VP0 + WV_P2, VP0 + WV_L2, VP0 + WV_R2}},
     {"OSC 3", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_W3, VP0 + WV_P3, VP0 + WV_L3, VP0 + WV_R3}},
-    {"OSC MIX", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_L1, VP0 + WV_L2, VP0 + WV_L3, P_LEVEL}},   /* (1.7) the levels */
+    {"OSC MIX", FAM_SYN, SC_TRACK, GR_FX, {VP0 + WV_L1, VP0 + WV_L2, VP0 + WV_L3, P_LEVEL}},   /* (1.7) the levels: faders */
     {"TUNE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_S2, VP0 + WV_F2, VP0 + WV_S3, VP0 + WV_F3}},
     {"FILTER", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_CUT, VP0 + WV_RES, P_FTYPE, P_ED_FLT}},   /* the voice's filter */
     {"VOICE", FAM_SYN, SC_TRACK, GR_WAVE, {VP0 + WV_WARP, P_VOICE, P_DETUNE, P_GLIDE}},
@@ -541,8 +545,8 @@ static const page_t PAGES[] = {
     {"CHAIN 2", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C5, VX0 + SX_C6, VX0 + SX_C7, 0xFF}},
     /* (1.6) the chain is the project's (the synth's tracks); 1.7: FX MIX, each effect of the chain in its order, how
      * much of it this track has: DRIVE PHASER FILTER EQ their MIX (dry / wet), CHORUS DELAY REVERB their send */
-    {"FX MIX", FAM_SYN, SC_TRACK, GR_NONE, {VS0, VS0 + 1u, VS0 + 2u, VS0 + 3u}},
-    {"FX MIX 2", FAM_SYN, SC_TRACK, GR_NONE, {VS0 + 4u, VS0 + 5u, VS0 + 6u, 0xFF}},   /* (five effects or more) */
+    {"FX MIX", FAM_SYN, SC_TRACK, GR_FX, {VS0, VS0 + 1u, VS0 + 2u, VS0 + 3u}},
+    {"FX MIX 2", FAM_SYN, SC_TRACK, GR_FX, {VS0 + 4u, VS0 + 5u, VS0 + 6u, 0xFF}},   /* (five effects or more) */
     {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
     {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
     {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
@@ -611,8 +615,8 @@ static const param_desc_t *wave_field(uint32_t id, int16_t **valp)
 }
 
 /* (BONBLOOP 1.7) the id a page's knob edits: the synth's FX MIX (VS0 + k) the amount of the chain's slot k, the MIX of
- * DRIVE PHASER FILTER EQ or the send of CHORUS DELAY REVERB (none: 0xFF); on the drum track FX > MIXER's DLY and REV
- * are the drums' sends (GLO > DRUMS) */
+ * DRIVE PHASER FILTER EQ or the send of CHORUS DELAY REVERB (none: 0xFF). On the drum track FX > MIXER has CLIP (their
+ * soft clipper) for DLY and REV is their send (GLO > DRUMS); FX > DIST is their DST's: the synth's DRIVE */
 static uint32_t page_id(const page_t *pg, uint32_t slot)
 {
     static const uint8_t FX_AMT[FXI_N] = {0xFF, VX0 + SX_MXD, VX0 + SX_MXP, VX0 + SX_MXF, P_CHOR, P_DLY, P_REV,
@@ -621,7 +625,9 @@ static uint32_t page_id(const page_t *pg, uint32_t slot)
     if (id >= VS0 && id < VS0 + SX_NSLOT)
         return FX_AMT[(uint32_t)sx_get(0, SX_C1 + id - VS0) % FXI_N];
     if (is_drum(TSEL) && pg->graph == GR_FX && (id == P_DLY || id == P_REV))
-        return VG0 + (id == P_DLY ? VG_DRDLY : VG_DRREV);
+        return VG0 + (id == P_DLY ? VG_DRCLIP : VG_DRREV);
+    if (is_drum(TSEL) && pg->scope == SC_GLOBAL && id >= G_XTYPE && id <= G_XC)
+        return id == G_XC ? 0xFFu : G_DRSTY + (id - G_XTYPE);
     return id;
 }
 static const param_desc_t *page_desc0(const page_t *pg, uint32_t slot, int16_t **valp)

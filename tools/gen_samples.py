@@ -49,8 +49,9 @@ CC0_SETS = [("PIANO", "piano"), ("BASS", "oneshot"), ("VIBES", "oneshot"), ("HOR
 MEASURED_TUNING = ()                         # sets recorded off A440 (measured near the named note)
 # (BONBLOOP 1.4.1) shorter tails where they are already quiet (flash for the synth's EQ, ~6.6 KB): BASS ends under
 # -27 dB after 0.8 s (each note 0.85 .. 0.9 s), VIBES F3 under -40 dB after 0.6 s. The 80 ms fade-out as ever
+# (1.7) VIBES D4 under -37 dB after 0.9 s, B4 under -27 dB after 0.9 s (to 0.93): ~1.8 KB for FX > COMP's view
 KEEP_SET = {"BASS": 0.8}
-KEEP_ZONE = {("VIBES", 0): 0.7}
+KEEP_ZONE = {("VIBES", 0): 0.7, ("VIBES", 1): 0.9, ("VIBES", 2): 0.93}
 
 # the preset of each set: name, {SET (filled in), TUNE, BITS, LOOP (filled in), CUT, -, DRV, -}, env, mono,
 # sends (DIST, CHORUS, DELAY, REVERB), more (track parameter, value) pairs (preset_t.x)

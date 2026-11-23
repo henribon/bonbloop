@@ -15,6 +15,19 @@
 > **FX MIX** (one knob per effect of the chain), **OSC MIX**, and SAVE opens **PRESET** to save the sound.
 > Everything else is SLOOP. **Install from the browser: [bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** (Chrome or Edge,
 > the FM-1 on USB). Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.
+>
+> **Identity: `FM-1_962`** (BONBLOOP's own, every version; up to 1.7 it shared SLOOP's `FM-1_900`). The update
+> loader is Felucca's: an interrupted update resumes, and any other FM-1 firmware installs over BONBLOOP again.
+>
+> **Your projects.** BONBLOOP opens the projects, user presets, samples and settings of SLOOP (and of the Felucca
+> family that SLOOP reads) as they are. Its synth extras (the oscillators' envelopes and LFOs, the FX chain, the EQ, the
+> new FX settings) are kept in a side record next to each project: SLOOP opens a BONBLOOP project but without them (a
+> track on the WAVE engine falls back to that track's default sound there). Other firmwares may not read the FM-1's
+> saves at all, or overwrite them: **back up first** (the web editor's backup), whichever way you switch.
+>
+> Sounds: the built-in samples are CC0 (VSCO-2 CE and VCSL by Versilian Studios, the Sonic Pi samples); the free
+> user-slot pack in `assets/hiphop-pack` adds Wurlitzer EP200 samples by Greg Sullivan under CC BY 3.0
+> (`assets/hiphop-pack/CREDITS.txt`). Everything else is made in code.
 
 <p align="center"><img src="assets/logo/sloop-logo.png" alt="SLOOP" width="420"></p>
 

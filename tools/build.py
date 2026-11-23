@@ -47,7 +47,8 @@ SDK_SHA256 = {
     "cfg/eq_cfg_hw.bin": "41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d",
 }
 
-PRODUCT = "FM-1_900"                # package identity; release builds are FM-1_9XY
+PRODUCT = "FM-1_962"                # package identity: BONBLOOP's own, every build and release (felucca.c FELUCCA_ID,
+                                    # loader.c "ota-FM-1_962"); SLOOP's is FM-1_900
 VERSION = None                      # FELUCCA_VERSION for release builds (default: firmware/src/ui.c)
 
 
@@ -314,17 +315,16 @@ def mmio_check():
 def main():
     global PRODUCT, VERSION
     ap = argparse.ArgumentParser()
-    ap.add_argument("--release", metavar="X.Y", help="release build: identity FM-1_9XY, version string X.Y")
+    ap.add_argument("--release", metavar="X.Y", help="release build: version string X.Y (or X.Y.Z, -suffix), package "
+                                                     "bonbloop-X.Y.fwsc; the identity stays FM-1_962")
     ap.add_argument("--sdk", type=Path, help="JieLi AC79 SDK checkout (default: $AC79_SDK)")
     a = ap.parse_args()
     name = "felucca.fwsc"
-    if a.release:                   # one digit each: the identity has room for two
-        m = re.fullmatch(r"(\d)\.(\d)(-[A-Za-z0-9]+)?", a.release)
-        if not m:
-            raise SystemExit(f"--release {a.release}: use X.Y or X.Y-suffix, one digit each")
-        PRODUCT = "FM-1_9" + m[1] + m[2]
+    if a.release:                   # (BONBLOOP 1.7: the version is not in the identity any more)
+        if not re.fullmatch(r"\d+\.\d+(\.\d+)?(-[A-Za-z0-9]+)?", a.release):
+            raise SystemExit(f"--release {a.release}: use X.Y, X.Y.Z or X.Y-suffix")
         VERSION = "BONBLOOP " + a.release.upper()   # (the splash shows what follows the first word)
-        name = f"felucca-{a.release}.fwsc"
+        name = f"bonbloop-{a.release}.fwsc"
     fm1pkg_make.SDK = a.sdk
     for rel, sha in SDK_SHA256.items():          # fail early without the SDK
         if hashlib.sha256(fm1pkg_make.sdk_file(rel)).hexdigest() != sha:

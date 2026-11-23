@@ -133,8 +133,8 @@ INFO on the SYSTEM page) should drop with it on, by roughly the drums' and one p
 
 ## Installing a build of this branch on an FM-1
 
-The package keeps SLOOP's development identity (FM-1_900); Felucca's update path does not refuse a package
-with the same identity as the installed one, so it installs over the official 2.6 and the official 2.6
+The package keeps SLOOP's development identity (FM-1_900; BONBLOOP's packages are FM-1_962); Felucca's update
+path does not refuse a package with the same identity as the installed one, so it installs over the official 2.6 and the official 2.6
 installs back over it. Your projects, presets, samples and settings are kept (2.6's own note: a project saved by
 2.6 does not open in 2.5). If the device ran the 2.5-based build of this branch with 2ND CORE OFF, that bit now
 reads as GLO > MIDI 2 > IN = CH 1: set IN back to NOTES once. From the browser:

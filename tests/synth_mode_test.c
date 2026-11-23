@@ -121,7 +121,8 @@ int main(int argc, char **argv)
               str_eq(d3->label, "LVL3") && d4 == &TP[P_LEVEL] && vp == &TSEL->p[P_LEVEL],
               "1.7: EDIT again: OSC MIX (LVL1 LVL2 LVL3, the track's LEVEL)");
         turn(EN_K2, -3);
-        check(field(WV_L2) == l2 - 3, "1.7: OSC MIX: KNOB 2 OSC 2's level");
+        check(field(WV_L2) == l2 - 3 && cur_page()->graph == GR_FX, "1.7: OSC MIX: KNOB 2 OSC 2's level; drawn as faders");
+        ui.force = 1; frame(); shot("synth-osc-mix");
         turn(EN_K2, 3);
     }
     tap(B_EDIT);
@@ -283,6 +284,7 @@ int main(int argc, char **argv)
             turn(EN_K1, 5);
             turn(EN_K4, 6);
             check(TSEL->p[P_DLY] > 40, "1.7: FX MIX KNOB 4: DELAY's send");
+            ui.force = 1; frame(); shot("synth-fx-mix");
         }
         tap(B_FX);
         check(str_eq(pg_title(), "DRIVE"), "FX: then DRIVE (FX MIX 2 hidden: four effects)");
@@ -667,9 +669,39 @@ int main(int argc, char **argv)
                 mx = &PAGES[i];
         track_select(TRK_DRUM);
         frames(2);
-        check(mx && page_for_drum(mx) && page_desc(mx, 2, &vp) == &GP[G_DRDLY] && vp == &song.g[G_DRDLY] &&
+        check(mx && page_for_drum(mx) && page_desc(mx, 2, &vp) == &GP[G_DRCLIP] && vp == &song.g[G_DRCLIP] &&
               page_desc(mx, 3, &vp) == &GP[G_DRREV] && vp == &song.g[G_DRREV] && page_desc(mx, 1, &vp) &&
-              vp == &TDRUM->p[P_CHOR], "1.7: the drums' MIXER: DST, MOD theirs, DLY REV the GLO > DRUMS sends");
+              vp == &TDRUM->p[P_CHOR], "1.7: the drums' MIXER: DST, MOD theirs, CLIP (no DLY), REV the GLO > DRUMS send");
+        for (i = 0; i < NPAGES; i++)
+            if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "DIST"))
+                mx = &PAGES[i];
+        check(page_desc(mx, 0, &vp) == &GP[G_DRSTY] && page_desc(mx, 2, &vp) == &GP[G_DRPUN] && !page_desc(mx, 3, &vp),
+              "1.7: FX > DIST on the drums: their DRIVE's STYLE, TONE, PUNSH");
+        {   /* the drums' DST (the DRIVE, in parallel) and CLIP each change the kick, bounded; 0 and 0: bit for bit */
+            static int32_t l[CTL], r[CTL], l0[CTL];
+            int32_t j, same = 1, chg = 0, clip = 0;
+            uint32_t ph = 0;
+            for (j = 0; j < CTL; j++, ph += 40000000u)
+                l0[j] = osc_sine(ph) >> 1;
+            memcpy(l, l0, sizeof l), memcpy(r, l0, sizeof r);
+            drum_fx(l, r, CTL);
+            same = !memcmp(l, l0, sizeof l);
+            TDRUM->p[P_DIST] = 100, song.g[G_DRSTY] = 3;
+            memcpy(l, l0, sizeof l), memcpy(r, l0, sizeof r);
+            drum_fx(l, r, CTL);
+            for (j = 0; j < CTL; j++)
+                chg |= l[j] != l0[j];
+            TDRUM->p[P_DIST] = 0;
+            drum_fx(l, r, CTL);
+            song.g[G_DRCLIP] = 127;
+            for (j = 0; j < CTL; j++)
+                l[j] = r[j] = 60000;
+            drum_fx(l, r, CTL);
+            clip = l[CTL - 1];
+            song.g[G_DRCLIP] = 0, song.g[G_DRSTY] = 0;
+            snprintf(b, sizeof b, "1.7: drums' DST 0 CLIP 0 dry; DST (T) changes them; CLIP 127 rounds 60000 to %d", clip);
+            check(same && chg && clip > 5000 && clip < 12000, b);
+        }
         track_select(0);
         frames(2);
     }

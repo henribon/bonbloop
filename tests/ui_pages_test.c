@@ -1233,7 +1233,21 @@ int main(int argc, char **argv)
         tap(B_FX);
         check(!strcmp(PT(), "MIXER") && !strcmp(TP[P_CHOR].label, "MOD"), "BONBLOOP 1.7: FX opens the track's MIXER (DST MOD DLY REV)");
         SEL(1);
-        check(!strcmp(PT(), "COMP"), "SELECT on FX: next page, COMP (the master's)");
+        check(!strcmp(PT(), "COMP") && cur_page()->graph == GR_COMP, "SELECT on FX: next page, COMP (the master's, its meter)");
+        {   /* 1.7: the COMP view: a note in, the meter up; THRS down, a reduction shown */
+            int16_t thr0 = song.g[G_KTHR];
+            fm1_in.notes |= 1u << 12;
+            frames(20);
+            check(km_px[0] > 20u && km_px[1] > 20u && !km_px[2], "1.7: COMP page: the input's meter up (left, right), off: no reduction");
+            song.g[G_KTHR] = -36;
+            frames(20);
+            ui.force = 1; frame(); ppm("page-comp");
+            check(km_px[2] > 0u, "1.7: COMP page: THRS -36 dB: the reduction shown");
+            fm1_in.notes &= ~(1u << 12);
+            song.g[G_KTHR] = thr0;
+            frames(80);
+            check(km_px[0] < 10u, "1.7: COMP page: the meter falls back");
+        }
         SEL(7);
         check(!strcmp(PT(), "FILTER"), "SELECT on FX: EQ 1, EQ 2, DIST, MOD, DELAY, REVERB, then the track FILTER");
         TSEL->p[P_TFLT] = -32; ui.force = 1; frames(2); ppm("page-filter");

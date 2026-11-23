@@ -720,14 +720,17 @@ static void wave_spread(track_t *t, voice_t *v, uint32_t r)
  * P pentode (half hard clip). The state: the track's dist_* (as DIST) */
 static const int16_t WD_BIAS[5] = {0, 4000, 1200, 7000, 600};
 static const uint8_t WD_GAIN[5] = {2, 2, 3, 4, 3};        /* the drive x this / 2 */
-static void wave_drive(track_t *t, int32_t *b, uint32_t n, int32_t d)
+/* the DRIVE on b through the state s (the low cut, the two low-passes): d the drive, st the style, tone -16..15, pun
+ * PUNSH. w < 0: b becomes the driven (the synth's chain; its MIX: fx.c); else the driven is added to the dry at w, Q15
+ * (BONBLOOP 1.7: the drums' DST, in parallel) */
+static void wd_core(int32_t *s, int32_t *b, uint32_t n, int32_t d, uint32_t st, int32_t tone, int32_t pun, int32_t w)
 {
-    const int16_t *p = t->p;
-    uint32_t st = (uint32_t)wv_get(p, WV_DSTY) % 5u, i;
+    uint32_t i;
     /* (1.2: heavier) 1x .. ~25x (A) / ~50x (T); PUNSH x8 more (+18 dB, Decapitator's PUNISH), the pentode harder. g: Q6 */
     int32_t g = ((4096 + d * d * 6) * WD_GAIN[st]) >> 7, bias = WD_BIAS[st], b0 = softclip(bias);
-    int32_t k = clamp(26000 + wv_get(p, WV_DTONE) * 420 - d * 40, 3000, 32767), mk = 30000 - d * 100;
-    if (wv_get(p, WV_PUN)) {
+    int32_t k = clamp(26000 + tone * 420 - d * 40, 3000, 32767), mk = 30000 - d * 100;
+    int32_t hp = s[0], l1 = s[1], l2 = s[2];
+    if (pun) {
         g <<= 3;
         mk -= mk >> 2;
     }
@@ -735,16 +738,24 @@ static void wave_drive(track_t *t, int32_t *b, uint32_t n, int32_t d)
         b0 = (b0 + bias) >> 1;
     for (i = 0; i < n; i++) {
         int32_t x = b[i], y;
-        t->dist_hp += (x - t->dist_hp + 64) >> 7;       /* ~55 Hz low cut */
-        x = (clamp(x - t->dist_hp, -65535, 65535) * g) >> 6;
+        hp += (x - hp + 64) >> 7;                     /* ~55 Hz low cut */
+        x = (clamp(x - hp, -65535, 65535) * g) >> 6;
         y = softclip(x + bias);
         if (st == 4u)
             y = (y + clamp(x + bias, -16000, 16000)) >> 1;
         y -= b0;
-        t->dist_lp1 += mulq15(y - t->dist_lp1, k);      /* TONE: two poles */
-        t->dist_lp2 += mulq15(t->dist_lp1 - t->dist_lp2, k);
-        b[i] = mulq15(t->dist_lp2, mk);
+        l1 += mulq15(y - l1, k);                      /* TONE: two poles */
+        l2 += mulq15(l1 - l2, k);
+        b[i] = w < 0 ? mulq15(l2, mk) : b[i] + mulq15(mulq15(l2, mk), w);
     }
+    s[0] = hp, s[1] = l1, s[2] = l2;
+}
+static void wave_drive(track_t *t, int32_t *b, uint32_t n, int32_t d)
+{
+    const int16_t *p = t->p;
+    int32_t s[3] = {t->dist_hp, t->dist_lp1, t->dist_lp2};
+    wd_core(s, b, n, d, (uint32_t)wv_get(p, WV_DSTY) % 5u, wv_get(p, WV_DTONE), wv_get(p, WV_PUN), -1);
+    t->dist_hp = s[0], t->dist_lp1 = s[1], t->dist_lp2 = s[2];
 }
 
 /* BONBLOOP 1.5: the synth's EQ (FX chain EQ; pages EQ 1, EQ 2): a LOW shelf, MID 1 and MID 2 bells, a HIGH shelf; each a

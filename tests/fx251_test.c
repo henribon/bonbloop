@@ -2,7 +2,7 @@
 /* SLOOP 2.6, after Felucca 1.4 / 1.5 (Leo Kuroshita): the sound side of what came from there.
  *   insert   (BONBLOOP 1.7: the INSERT's drives are FX > DIST, in parallel, MIXER's DST the amount on SLOOP's
  *            engines and the drums) each DIST type changes a part and stays bounded; DST 0 leaves it bit for bit;
- *            DST 0 again: dry once its fade ran; the drum track's DIST works on its left, right and sends
+ *            DST 0 again: dry once its fade ran; the drum track's DST (the synth's DRIVE) changes the kick
  *   filter   ANALOG's TYPE: LP keeps the lows, HP the highs, BP the middle
  *   esync    ENV SYNC: ATK as a note value of the tempo (a quarter at 120 BPM: 0.5 s; at 60: 1 s)
  *   lfo 2    SYNC: a cycle a note value; TRIG FREE: a new phrase does not restart it; POL UNI: 0..+1
@@ -159,14 +159,14 @@ static void t_insert(void)
             if (!(i & 3u)) dstep_set(&TDRUM->dstep[i], 0, LV_NORM, 0);
         TDRUM->p[P_SLEN] = 16;
         TDRUM->p[P_REV] = 60;
-        song.g[G_XTYPE] = IT_FUZZ - IT_SOFT, song.g[G_XA] = 127, TDRUM->p[P_DIST] = 127;   /* FUZZ, full drive */
+        song.g[G_DRSTY] = 3, TDRUM->p[P_DIST] = 127;    /* (1.7) the DRIVE, T, full */
         transport_req = 1;
         render(1400);
         b = rms(0, 1400u * CTL);
         printf("  drums: rms dry %.0f, FUZZ %.0f\n", a, b);
-        check(a > 100 && fabs(b - a) > 0.05 * a && TDRUM->ins_run && ins[NPART].type == 4u && ins[NPART + 2u].w,
-              "the drum track's DIST (FUZZ): the kick changed, left / right / sends through it");
-        song.g[G_XTYPE] = GP[G_XTYPE].def, song.g[G_XA] = GP[G_XA].def, TDRUM->p[P_DIST] = 0;
+        check(a > 100 && fabs(b - a) > 0.05 * a && drum_wd_on,
+              "the drum track's DST (1.7: the synth's DRIVE, T): the kick changed");
+        song.g[G_DRSTY] = 0, TDRUM->p[P_DIST] = 0;
         transport_req = 2;
         render(4);
     }

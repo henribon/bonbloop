@@ -116,6 +116,8 @@ enum {                          /* global parameters */
     G_MTYPE, G_MFDBK,           /* .. FX > MOD: the chorus' bus CHOR / FLANG / PHASR (RATE, DEPTH: G_CRATE, G_CDEPTH), FDBK */
     G_KTHR, G_KRAT, G_KATK, G_KREL,   /* .. FX > COMP: the master's glue compressor, THRS (0 dB: off) RATIO ATK REL. A
                                        * project keeps them all (side record) */
+    G_DRSTY, G_DRTONE, G_DRPUN,       /* .. the drums' DST, the synth's DRIVE: FX > DIST with the drum track selected */
+    G_DRCLIP,                         /* .. the drums' soft clipper (FX > MIXER on the drum track, where DLY is) */
     G_COUNT
 };
 

@@ -315,7 +315,9 @@ static const uint16_t K_RAT[3] = {32768, 49152, 58982};                       /*
 static struct {
     int32_t env;                        /* the peak's envelope, octaves Q16 */
     int32_t g;                          /* the gain at the end of the last block, Q12 */
-} kmp = {-(30 << 16), 4096};
+    uint32_t ml, mr;                    /* the COMP page's meter: the input's peaks, left and right, since it last read */
+    int32_t gr;                         /* .. and the most reduction (octaves Q16) */
+} kmp = {-(30 << 16), 4096, 0, 0, 0};
 static int32_t log2q16(uint32_t v)       /* log2(v / 32768), Q16 (a parabola between the octaves: within ~0.01) */
 {
     int32_t m, x;
@@ -333,22 +335,29 @@ static int32_t exp2q12(int32_t l)        /* 2^(l / 65536), Q12 */
 }
 static void comp_process(int32_t *l, int32_t *r, uint32_t n)
 {
-    int32_t thr = song.g[G_KTHR], g0 = kmp.g, g1, pk = 0, lg, k, over, i;
+    int32_t thr = song.g[G_KTHR], g0 = kmp.g, g1, pk, pl = 0, pr = 0, lg, k, over, i;
+    for (i = 0; i < (int32_t)n; i++) {
+        int32_t a = l[i] < 0 ? -l[i] : l[i], b = r[i] < 0 ? -r[i] : r[i];
+        pl = a > pl ? a : pl;
+        pr = b > pr ? b : pr;
+    }
+    if ((uint32_t)pl > kmp.ml)                          /* (the page's meter, ui_draw.c graph_comp: the input as it comes) */
+        kmp.ml = (uint32_t)pl;
+    if ((uint32_t)pr > kmp.mr)
+        kmp.mr = (uint32_t)pr;
     if (!thr) {                                         /* off: at rest */
         kmp.env = -(30 << 16), kmp.g = 4096;
         return;
     }
-    for (i = 0; i < (int32_t)n; i++) {
-        int32_t a = l[i] < 0 ? -l[i] : l[i], b = r[i] < 0 ? -r[i] : r[i];
-        pk = a > pk ? a : pk;
-        pk = b > pk ? b : pk;
-    }
+    pk = pl > pr ? pl : pr;
     lg = log2q16((uint32_t)pk);
     k = lg > kmp.env ? K_ATK[clamp(song.g[G_KATK], 0, 5)] : K_REL[clamp(song.g[G_KREL], 0, 5)];
     kmp.env += (int32_t)(((int64_t)(lg - kmp.env) * k) >> 16);
     thr = thr * 10885;                                  /* dB -> octaves, Q16 (65536 / 6.0206) */
     k = K_RAT[clamp(song.g[G_KRAT], 0, 2)];
     over = kmp.env > thr ? kmp.env - thr : 0;
+    if ((int32_t)(((int64_t)over * k) >> 16) > kmp.gr)
+        kmp.gr = (int32_t)(((int64_t)over * k) >> 16);
     g1 = exp2q12((int32_t)(((int64_t)(-thr / 2 - over) * k) >> 16));   /* the make-up: half of what full scale loses */
     g1 = clamp(g1, 1, 32000);
     kmp.g = g1;
@@ -522,7 +531,7 @@ typedef struct {
     int16_t line[IL_LEN];               /* FLANG / CHOR, at a quarter (headroom) */
 } ins_t;
 /* (in .bss, not the pool: tools/build.py keeps 8 KiB of the pool spare; RAM has room) */
-static ins_t ins[NPART + 4u];                    /* the parts; the drum track's L, R, REV, DLY */
+static ins_t ins[NPART];                         /* the parts (1.7: the drums' DST is the DRIVE, drum_fx) */
 
 static inline int32_t ins_mixq(int32_t m) { return m >= 127 ? 32768 : m <= 0 ? 0 : m * 258; }   /* MIX -> Q15 */
 static inline int32_t ins_mix(int32_t x, int32_t y, int32_t w) { return w == 32768 ? y : x + mulq16(y - x, (uint32_t)w << 1); }
@@ -956,21 +965,36 @@ static void djf_process(int32_t *l, int32_t *r, uint32_t n)
 #define U_DRUMS (1u << NPART)
 #define U_ALL ((2u << NPART) - 1u)
 
-/* the drum track's DIST (BONBLOOP 1.7: FX > MIXER DST, in parallel; the INSERT's states of 2.6): its left, right and
- * the two sends, each through its own state, the same settings */
-static void drum_insert(int32_t *l, int32_t *r, int32_t *v, int32_t *d, uint32_t n)
+/* (BONBLOOP 1.7) the drums' DST: the synth's DRIVE (FX > DIST with the drum track selected: STYLE TONE PUNSH) on their
+ * left and right, in parallel, DST its drive and how much of it is added; then CLIP, a soft clipper: the drive into tanh,
+ * given back half way (x 2 / (1 + drive): the quiet hits a little louder, the peaks rounded). DST 0, CLIP 0: the drums
+ * bit for bit. Their sends stay dry */
+static int32_t drum_wd[2][3];
+static uint8_t drum_wd_on;
+static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
 {
-    track_t *t = TDRUM;
-    int16_t q[5];
-    int run;
-    if (!(t->p[P_DIST] | t->ins_run))
-        return;
-    dist_q(q, t->p[P_DIST]);
-    run = ins_run(&ins[NPART], q, l, n, 1);
-    run |= ins_run(&ins[NPART + 1u], q, r, n, 1);
-    run |= ins_run(&ins[NPART + 2u], q, v, n, 1);
-    run |= ins_run(&ins[NPART + 3u], q, d, n, 1);
-    t->ins_run = (uint8_t)run;
+    int32_t d = TDRUM->p[P_DIST], c = song.g[G_DRCLIP];
+    uint32_t i;
+    if (d) {
+        uint32_t st = (uint32_t)clamp(song.g[G_DRSTY], 0, 4);
+        int32_t tone = (song.g[G_DRTONE] >> 2) - 16, pun = song.g[G_DRPUN];
+        if (!drum_wd_on) {                              /* coming on: no stale low cut (a thump) */
+            drum_wd_on = 1;
+            drum_wd[0][0] = l[0], drum_wd[1][0] = r[0];
+            drum_wd[0][1] = drum_wd[0][2] = drum_wd[1][1] = drum_wd[1][2] = 0;
+        }
+        wd_core(drum_wd[0], l, n, d, st, tone, pun, d * 258);
+        wd_core(drum_wd[1], r, n, d, st, tone, pun, d * 258);
+    } else {
+        drum_wd_on = 0;
+    }
+    if (c) {
+        int32_t g = 4096 + c * 128, og = 268435456 / (4096 + g);   /* 1x .. ~5x; Q15 */
+        for (i = 0; i < n; i++) {
+            l[i] = mulq15(softclip(MULQ12R(clamp(l[i], -262143, 262143), g, 2)), og);
+            r[i] = mulq15(softclip(MULQ12R(clamp(r[i], -262143, 262143), g, 2)), og);
+        }
+    }
 }
 /* the drum track with the metronome: drums_render, through the SLICER when it is on (slicer.c), then through its
  * INSERT (2.6) and the track's FILTER when they are on (into drum_buf, left, right and the two sends apart, then added) */
@@ -983,14 +1007,14 @@ static void mix_drums(uint32_t n, mixacc_t *mx)
     drums.a0 = TDRUM->att;                              /* the drum track's mute / solo fade */
     drums.a1 = 32767 - gain_next(TDRUM);
     flt = n <= CTL && djf_block(f, TDRUM->p[P_TFLT], &fc, tflt_reso());   /* the drum track's FILTER */
-    if (flt || (n <= CTL && (TDRUM->p[P_DIST] | TDRUM->ins_run | TDRUM->p[P_CHOR]))) {   /* .. or its DIST, its MOD send
-                                                         * (1.7): left, right, the sends */
+    if (flt || (n <= CTL && (TDRUM->p[P_DIST] | drum_wd_on | song.g[G_DRCLIP] | TDRUM->p[P_CHOR]))) {   /* .. or (1.7)
+                                                         * its DST, CLIP, MOD send: left, right, the sends */
         int32_t *dl = drum_buf[0], *dr = drum_buf[1], *dv = drum_buf[2], *dd = drum_buf[3];
         int32_t c = TDRUM->p[P_CHOR] * 258;
         for (i = 0; i < n; i++)
             dl[i] = dr[i] = dv[i] = dd[i] = 0;
         slicer_drums(dl, dr, dv, dd, n);
-        drum_insert(dl, dr, dv, dd, n);                 /* (2.6: off, nothing) */
+        drum_fx(dl, dr, n);                             /* (1.7: off, nothing) */
         if (flt) {
             tflt_run(f, &fc, dl, n, 0);
             tflt_run(f, &fc, dr, n, 1);

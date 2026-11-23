@@ -12,8 +12,10 @@ Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`
 paralelo), um **COMP** (glue) e um **EQ** de 4 bandas no master, os ajustes de DIST, MOD (chorus / flanger / phaser),
 DELAY e REVERB, o FILTER e, por último, o SLICER. No modo synth: **FX MIX** (um knob por efeito da cadeia, no lugar
 de TRACK FX + FX MIX), **OSC MIX** (o volume de cada oscilador) e **SAVE** abre a página **PRESET** para salvar o
-som. O CLICK ON agora se chama **PL+REC**. Correção: girar um GAIN do EQ ou um MIX passando por 1–6 ligava e
-desligava efeitos (desde a 1.5).
+som; OSC MIX e FX MIX desenhados como **faders** de mixer. O **COMP** tem a tela de um compressor de DAW (RATIO,
+ATTACK, RELEASE à esquerda; à direita o medidor com o THRESH e a redução de ganho). A **bateria** ganhou o DRIVE do
+synth (estilo Decapitator) no DST e um **soft clipper** (CLIP) no lugar do DLY. O CLICK ON agora se chama **PL+REC**.
+Correção: girar um GAIN do EQ ou um MIX passando por 1–6 ligava e desligava efeitos (desde a 1.5).
 
 **1.6** — a **FX CHAIN é do projeto** (uma só, para os sons do synth), com os **MIX** de cada efeito; **MIX** também
 no reverb e no chorus; **copiar e colar** o padrão de uma track em outra.
@@ -85,7 +87,7 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | **EDIT** | OSC 1 | WAVE · POS · LVL1 · REV |
 | | OSC 2 | WAVE · POS · LVL2 · REV |
 | | OSC 3 | WAVE · POS · LVL3 · REV |
-| | OSC MIX | LVL1 · LVL2 · LVL3 · LEVEL — **o volume de cada oscilador e o da track** (1.7) |
+| | OSC MIX | LVL1 · LVL2 · LVL3 · LEVEL — **o volume de cada oscilador e o da track**, em faders (1.7) |
 | | TUNE | SEMI2 · FINE2 · SEMI3 · FINE3 |
 | | FILTER | CUT · RES · TYPE (LP/BP/HP) · FLT (quanto o envelope abre o filtro) |
 | | VOICE | WARP · VCE (POLY/MONO/LEG/UNI) · DTUNE (abertura do unison) · GLD |
@@ -99,7 +101,7 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
 | | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
-| | FX MIX | **um knob por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER, FILTER e EQ o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio |
+| | FX MIX | **um fader por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER, FILTER e EQ o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio |
 | | FX MIX 2 | os efeitos dos slots 5 a 7 (só aparece com 5 efeitos ou mais) |
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
@@ -297,10 +299,10 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
 
 | Página | KNOB 1 · KNOB 2 · KNOB 3 · KNOB 4 | De quem |
 | --- | --- | --- |
-| **MIXER** | DST · MOD · DLY · REV | da track |
+| **MIXER** | DST · MOD · DLY · REV, em faders (na bateria: DST · MOD · **CLIP** · REV) | da track |
 | **COMP** | THRS (0 dB = desligado, até −40 dB) · RATIO (2:1, 4:1, 10:1) · ATK (0,1–30 ms) · REL (0,1–1,2 s) | do master |
 | **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | do master |
-| **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF) | do projeto |
+| **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF); na bateria: STYLE · TONE · PUNSH | do projeto |
 | **MOD** | TYPE (CHOR, FLANG, PHASR) · RATE · DEPTH · FDBK | do projeto |
 | **DELAY** | TIME · FDBK · COLR · MODE (SYNC / MS) | do projeto |
 | **REVERB** | SIZE · DAMP | do projeto |
@@ -313,9 +315,15 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
 - O **MOD** é o barramento do chorus, agora com três tipos: **CHOR** (o chorus de sempre), **FLANG** e **PHASR**
   (estéreo, um lado meia volta atrás do outro). O FDBK vale para FLANG e PHASR.
 - O **COMP** é um *glue compressor* no master (depois dos efeitos, antes do volume): estéreo, com make-up automático
-  (devolve metade do que o compressor tira em fundo de escala). Em THRS 0 dB não faz nada.
+  (devolve metade do que o compressor tira em fundo de escala). Em THRS 0 dB não faz nada. A tela é a de um compressor
+  de DAW: RATIO, ATTACK e RELEASE à esquerda; à direita o medidor de 0 a −48 dB com a entrada (esquerda e direita:
+  verde, amarelo a partir de −12 dB, vermelho a partir de −3), a **redução de ganho** descendo do topo (laranja) e o
+  **THRESH** como uma linha com a seta azul e o valor ao lado.
 - O **EQ** do master é o mesmo EQ de 4 bandas do synth, para a mistura inteira. Plano, não gasta nada.
-- Na **bateria**, DST e MOD são dela; DLY e REV são os envios da bateria (os mesmos de GLO → DRUMS).
+- Na **bateria**: o **DST** é o DRIVE do modo synth (estilo Decapitator), em paralelo, com STYLE (A E N T P), TONE e
+  PUNSH na página **DIST** (com a bateria selecionada); **MOD** é dela; no lugar do DLY fica o **CLIP**, um *soft clipper*
+  (empurra a bateria num tanh e devolve metade do ganho: os golpes baixos um pouco mais fortes, os picos arredondados);
+  **REV** é o envio da bateria (o mesmo de GLO → DRUMS). O envio de delay da bateria continua em GLO → DRUMS.
 - **Sem MIX nestas páginas:** os MIX (seco/molhado e retornos) ficam só no modo synth.
 - O antigo **INSERT** saiu destas páginas: as distorções dele são o DIST, e PHASR / FLANG / CHOR são o MOD. Ele continua
   existindo só como o PHASER da cadeia do synth. Num som antigo com INSERT, ele deixa de soar nas tracks do SLOOP; o
@@ -398,7 +406,8 @@ Funciona nas teclas, nos passos e com os modificadores das teclas pretas.
   dos osciladores, cadeia, MS): o OSC 1 segue o ENV do track.
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
-- A identidade do pacote continua `FM-1_900` (build de desenvolvimento), instalável pelo mesmo instalador.
+- A identidade do pacote é **`FM-1_962`** (1.7), só do BONBLOOP, em todas as versões (até a 1.7 era `FM-1_900`, a do
+  SLOOP, que vários firmwares dividem). Instala por cima do SLOOP e de qualquer versão anterior, pelo mesmo instalador.
 
 ## Instalar
 
@@ -418,7 +427,9 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.7: 578.732 de 581.564 bytes de flash (2,8 KB livres); RAM 62.316 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.7: 580.744 de 581.564 bytes de flash (820 bytes livres); RAM 60.076 de 98.304 bytes, pool igual ao do SLOOP.
+Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
+0,93 s, abaixo de −27 dB).
 
 ## Testes
 
@@ -432,7 +443,8 @@ Tamanho do 1.7: 578.732 de 581.564 bytes de flash (2,8 KB livres); RAM 62.316 de
   sair, a bateria selecionada; grava as telas em `synth-*.ppm`.
 
 A suíte de regressão (`tests/regress.c`) confere as 199 renderizações bit a bit com o `golden.txt`. Na 1.7 mudaram
-só as que usam o DST (os presets de fábrica com distorção, os testes de envio): o DST agora é em paralelo.
+só as que usam o DST (os presets de fábrica com distorção, os testes de envio: o DST agora é em paralelo) e as duas
+que tocam o VIBES (as caudas mais curtas).
 
 ## Créditos
 
