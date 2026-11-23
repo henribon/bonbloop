@@ -497,6 +497,51 @@ UI_SMALL static void project_new(void)
     ui.force = 1;
 }
 
+/* (BONBLOOP 1.6) SAVE > TOOLS COPY / TOOLS 2 PASTE: a track's pattern (its steps, nudges, fill conditions, locks and
+ * LEN, DIV, SWING, GATE) into another, a synth track's into a synth track, the drums' into the drums (undo: EDIT + OCT-).
+ * A lock is pasted only onto the same engine (it holds a value of that sound) */
+static struct {
+    uint8_t kind, eng;                                    /* 0 nothing yet, 1 a synth track's, 2 the drums' */
+    step_t step[NSTEP];
+    int8_t micro[NSTEP];
+    uint8_t fill[NSTEP / 4u];
+    plock_t lock[NLOCK];
+    int16_t pat[4];
+} clip;
+UI_SMALL static void pat_clip(int paste)
+{
+    track_t *t = TSEL;
+    uint32_t kind = is_drum(t) ? 2u : 1u, i;
+    char b[2] = {(char)('1' + song.sel), 0};
+    if (!paste) {
+        clip.kind = (uint8_t)kind;
+        clip.eng = t->eng_req;
+        memcpy(clip.step, t->step, sizeof clip.step);
+        memcpy(clip.micro, t->micro, sizeof clip.micro);
+        memcpy(clip.fill, t->fill, sizeof clip.fill);
+        memcpy(clip.lock, t->lock, sizeof clip.lock);
+        for (i = 0; i < 4u; i++)
+            clip.pat[i] = t->p[P_SLEN + i];
+        ui_say("COPIED TRACK ", b);
+        return;
+    }
+    if (clip.kind != kind) {
+        ui_message(clip.kind ? "DRUMS / SYNTH: NO" : "COPY A PATTERN FIRST");
+        return;
+    }
+    undo_mark(t, (undo_sess += 4u) | 3u);
+    fm1_irq_off();
+    memcpy(t->step, clip.step, sizeof t->step);
+    memcpy(t->micro, clip.micro, sizeof t->micro);
+    memcpy(t->fill, clip.fill, sizeof t->fill);
+    for (i = 0; i < NLOCK; i++)
+        t->lock[i] = clip.eng == t->eng_req ? clip.lock[i] : (plock_t){LOCK_FREE, 0, 0};
+    for (i = 0; i < 4u; i++)
+        t->p[P_SLEN + i] = clip.pat[i];
+    t->seq_active = 1;
+    fm1_irq_on();
+    ui_say("PASTED TO TRACK ", b);
+}
 UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
 {
     int16_t *vp;
@@ -593,7 +638,7 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
         ml_knob(TSEL, id);                                /* MIDI LEARN: this parameter (2.6) */
     if (!v)
         return;
-    if (glob && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ) &&
+    if (glob && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ || id == G_PPASTE) &&
         ui.arm != id) {                                   /* one detent arms, a second one within ~1.5 s acts */
         *vp = 0;
         ui.arm = (uint8_t)id;
@@ -605,6 +650,11 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     if (!glob)
         return;
     switch (id) {                                         /* GO buttons: act, then back to 0 */
+    case G_PCOPY:                                         /* (BONBLOOP 1.6) the selected track's pattern, kept */
+    case G_PPASTE:
+        *vp = 0;
+        pat_clip(id == G_PPASTE);
+        break;
     case G_LOAD:
         *vp = 0;
         project_load((uint32_t)song.g[G_SLOT] - 1u);

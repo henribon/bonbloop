@@ -8,7 +8,10 @@ cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, de
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.5** — um **EQ de 4 bandas** com a curva na tela, como o de uma DAW (FX CHAIN → EQ); o **REC grava em tempo
+**Versão 1.6** — a **FX CHAIN é do projeto** (uma só, para as tracks 1 a 3), cada track com o seu **mixer** (TRACK FX)
+e os seus **MIX** (FX MIX); **MIX** também no reverb e no chorus; **copiar e colar** o padrão de uma track em outra.
+
+**1.5** — um **EQ de 4 bandas** com a curva na tela, como o de uma DAW (FX CHAIN → EQ); o **REC grava em tempo
 real** de fábrica (o QUANT da tela REC READY liga a quantização).
 
 **1.4.2** — tercinas do REPEAT gravadas no tempo exato, na grade de 1/16 (o micro-timing de cada passo),
@@ -85,15 +88,17 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
 | | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
+| | TRACK FX | DST · CHO · DLY · REV — **a quantidade de cada efeito nesta track** (1.6) |
+| | FX MIX | DRIVE · PHASR · FILTR · EQ — **o MIX (seco / molhado) de cada um nesta track** (1.6) |
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
 | | DJ FILT | FILT (filtro DJ do track) |
 | | EQ 1 | LOW (Hz) · GAIN · MID1 (Hz) · GAIN — com a curva (1.5) |
 | | EQ 2 | MID2 (Hz) · GAIN · HIGH (Hz) · GAIN — com a curva |
-| | CHORUS | CHO (envio) · CRT · CDP |
+| | CHORUS | CHO (envio) · CRT · CDP · **MIX** (o retorno, 1.6) |
 | | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
 | | DELAY 2 | COLR · MIX |
-| | REVERB | REV (envio) · SIZE · DAMP |
+| | REVERB | REV (envio) · SIZE · DAMP · **MIX** (o retorno, 1.6) |
 
 As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
 
@@ -185,7 +190,14 @@ Além do LFO da voz (que vale para todos), cada oscilador tem o seu, na página 
 **DEPTH** (−8 a +7; 0 desliga) e **DEST**: **POS** (varre a tabela só daquele oscilador), **PITCH** (vibrato só nele)
 ou **LVL** (tremolo só nele).
 
-### A cadeia de efeitos (1.2)
+### A cadeia de efeitos (1.2; do projeto desde a 1.6)
+
+**1.6: a FX CHAIN é uma só, do projeto.** Os efeitos escolhidos e a ordem deles valem para as **tracks 1, 2 e 3**,
+dentro e fora do modo synth, com qualquer som. Cada track regula **quanto** de cada efeito na página **TRACK FX**
+(DST, CHO, DLY, REV: o mixer de sempre do SLOOP) e o **MIX** seco/molhado de DRIVE, PHASER, FILTER e EQ na página
+**FX MIX**; o EQ tem as bandas de cada track. Tirar um efeito da cadeia desliga ele nas três tracks. A bateria
+continua com os envios dela. Num projeto salvo antes da 1.6, a cadeia que vale é a que estava na track 1.
+
 
 No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 7 slots (4 aqui, 3 em
 CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, EQ.
@@ -266,6 +278,19 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 
 ## Fora do modo synth
 
+### Copiar e colar um padrão (1.6)
+
+**SAVE → TOOLS → COPY** (KNOB 3) guarda o padrão da track selecionada: os passos, o micro-timing, as condições de
+FILL, os locks e LEN, DIV, SWING e GATE. Selecione outra track e **SAVE → TOOLS 2 → PASTE** (KNOB 1; gire duas vezes
+para confirmar) cola nela. De uma track de synth para outra de synth, da bateria para a bateria (de uma para a outra a
+tela avisa *DRUMS / SYNTH: NO*). Os locks só vão junto se a outra track tiver o mesmo engine. **EDIT + OCT−** desfaz o
+PASTE.
+
+### MIX do reverb e do chorus (1.6)
+
+Reverb e chorus são envios: a quantidade em cada track é o som molhado, e o seco fica inteiro. O **MIX** de cada um
+(na página REVERB / CHORUS do modo synth, ou em FX → REV/CHO 2) é o nível do retorno, como o MIX do delay.
+
 ### REC em tempo real (1.5)
 
 O **REC grava em tempo real** de fábrica: cada nota fica no passo mais perto e o **micro-timing** do passo (1/64 de um
@@ -344,7 +369,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.5: 576.164 de 581.564 bytes de flash (5,3 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.6: 577.364 de 581.564 bytes de flash (4,2 KB livres); RAM 60.860 de 98.304 bytes, pool igual ao do SLOOP.
 
 ## Testes
 

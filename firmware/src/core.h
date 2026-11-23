@@ -109,7 +109,9 @@ enum {                          /* global parameters */
     G_FXFADE,                   /* SLOOP 2.7.2, the FX layer (FX held), SELECT: how fast a punch-in FX fades in and out, 0 (instant, as
                                  * before) .. 15 (punch.c; a setting of the FM-1, kept in BEND's byte) */
     G_DMS,                      /* BONBLOOP 1.2: the delay's TIME = FREE: this many ms (a project keeps it in its side record) */
-    G_DFIX,                     /* .. and FIX (a GO button): the time the tempo gives now, kept as FREE ms (ui_input.c) */
+    G_DFIX,                     /* .. and (1.4) its MODE, SYNC / MS (ui_input.c) */
+    G_PCOPY, G_PPASTE,          /* BONBLOOP 1.6: SAVE > TOOLS COPY, TOOLS 2 PASTE (GO buttons): a track's pattern to another */
+    G_CMIX, G_RMIX,             /* 1.6: the chorus' and the reverb's MIX, their return (a project keeps them: side record) */
     G_COUNT
 };
 

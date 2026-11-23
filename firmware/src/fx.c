@@ -245,6 +245,8 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
             yr = (d0 + (((d1 - d0) * (r1 & 255)) >> 8)) << 1;
         }
         fx.cho_w++;
+        if (song.g[G_CMIX] < 127)                       /* (BONBLOOP 1.6) the chorus' MIX: its return */
+            yl = mulq15(yl, song.g[G_CMIX] * 258), yr = mulq15(yr, song.g[G_CMIX] * 258);
         /* delay with a low-passed feedback (in the middle) */
         x = dly_buf[(fx.dly_w - dl) & (DLY_LEN - 1u)];
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
@@ -303,8 +305,10 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
             if (++fx.line_i[2] >= REV_LINE[2]) fx.line_i[2] = 0;
             if (++fx.line_i[3] >= REV_LINE[3]) fx.line_i[3] = 0;
         }
-        wet_l[i] = yl + o0 + o2;
-        wet_r[i] = yr + o1 - o3;
+        if (song.g[G_RMIX] < 127)                       /* (BONBLOOP 1.6) the reverb's MIX: its return */
+            wet_l[i] = yl + mulq15(o0 + o2, song.g[G_RMIX] * 258), wet_r[i] = yr + mulq15(o1 - o3, song.g[G_RMIX] * 258);
+        else
+            wet_l[i] = yl + o0 + o2, wet_r[i] = yr + o1 - o3;
         rev_l[i] = o0 + o2;
         rev_r[i] = o1 - o3;
     }
@@ -674,7 +678,21 @@ static void mix_part(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)   /* into
     memcpy(t->p, pn, sizeof pnew[0]);
 }
 /* a part's DIST (FXI_DRIVE), INSERT (FXI_PHASER) or FILTER (FXI_FILTER) on its block b (mix_part_run) */
+static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx);
 static void track_fx_run(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
+{
+    uint32_t part = (uint32_t)(t - trk), i;
+    int32_t dry[CTL], m = part < NPART && fx != FXI_PHASER ? sx_get(part, fx == FXI_DRIVE ? SX_MXD : fx == FXI_EQ ? SX_MXE
+                                                                                                         : SX_MXF) : 15;
+    if (m < 15)                                         /* (BONBLOOP 1.6) its MIX: the dry kept (n <= CTL) */
+        for (i = 0; i < n && i < CTL; i++)
+            dry[i] = b[i];
+    track_fx_core(t, b, n, fx);
+    if (m < 15)
+        for (i = 0; i < n && i < CTL; i++)
+            b[i] = dry[i] + mulq15(b[i] - dry[i], m * 2184);
+}
+static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
 {
     if (fx == FXI_DRIVE) {
         track_dist(t, b, n);
@@ -720,8 +738,10 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
         int32_t xmax = c > d ? c : d;
         int32_t ga = mulq15(g0, duck.g0), gb = mulq15(g1, duck.g1);   /* mute x duck, ramped over the block */
         xmax = 0x7FFFFFFF / ((xmax > r ? xmax : r) | 1);   /* sends: loud chords at a high LEVEL */
-        if (t->engine == ENGI_WAVE) {                   /* (BONBLOOP 1.2) the synth: DRIVE, PHASER and FILTER in its FX
-                                                         * chain's order (eng_wave.c synx), the others after, then the SLICER */
+        if (t->engine == ENGI_WAVE || (t < &trk[NPART] && ((synx[0].w[2] & SX_CHAIN2) | (synx[0].w[3] & SX_CHAIN3)))) {
+                                                        /* (BONBLOOP 1.2) the synth: DRIVE, PHASER and FILTER in the FX
+                                                         * chain's order (eng_wave.c synx), the others after, then the SLICER;
+                                                         * 1.6: the chain is the project's, on tracks 1-3 whatever they play */
             uint32_t done = 0, s, fx;
             for (s = 0; s < SX_NSLOT + 3u; s++) {
                 fx = s < SX_NSLOT ? (uint32_t)sx_get((uint32_t)(t - trk), SX_C1 + s) : s - SX_NSLOT + FXI_DRIVE;

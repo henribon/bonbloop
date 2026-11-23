@@ -500,7 +500,7 @@ int main(void)
         bad += check("1.3: extras spoilt (or none: SLOOP, 1.1, 1.2): no LFO, no chain, OSC 2 / 3's ENV as OSC 1's, the ms at their default", ok);
         bad += check("1.2: each section its own extras, any other copy the fifth",
                      bbx_of(&proj_slot[0]) == &bbx_ram[0] && bbx_of(&proj_slot[3]) == &bbx_ram[3] && bbx_of(&q) == &bbx_ram[4]);
-        bad += check("1.5: the extras (with the EQ) fit a side record", sizeof(bbx_t) == 80u && sizeof(bbx_t) <= 192u);
+        bad += check("1.6: the extras (EQ, MIXes) fit a side record", sizeof(bbx_t) == 84u && sizeof(bbx_t) <= 192u);
     }
     printf("%s\n", bad ? "PROJECT FORMAT TEST FAILED" : "project format test passed");
     return bad != 0;

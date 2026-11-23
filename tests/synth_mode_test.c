@@ -246,6 +246,11 @@ int main(int argc, char **argv)
         tap(B_FX);
         check(str_eq(pg_title(), "CHAIN 2"), "FX again: CHAIN 2");
         tap(B_FX);
+        check(str_eq(pg_title(), "TRACK FX") && page_desc(cur_page(), 0, &(int16_t *){0}) == &TP[P_DIST],
+              "FX again: TRACK FX (1.6: this track's amounts, DST CHO DLY REV)");
+        tap(B_FX);
+        check(str_eq(pg_title(), "FX MIX"), "FX again: FX MIX (1.6: the MIXes)");
+        tap(B_FX);
         check(str_eq(pg_title(), "FX CHAIN"), "FX again: back to FX CHAIN (no effect: no page of one)");
         turn(EN_K1, FXI_DRIVE);
         turn(EN_K2, FXI_PHASER);
@@ -255,8 +260,8 @@ int main(int argc, char **argv)
         check(TSEL->p[P_ITYPE] == IT_PHASER && TSEL->p[P_IMIX] > 0, "SLOT2 PHASR: the INSERT as a PHASER");
         check(TSEL->p[P_TFLT] != 0 && TSEL->p[P_DLY] > 0, "SLOT3 FILTR (the DJ filter), SLOT4 DELAY: on");
         shot("synth-chain");
-        tap(B_FX); tap(B_FX);
-        check(str_eq(pg_title(), "DRIVE"), "FX twice: CHAIN 2, then DRIVE (in the chain)");
+        tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX);
+        check(str_eq(pg_title(), "DRIVE"), "FX four times: CHAIN 2, TRACK FX, FX MIX, then DRIVE (in the chain)");
         turn(EN_K1, 30);
         turn(EN_K2, 3);
         turn(EN_K4, 1);
@@ -335,8 +340,9 @@ int main(int argc, char **argv)
             turn(EN_K2, FXI_EQ);
             check(sx_get(part, SX_C2) == FXI_EQ && sx_get(part, SX_EF1) == 24 && sx_get(part, SX_EG1) == 0,
                   "SLOT2 EQ: in, flat, LOW at 100 Hz");
-            tap(B_FX); tap(B_FX); tap(B_FX);
-            check(str_eq(pg_title(), "EQ 1") && cur_page()->graph == GR_EQ, "FX three times: CHAIN 2, DJ FILT, EQ 1 (its curve)");
+            tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX); tap(B_FX);
+            check(str_eq(pg_title(), "EQ 1") && cur_page()->graph == GR_EQ,
+                  "FX five times: CHAIN 2, TRACK FX, FX MIX, DJ FILT, EQ 1 (its curve)");
             shot("synth-eq-flat");
             fm1_in.notes |= 1u << 12;
             frames(4);
@@ -377,7 +383,7 @@ int main(int argc, char **argv)
             n += ui.page != was;
         }
         snprintf(b, sizeof b, "SELECT walks every synth page shown (%u), last CHORUS", n);
-        check(n == 20u && str_eq(pg_title(), "CHORUS") && on_syn_page(), b);
+        check(n == 22u && str_eq(pg_title(), "CHORUS") && on_syn_page(), b);
         for (i = 0; i < 40u; i++)
             turn(EN_SELECT, -1);
         check(str_eq(pg_title(), "OSC 1"), "SELECT back to OSC 1");
@@ -405,10 +411,11 @@ int main(int argc, char **argv)
         release(B_REC);
         release(B_SAVE);
         frames(3);
-        check(!sx_chain_has(part, FXI_CHORUS) && !sx_chain_has(part, FXI_FILTER) && !TSEL->p[P_CHOR] && !TSEL->p[P_TFLT] &&
+        check(sx_chain_has(part, FXI_CHORUS) && !TSEL->p[P_CHOR] && !TSEL->p[P_TFLT] &&   /* (1.6: the chain is the
+                                                         * project's: kept; this track's amounts 0) */
               sx_get(part, SX_A2) == TSEL->p[P_ATK] && sx_get(part, SX_R3) == TSEL->p[P_REL] && !sx_get(part, SX_LD1) &&
               TSEL->eng_req == ENGI_WAVE && TSEL->preset == WAVE_SINE,
-              "REC + SAVE held 2 s: the synth back to its first sound, every effect off, no LFO, the ENVs as the sound's");
+              "REC + SAVE held 2 s: the synth back to its first sound, its effects off (the project's chain kept), no LFO, the ENVs as the sound's");
         snprintf(b, sizeof b, "... its notes kept (%d), REC as it was (%u %u), OSC 1 (%s)", !memcmp(&TSEL->step[0], &st0, sizeof st0),
                  (unsigned)song.rec, (unsigned)rec0, pg_title());
         check(!memcmp(&TSEL->step[0], &st0, sizeof st0) && song.rec == rec0 && syn_mode && str_eq(pg_title(), "OSC 1"), b);
@@ -494,6 +501,73 @@ int main(int argc, char **argv)
         ui.menu = 0;
         ui.force = 1;
         frames(2);
+    }
+    {   /* 1.6: the FX chain is the project's: set from track 2, the same on track 1 and 3 */
+        sx_set(1, SX_C1, FXI_DRIVE);
+        check(sx_get(0, SX_C1) == FXI_DRIVE && sx_get(2, SX_C1) == FXI_DRIVE && sx_chain_has(2, FXI_DRIVE),
+              "1.6: the FX chain is the project's (set on track 2, seen on tracks 1 and 3)");
+        set_engine_of(&trk[0], ENGI_WAVE);
+        apply_preset_to(&trk[0], WAVE_SINE);
+        check(sx_get(0, SX_C1) == FXI_DRIVE, "1.6: a sound loaded on track 1 leaves the project's chain as it was");
+        sx_set(1, SX_C1, 0);
+    }
+    {   /* 1.6: DRIVE's MIX on a block (fx.c track_fx_run): 15 the drive, 0 the dry back exactly, 7 between */
+        int32_t blk[CTL], in[CTL], d15 = 0, d0 = 0, d7 = 0;
+        uint32_t i;
+        track_t *t2 = &trk[1];
+        t2->p[P_DIST] = 127;
+        for (i = 0; i < CTL; i++)
+            in[i] = (int32_t)(sine_i((uint32_t)i << 27) / 2);
+        sx_set(1, SX_MXD, 15);
+        memcpy(blk, in, sizeof blk);
+        track_fx_run(t2, blk, CTL, FXI_DRIVE);
+        for (i = 0; i < CTL; i++)
+            d15 += blk[i] != in[i];
+        sx_set(1, SX_MXD, 0);
+        memcpy(blk, in, sizeof blk);
+        track_fx_run(t2, blk, CTL, FXI_DRIVE);
+        for (i = 0; i < CTL; i++)
+            d0 += blk[i] != in[i];
+        sx_set(1, SX_MXD, 7);
+        memcpy(blk, in, sizeof blk);
+        track_fx_run(t2, blk, CTL, FXI_DRIVE);
+        for (i = 0; i < CTL; i++)
+            d7 += blk[i] != in[i];
+        snprintf(b, sizeof b, "1.6: DRIVE's MIX: 100%% changes %d of %d samples, 0%% %d (the dry), 47%% %d", d15, CTL, d0, d7);
+        check(d15 > CTL / 2 && !d0 && d7 > CTL / 2, b);
+        sx_set(1, SX_MXD, 15);
+        t2->p[P_DIST] = 0;
+    }
+    {   /* 1.6: SAVE > TOOLS COPY, TOOLS 2 PASTE: a track's pattern into another, the drums apart; undo brings it back */
+        int same, kept;
+        track_select(0);
+        frames(2);
+        steps_clear(&trk[0]);
+        steps_clear(&trk[2]);
+        trk[0].step[0].n = 1, trk[0].step[0].note[0] = 60, trk[0].step[0].time = ST_NOTE, trk[0].step[0].vel = 100;
+        trk[0].step[5].n = 1, trk[0].step[5].note[0] = 67, trk[0].step[5].time = ST_NOTE, trk[0].step[5].vel = 90;
+        trk[0].micro[5] = 9;
+        trk[0].p[P_SLEN] = 32;
+        pat_clip(0);
+        track_select(2);
+        frames(2);
+        pat_clip(1);
+        same = !memcmp(trk[2].step, trk[0].step, sizeof trk[0].step) && trk[2].micro[5] == 9 && trk[2].p[P_SLEN] == 32;
+        check(same && str_eq(ui.msg, "PASTED TO TRACK 3"), "1.6: COPY on track 1, PASTE on track 3: its steps, nudges, LEN");
+        track_select(TRK_DRUM);
+        frames(2);
+        pat_clip(1);
+        check(str_eq(ui.msg, "DRUMS / SYNTH: NO"), "1.6: a synth pattern is not pasted on the drums");
+        track_select(2);
+        frames(2);
+        press(B_EDIT);
+        frames(10);
+        fm1_in.buttons |= BT(B_OCTDN); edges_btn |= BT(B_OCTDN); frame();
+        fm1_in.buttons &= ~BT(B_OCTDN); frame();
+        release(B_EDIT);
+        frames(4);
+        kept = trk[2].step[0].n == 0 && trk[2].step[5].n == 0;
+        check(kept, "1.6: EDIT + OCT- after a PASTE: the track as it was");
     }
     printf(fails ? "synth mode: %d FAILED\n" : "synth mode: PASS\n", fails);
     return fails != 0;

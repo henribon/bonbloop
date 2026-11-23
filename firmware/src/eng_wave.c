@@ -103,7 +103,8 @@ static synx_t synx[NPART];
 enum { SX_LR1, SX_LD1, SX_LT1, SX_LR2, SX_LD2, SX_LT2, SX_LR3, SX_LD3, SX_LT3,
        SX_A2, SX_D2, SX_S2, SX_R2, SX_A3, SX_D3, SX_S3, SX_R3,
        SX_C1, SX_C2, SX_C3, SX_C4, SX_C5, SX_C6, SX_C7,
-       SX_EF1, SX_EG1, SX_EF2, SX_EG2, SX_EF3, SX_EG3, SX_EF4, SX_EG4, SX_N };   /* (1.5) the EQ: each band's FREQ, GAIN */
+       SX_EF1, SX_EG1, SX_EF2, SX_EG2, SX_EF3, SX_EG3, SX_EF4, SX_EG4,   /* (1.5) the EQ: each band's FREQ, GAIN */
+       SX_MXD, SX_MXF, SX_MXE, SX_MXP, SX_N };   /* (1.6) the MIX (dry / wet) of DRIVE, FILTER, EQ; PHASER's: P_IMIX */
 #define EQ_W4 (24u | 57u << 7 | 85u << 14 | 113u << 21)   /* the EQ's FREQs as it starts: 100 Hz, 500 Hz, 2 kHz, 8 kHz */
 #define SX_LFO 3u                                     /* (an oscillator's LFO: SX_LR1 + SX_LFO k ..) */
 #define SX_NSLOT 7u                                   /* (the chain: one slot per effect) */
@@ -112,11 +113,13 @@ enum { FXI_NONE, FXI_DRIVE, FXI_PHASER, FXI_FILTER, FXI_CHORUS, FXI_DELAY, FXI_R
 static const char *const N_FXID[FXI_N] = {"--", "DRIVE", "PHASR", "FILTR", "CHORS", "DELAY", "REVRB", "EQ"};
 static const char *const N_LDEST[] = {"POS", "PITCH", "LVL"};
 #define SXS 0x80u                                     /* (bits: a signed field) */
+#define SXI 0x40u                                     /* (bits: kept inverted, 0 its top: 1.6's MIXes, full as before) */
 static const uint8_t SXF[SX_N][3] = {   /* word, shift, bits | SXS. w[3]: 16 bits only (a user preset's spare parameter) */
     {2, 0, 4}, {2, 4, 4 | SXS}, {0, 28, 2}, {2, 8, 4}, {2, 12, 4 | SXS}, {1, 28, 2}, {2, 16, 4}, {2, 20, 4 | SXS}, {1, 30, 2},
     {0, 0, 7}, {0, 7, 7}, {0, 14, 7}, {0, 21, 7}, {1, 0, 7}, {1, 7, 7}, {1, 14, 7}, {1, 21, 7},
     {2, 24, 3}, {2, 27, 3}, {3, 0, 3}, {3, 3, 3}, {3, 6, 3}, {3, 9, 3}, {3, 12, 3},
     {4, 0, 7}, {5, 0, 5 | SXS}, {4, 7, 7}, {5, 5, 5 | SXS}, {4, 14, 7}, {5, 10, 5 | SXS}, {4, 21, 7}, {5, 15, 5 | SXS},
+    {5, 20, 4 | SXI}, {5, 24, 4 | SXI}, {5, 28, 4 | SXI}, {0, 0, 0},
 };
 #define SXD_LFO {"RATE", F_INT, 0, 15, 0, 0, 0}, {"DEPTH", F_INT, -8, 7, 0, 0, 0}, {"DEST", F_ENUM, 0, 2, 0, N_LDEST, 0}
 #define SXD_ENV {"ATK", F_INT, 0, 127, 0, 0, 0}, {"DEC", F_INT, 0, 127, 0, 0, 0}, {"SUS", F_INT, 0, 127, 0, 0, 0}, \
@@ -125,18 +128,32 @@ static const uint8_t SXF[SX_N][3] = {   /* word, shift, bits | SXS. w[3]: 16 bit
 #define SXD_EQ(l) {l, F_CUTOFF, 0, 127, 0, 0, 0}, {"GAIN", F_INT, -15, 15, 0, 0, "dB"}
 static const param_desc_t SXD[SX_N] = {SXD_LFO, SXD_LFO, SXD_LFO, SXD_ENV, SXD_ENV, SXD_SLOT("SLOT1"), SXD_SLOT("SLOT2"),
                                        SXD_SLOT("SLOT3"), SXD_SLOT("SLOT4"), SXD_SLOT("SLOT5"), SXD_SLOT("SLOT6"),
-                                       SXD_SLOT("SLOT7"), SXD_EQ("LOW"), SXD_EQ("MID1"), SXD_EQ("MID2"), SXD_EQ("HIGH")};
+                                       SXD_SLOT("SLOT7"), SXD_EQ("LOW"), SXD_EQ("MID1"), SXD_EQ("MID2"), SXD_EQ("HIGH"),
+                                       {"DRIVE", F_PCT, 0, 15, 15, 0, 0}, {"FILTR", F_PCT, 0, 15, 15, 0, 0},
+                                       {"EQ", F_PCT, 0, 15, 15, 0, 0}, {"PHASR", F_PCT, 0, 127, 127, 0, 0}};
+/* (1.6) the FX chain is the project's: its slots live in part 0's synx, whatever part asks */
+#define SX_CHAIN2 0x3F000000u                         /* (w[2]: SLOT1, SLOT2) */
+#define SX_CHAIN3 0x7FFFu                             /* (w[3]: SLOT3 .. SLOT7) */
 static int32_t sx_get(uint32_t part, uint32_t k)
 {
     const uint8_t *f = SXF[k];
-    uint32_t b = f[2] & 15u, v = (synx[part % NPART].w[f[0]] >> f[1]) & ((1u << b) - 1u);
+    uint32_t b, v;
+    if (k >= SX_C1 && k <= SX_C7)
+        part = 0;                                     /* (1.6: the project's chain) */
+    b = f[2] & 15u, v = (synx[part % NPART].w[f[0]] >> f[1]) & ((1u << b) - 1u);
+    if (f[2] & SXI)
+        return (int32_t)(((1u << b) - 1u) - v);
     return f[2] & SXS ? (int32_t)(v ^ (1u << (b - 1u))) - (int32_t)(1u << (b - 1u)) : (int32_t)v;
 }
 static void sx_set(uint32_t part, uint32_t k, int32_t v)
 {
     const uint8_t *f = SXF[k];
     uint32_t b = f[2] & 15u, m = ((1u << b) - 1u);
+    if (k >= SX_C1 && k <= SX_C7)
+        part = 0;
     v = clamp(v, SXD[k].min, SXD[k].max);
+    if (f[2] & SXI)
+        v = (int32_t)m - v;
     synx[part % NPART].w[f[0]] = (synx[part % NPART].w[f[0]] & ~(m << f[1])) | (((uint32_t)v & m) << f[1]);
 }
 /* (1.3) oscillator o's envelope, i: 0 ATK, 1 DEC, 2 SUS, 3 REL. OSC 1's is the track's ENV (P_ATK .. P_REL) */
@@ -149,9 +166,12 @@ static int32_t wv_envp(const track_t *t, uint32_t o, uint32_t i)
 static void sx_default(const track_t *t)
 {
     uint32_t part = (uint32_t)(t - trk), i;
+    uint32_t c2, c3;
     if (part >= NPART)
         return;
+    c2 = synx[part].w[2] & SX_CHAIN2, c3 = synx[part].w[3] & SX_CHAIN3;   /* (1.6: the project's chain stays) */
     memset(&synx[part], 0, sizeof synx[part]);
+    synx[part].w[2] = c2, synx[part].w[3] = c3;
     for (i = 0; i < 8u; i++)
         sx_set(part, SX_A2 + i, t->p[P_ATK + (i & 3u)]);
     synx[part].w[4] = EQ_W4;                          /* (1.5: the EQ flat, its bands where they start) */
@@ -169,8 +189,10 @@ static int sx_take(const track_t *t, const uint32_t *w, uint32_t w3)   /* 1: tak
     uint32_t part = (uint32_t)(t - trk);
     if (part >= NPART)
         return 0;
-    if (w && (w[0] >> 30) == 2u) {
-        synx[part].w[0] = w[0] & ~SX_MARK, synx[part].w[1] = w[1], synx[part].w[2] = w[2], synx[part].w[3] = w3 & 0xFFFFu;
+    if (w && (w[0] >> 30) == 2u) {                    /* (the chain bits: the project's, as they are) */
+        synx[part].w[0] = w[0] & ~SX_MARK, synx[part].w[1] = w[1];
+        synx[part].w[2] = (w[2] & ~SX_CHAIN2) | (synx[part].w[2] & SX_CHAIN2);
+        synx[part].w[3] = (w3 & 0xFFFFu & ~SX_CHAIN3) | (synx[part].w[3] & SX_CHAIN3);
         synx[part].w[4] = EQ_W4, synx[part].w[5] = 0;
         return 1;
     }
@@ -186,7 +208,7 @@ static uint32_t sx_chain_has(uint32_t part, uint32_t fx)   /* fx in the chain: i
     return 0;
 }
 #define VX0 0xC0u                                     /* page ids VX0 + SX_*: a field of synx */
-_Static_assert(VP0 + WV_N <= VX0 && VX0 + SX_N <= 0xE0u, "the synth's page ids: words, then synx, then the globals");
+_Static_assert(VP0 + WV_N <= VX0 && VX0 + SX_N <= 0xE4u, "the synth's page ids: words, then synx, then the globals");
 /* the pages' window on a field (vid: VP0 + WV_* or VX0 + SX_*): its value in wv_tmp (shown, turned), wv_commit writes
  * it back */
 static int16_t wv_tmp;
@@ -195,6 +217,10 @@ UI_SMALL static const param_desc_t *wv_desc(const track_t *t, uint32_t vid, int1
 {
     wv_tmp_k = (uint8_t)vid;
     *vp = &wv_tmp;
+    if (vid == VX0 + SX_MXP) {                        /* (1.6) PHASER's MIX: the INSERT's (P_IMIX) */
+        wv_tmp = t->p[P_IMIX];
+        return &SXD[SX_MXP];
+    }
     if (vid >= VX0) {
         wv_tmp = (int16_t)sx_get((uint32_t)(t - trk), vid - VX0);
         if (wv_tmp > SXD[vid - VX0].max)
@@ -223,10 +249,12 @@ static void syn_fx_set(track_t *t, uint32_t fx, int on)
  * still holds it. The detail pages follow (params.c page_shown) */
 static void syn_chain_changed(track_t *t, uint32_t was, uint32_t now)
 {
+    uint32_t k;
     if (was == now)
         return;
-    if (was && !sx_chain_has((uint32_t)(t - trk), was))
-        syn_fx_set(t, was, 0);
+    if (was && !sx_chain_has(0, was))                 /* (1.6: out of the project's chain: off on the three tracks) */
+        for (k = 0; k < NPART; k++)
+            syn_fx_set(&trk[k], was, 0);
     if (now)
         syn_fx_set(t, now, 1);
 }
@@ -235,6 +263,10 @@ UI_SMALL static int wv_commit(track_t *t, const int16_t *vp)
     uint32_t part = (uint32_t)(t - trk), k = wv_tmp_k;
     if (vp != &wv_tmp)
         return 0;
+    if (k == VX0 + SX_MXP) {
+        t->p[P_IMIX] = (int16_t)clamp(wv_tmp, 0, 127);
+        return 1;
+    }
     if (k >= VX0) {
         uint32_t was = (uint32_t)sx_get(part, k - VX0);
         sx_set(part, k - VX0, wv_tmp);

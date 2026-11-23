@@ -41,7 +41,7 @@
                                                 * so the format and its size do not change */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
-_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DFIX + 1u,
+_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_RMIX + 1u,
                "G_FXFADE (2.7.2) is the last global of SLOOP, a setting of the FM-1; then BONBLOOP's (bbx_t: G_DMS)");
 #define PROJ_NC6 ((uint32_t)P_ITYPE)           /* format 6: the parameters kept in 16 bits, P_LEVEL .. P_VLEAD (as 5), */
 #define PROJ_NX6 ((uint32_t)(P_E0 - P_ITYPE))  /* the 2.6 ones in a byte (0..127), then P_E0 .. P_E7 */
@@ -170,14 +170,16 @@ UI_SMALL static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC 
  * A..D and one for any other copy (the working one's: the autosave), and in flash in the side record of the copy
  * (storage.c st_side). None, or not valid (a project of SLOOP or of 1.1): the synx 0 (the chain then shows the
  * effects that sound: ui.c syn_chain_fill), the ms at their default */
-#define BBX_MAGIC 0x33584242u                  /* "BBX3" (1.5: synx with the EQ); "BBX2" (1.3 .. 1.4.2) is read too
-                                                * (bbx_load), 1.2's "BBX1" held other fields: none */
+#define BBX_MAGIC 0x34584242u                  /* "BBX4" (1.6: + the chorus' and the reverb's MIX); "BBX2" (1.3 ..
+                                                * 1.4.2: synx of 4 words) and "BBX3" (1.5: 6) are read too (bbx_load);
+                                                * 1.2's "BBX1" held other fields: none */
 #define BBX2_MAGIC 0x32584242u
 typedef struct {
     uint32_t magic;
     synx_t x[NPART];
     int16_t dms;
-    uint16_t sum;
+    uint8_t cmix, rmix;                        /* (1.6) G_CMIX, G_RMIX */
+    uint16_t rsv, sum;
 } bbx_t;
 static bbx_t bbx_ram[5];                       /* (not .noinit, it is full: after a warm reset persist_boot reads the
                                                 * sections' back from flash) */
@@ -515,6 +517,8 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
         x->magic = BBX_MAGIC;
         memcpy(x->x, synx, sizeof x->x);
         x->dms = song.g[G_DMS];
+        x->cmix = (uint8_t)song.g[G_CMIX];
+        x->rmix = (uint8_t)song.g[G_RMIX];
         x->sum = bbx_sum(x);
     }
 }
@@ -542,7 +546,9 @@ static void proj_apply(const project_t *p, int all)
         if (xok)
             memcpy(synx, x->x, sizeof synx);
         if (all)
-            song.g[G_DMS] = (int16_t)clamp(xok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max);
+            song.g[G_DMS] = (int16_t)clamp(xok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max),
+            song.g[G_CMIX] = (int16_t)(xok ? clamp(x->cmix, 0, 127) : 127),
+            song.g[G_RMIX] = (int16_t)(xok ? clamp(x->rmix, 0, 127) : 127);
     }
     for (k = 0; k < NTRK; k++) {
         track_t *t = &trk[k];
@@ -630,20 +636,23 @@ UI_SMALL static int proj_store(uint32_t obj, const project_t *p)
 UI_SMALL static void bbx_load(uint32_t obj, const project_t *p)
 {
     bbx_t *x = bbx_of(p);
-    if (st_side_load(obj, x, sizeof *x) == 0 && x->magic == BBX2_MAGIC) {   /* (1.3 .. 1.4.2: synx of 4 words; the EQ
-                                                         * flat) */
-        struct { uint32_t magic, w[NPART][4]; int16_t dms; uint16_t sum; } o;
-        uint32_t h, k;
-        memcpy(&o, x, sizeof o);
-        h = proj_hash(&o, sizeof o - 2u);
-        if (o.sum == (uint16_t)(h ^ h >> 16)) {
+    if (st_side_load(obj, x, sizeof *x) == 0 && (x->magic == BBX2_MAGIC || x->magic == BBX_MAGIC - 1u)) {
+        /* (1.3 .. 1.4.2: synx of 4 words, the EQ flat; 1.5: of 6) the MIXes full */
+        uint32_t o[sizeof(bbx_t) / 4u], nw = x->magic == BBX2_MAGIC ? 4u : 6u, len = 4u + NPART * nw * 4u + 4u, h, k;
+        uint16_t sum;
+        memcpy(o, x, sizeof o);
+        h = proj_hash(o, len - 2u);
+        memcpy(&sum, (const uint8_t *)o + len - 2u, 2u);
+        if (sum == (uint16_t)(h ^ h >> 16)) {
             memset(x, 0, sizeof *x);
             x->magic = BBX_MAGIC;
             for (k = 0; k < NPART; k++) {
-                memcpy(x->x[k].w, o.w[k], sizeof o.w[k]);
-                x->x[k].w[4] = EQ_W4;
+                memcpy(x->x[k].w, &o[1u + k * nw], nw * 4u);
+                if (nw == 4u)
+                    x->x[k].w[4] = EQ_W4;
             }
-            x->dms = o.dms;
+            memcpy(&x->dms, (const uint8_t *)o + len - 4u, 2u);
+            x->cmix = x->rmix = 127;
             x->sum = bbx_sum(x);
         }
     }

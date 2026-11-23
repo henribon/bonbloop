@@ -1,5 +1,5 @@
 > ## BONBLOOP
-> **This tree is BONBLOOP 1.5**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
+> **This tree is BONBLOOP 1.6**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
 > selected track becomes a **3-oscillator synth** (new engine **WAVE**: per oscillator SIN / TRI / SAW / SQR / NOISE or one
 > of 10 wavetables, POS, level, tuning, **REV**erse, its own full **envelope** (no voice envelope in synth mode) and
 > its own **LFO**; a filter; an **FX chain you build**
@@ -8,6 +8,8 @@
 > REC + SAVE held clears the synth; 16 sounds) on screens of its own that stay until you hold ENV again. Also new: chord
 > **voicings** (SEL 2 → VOIC: inversions, drop 2 / 3, spread, +bass), a drum **REPEAT** (tap ARP on the drum track), every
 > triplet on the arp's RATE and the delay's TIME, and a delay **MODE SYNC / MS**. Synth mode starts on a plain sine.
+> 1.6: one **FX chain per project** for tracks 1-3, each track its own amounts and **dry/wet MIX** per effect, and
+> **copy / paste** of a pattern between tracks (SAVE > TOOLS).
 > Everything else is SLOOP. **Install from the browser: [bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** (Chrome or Edge,
 > the FM-1 on USB). Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.
 

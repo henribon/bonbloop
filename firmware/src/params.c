@@ -216,6 +216,10 @@ static const param_desc_t GP[G_COUNT] = {
     [G_BEND] = PD("BEND", F_SEMI, 1, 12, 2),      /* 2.6, GLO > MIDI 2: MIDI pitch bend's range (a setting of the FM-1) */
     [G_FXFADE] = PD("FADE", F_INT, 0, 15, 0),     /* 2.7.2: the punch-in FX fade (FX layer SELECT), 0 off .. 15 (punch.c) */
     [G_DMS] = {"MS", F_INT, 10, 1480, 250, 0, "ms"},   /* (BONBLOOP 1.2) the delay's time in MODE MS */
+    [G_PCOPY] = PE("COPY", N_GO, 0),             /* (BONBLOOP 1.6) SAVE > TOOLS: the selected track's pattern, kept */
+    [G_PPASTE] = PE("PASTE", N_GO, 0),           /* .. TOOLS 2: into the selected track (undo: EDIT + OCT-) */
+    [G_CMIX] = PD("MIX", F_PCT, 0, 127, 127),    /* (1.6) the chorus' MIX (its return) */
+    [G_RMIX] = PD("MIX", F_PCT, 0, 127, 127),    /* (1.6) the reverb's MIX */
     [G_DFIX] = PE("MODE", N_DMODE, 0),            /* (1.4) the delay's MODE: SYNC (TIME a note value) or MS (TIME in ms,
                                                    * from the note value playing): G_DTIME == DLY_FREE (page_desc) */
 };
@@ -437,9 +441,11 @@ typedef struct {
 } page_t;
 
 /* (BONBLOOP 1.2) the globals the synth pages show beside the track's values: page ids VG0 + VG_* */
-enum { VG_CRATE, VG_CDEPTH, VG_DTIME, VG_DFDBK, VG_DCOLOR, VG_DMIX, VG_DFIX, VG_RSIZE, VG_RDAMP, VG_DMS, VG_N };
-static const uint8_t VG_MAP[VG_N] = {G_CRATE, G_CDEPTH, G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX, G_DFIX, G_RSIZE, G_RDAMP, G_DMS};
-#define VG0 0xE0u
+enum { VG_CRATE, VG_CDEPTH, VG_DTIME, VG_DFDBK, VG_DCOLOR, VG_DMIX, VG_DFIX, VG_RSIZE, VG_RDAMP, VG_DMS, VG_CMIX, VG_RMIX,
+       VG_N };
+static const uint8_t VG_MAP[VG_N] = {G_CRATE, G_CDEPTH, G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX, G_DFIX, G_RSIZE, G_RDAMP, G_DMS,
+                                     G_CMIX, G_RMIX};
+#define VG0 0xE4u                                     /* (1.6: after the synx ids, 0xC0 .. 0xE3) */
 _Static_assert(VX0 + SX_N <= VG0 && VG0 + VG_N < 0xFFu, "the synth's page ids");
 
 static const page_t PAGES[] = {
@@ -457,6 +463,7 @@ static const page_t PAGES[] = {
     {"DLY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX}},
     {"DLY 2", FAM_FX, SC_GLOBAL, GR_NONE, {G_DFIX, 0xFF, 0xFF, 0xFF}},      /* (BONBLOOP 1.4) MODE: SYNC / MS */
     {"REV/CHO", FAM_FX, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, G_CRATE, G_CDEPTH}},
+    {"REV/CHO 2", FAM_FX, SC_GLOBAL, GR_NONE, {G_RMIX, G_CMIX, 0xFF, 0xFF}},             /* (BONBLOOP 1.6) their MIX */
     {"SEL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_CHORD}},
     {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, 0xFF}},   /* (2.4: the chords played) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
@@ -479,7 +486,8 @@ static const page_t PAGES[] = {
     {"PRESETS", FAM_SAVE, SC_GLOBAL, GR_BROWSE, {0xFF, 0xFF, 0xFF, 0xFF}},   /* browser: PRESETS knob / KNOB 1 */
     {"USER", FAM_SAVE, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},       /* user presets: SLOT LOAD ERASE SAVE */
     {"SECTION", FAM_SAVE, SC_GLOBAL, GR_SLOTS, {G_SLOT, 0xFF, G_LOAD, G_SAVE}},   /* ("PROJECT" before 2.7) */   /* (KNOB 2: ERASE, 2.6: ui_input.c) */
-    {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_NONE, {G_CLRSEQ, G_INITSND, 0xFF, G_NEWPRJ}},
+    {"TOOLS", FAM_SAVE, SC_GLOBAL, GR_NONE, {G_CLRSEQ, G_INITSND, G_PCOPY, G_NEWPRJ}},   /* (1.6: COPY) */
+    {"TOOLS 2", FAM_SAVE, SC_GLOBAL, GR_NONE, {G_PPASTE, 0xFF, 0xFF, 0xFF}},            /* (1.6: PASTE) */
     {"ARP", FAM_ARP, SC_TRACK, GR_NONE, {P_AMODE, P_ARATE, P_AOCT, P_AGATE}},   /* (2.7.2: its values large, as ARP 2:
                                                        * GR_ARP was never drawn, the middle stayed empty) */
     {"ARP 2", FAM_ARP, SC_TRACK, GR_NONE, {P_ASWING, P_APROB, P_AHOLD, P_AORDER}},
@@ -511,15 +519,18 @@ static const page_t PAGES[] = {
     {"OSC3 LFO", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_LR3, VX0 + SX_LD3, VX0 + SX_LT3, 0xFF}},
     {"FX CHAIN", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C1, VX0 + SX_C2, VX0 + SX_C3, VX0 + SX_C4}},   /* FX */
     {"CHAIN 2", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C5, VX0 + SX_C6, VX0 + SX_C7, 0xFF}},
+    /* (1.6) the chain is the project's (tracks 1-3); each track its own amounts (TRACK FX) and MIXes (FX MIX) */
+    {"TRACK FX", FAM_SYN, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},
+    {"FX MIX", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_MXD, VX0 + SX_MXP, VX0 + SX_MXF, VX0 + SX_MXE}},
     {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
     {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
     {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
     {"EQ 1", FAM_SYN, SC_TRACK, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* (1.5) LOW, MID 1 */
     {"EQ 2", FAM_SYN, SC_TRACK, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},   /* MID 2, HIGH */
-    {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, 0xFF}},
+    {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, VG0 + VG_CMIX}},
     {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DFIX}},   /* (MODE) */
     {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, 0xFF, 0xFF}},
-    {"REVERB", FAM_SYN, SC_TRACK, GR_NONE, {P_REV, VG0 + VG_RSIZE, VG0 + VG_RDAMP, 0xFF}},
+    {"REVERB", FAM_SYN, SC_TRACK, GR_NONE, {P_REV, VG0 + VG_RSIZE, VG0 + VG_RDAMP, VG0 + VG_RMIX}},
 };
 #define NPAGES (sizeof(PAGES) / sizeof(PAGES[0]))
 
@@ -542,7 +553,7 @@ static int page_for_drum(const page_t *pg)
 static uint32_t syn_fx_of(const page_t *pg)
 {
     switch (pg->id[0]) {
-    case P_DIST: return FXI_DRIVE;
+    case P_DIST: return pg->id[1] == VP0 + WV_DSTY ? FXI_DRIVE : 0;   /* (TRACK FX, starting with DST too: always) */
     case P_IMIX: return FXI_PHASER;
     case P_TFLT: return FXI_FILTER;
     case P_CHOR: return FXI_CHORUS;
