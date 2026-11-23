@@ -1,5 +1,5 @@
 > ## BONBLOOP
-> **This tree is BONBLOOP 1.3**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
+> **This tree is BONBLOOP 1.3.1**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
 > selected track becomes a **3-oscillator synth** (new engine **WAVE**: per oscillator SIN / TRI / SAW / SQR / NOISE or one
 > of 10 wavetables, POS, level, tuning, **REV**erse, its own full **envelope** (no voice envelope in synth mode) and
 > its own **LFO**; a filter; an **FX chain you build**

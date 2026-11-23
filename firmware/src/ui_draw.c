@@ -534,6 +534,9 @@ UI_SMALL static uint32_t graph_signature(void)
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
+    for (i = 0; song.sel < NPART && i < 4u; i++)    /* (BONBLOOP 1.3) the synth's extras: OSC 2 and 3's ENV drawn */
+        h = (h ^ synx[song.sel].w[i]) * 16777619u;
+    h ^= ui.page * 2654435761u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u;
     {   /* (2.7) the favourites: the PRESETS list and its FAV column */
         uint32_t q;

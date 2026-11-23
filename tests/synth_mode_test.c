@@ -167,6 +167,12 @@ int main(int argc, char **argv)
         turn(EN_K3, -3);
         check(sx_get(part, SX_A2) > a0 && sx_get(part, SX_S2) < TSEL->p[P_SUS] && TSEL->p[P_ATK] == r0,
               "OSC2 ENV: KNOB 1 its ATK up, KNOB 3 its SUS down; OSC 1's (the track's) as it was");
+        {   /* 1.3.1: the drawing follows OSC 2's own values (not the track's parameters: ui_draw.c graph_signature) */
+            uint32_t g0 = graph_signature();
+            sx_set(part, SX_A2, sx_get(part, SX_A2) + 1);
+            check(graph_signature() != g0, "1.3.1: OSC2 ENV's drawing redraws when its own ATK changes");
+            sx_set(part, SX_A2, sx_get(part, SX_A2) - 1);
+        }
         shot("synth-osc2-env");
         {   /* the voice sounds while an oscillator still releases: OSC 2's REL long, OSC 1's short */
             uint32_t i, on;
