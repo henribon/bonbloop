@@ -24,12 +24,11 @@ static struct {
 static volatile uint8_t rev_frz;         /* punch-in FREEZE (punch.c): the reverb holds, no loss, no damping */
 static int32_t rev_l[CTL], rev_r[CTL];   /* the reverb's own return of this block (FREEZE plays it) */
 
-/* DIST: low cut -> drive (1x..8x, exponential) -> asymmetric soft clip
- * (a little bias = even harmonics) -> tone low-pass that closes with drive ->
- * make-up gain. State per part (track_t dist_*). */
+/* DIST on a WAVE track: the synth's DRIVE in its FX chain (eng_wave.c wave_drive). (BONBLOOP 1.7: SLOOP's engines and
+ * the drums have the parallel DIST of FX > DIST instead: track_pdist) */
 static void track_dist(track_t *t, int32_t *b, uint32_t n)
 {
-    int32_t d = t->p[P_DIST], i, g, k, mk, bias = 2400, b0;
+    int32_t d = t->p[P_DIST];
     if (!d) {
         t->dist_on = 0;
         return;
@@ -39,24 +38,7 @@ static void track_dist(track_t *t, int32_t *b, uint32_t n)
         t->dist_hp = b[0];
         t->dist_lp1 = t->dist_lp2 = 0;
     }
-    if (t->engine == ENGI_WAVE) {                       /* BONBLOOP: on the synth, DRIVE's five styles (eng_wave.c) */
-        wave_drive(t, b, n, d);
-        return;
-    }
-    g = 4096 + d * d * 2;                                /* Q12: 1x .. ~9x, gentle at first */
-    k = 32000 - d * 95;                                  /* tone: transparent at low drive .. ~3 kHz, Q15 */
-    mk = 30000 - d * 120;                                /* make-up */
-    b0 = softclip(bias);
-    for (i = 0; i < (int32_t)n; i++) {
-        int32_t x = b[i], y;
-        t->dist_hp += (x - t->dist_hp + 64) >> 7;           /* ~55 Hz low cut: keep the bass out of the clipper */
-        x = clamp(x - t->dist_hp, -230000, 230000);         /* (x >> 2) * g fits 32 bits; the clip is flat out there */
-        y = softclip(MULQ12R(x, g, 2) + bias) - b0;         /* (as (x >> 2) * g >> 10 in 32 bits: no overflow for loud
-                                                             * poly; #4: rounded, no step of 4 x the drive) */
-        t->dist_lp1 += mulq15(y - t->dist_lp1, k);         /* two poles: tames the fizz */
-        t->dist_lp2 += mulq15(t->dist_lp1 - t->dist_lp2, k);
-        b[i] = mulq15(t->dist_lp2, mk);
-    }
+    wave_drive(t, b, n, d);
 }
 
 /* master: peak limiter in front of the soft clipper, a 35 ms hold then ~46 ms release (2.6), threshold where tanh is still nearly linear,
@@ -204,6 +186,9 @@ static uint32_t delay_samples(void)
     return s < 16u ? 16u : s >= DLY_LEN ? DLY_LEN - 1u : s;
 }
 
+static uint8_t mod_ty;                     /* (BONBLOOP 1.7) FX > MOD's type running on the bus, 0: the chorus */
+static void mod_bus(const int32_t *in, int32_t *ml, int32_t *mr, uint32_t n);   /* (below, with the INSERT's) */
+
 /* process the three buses for one block; sends in, wet out (stereo). The LFOs (chorus, reverb line)
  * are computed per block and ramped: no sine per sample */
 #define HALF0(v) ((v) >= 0 ? (v) >> 1 : -(-(v) >> 1))   /* v / 2 towards zero */
@@ -219,7 +204,11 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
     int32_t frnd = rev_frz ? 128 : 0;                  /* FREEZE: what is in the lines stays there (below: no
                                                          * loss, rounded to nearest; 0: as always, bit for bit) */
     int32_t cdepth = song.g[G_CDEPTH] * 6;
-    int32_t ca0, ca1, cb0, cb1, ma, mb, dca, dcb;
+    int32_t ca0, ca1, cb0, cb1, ma, mb, dca, dcb, ml[CTL], mr[CTL], mt = song.g[G_MTYPE] && n <= CTL;
+    if (mt)
+        mod_bus(cho_in, ml, mr, n);                     /* (1.7) FX > MOD: FLANG, PHASR */
+    else
+        mod_ty = 0;
     const uint32_t L0 = REV_LINE[0] + REV_MOD + 2u, B1 = L0, B2 = B1 + REV_LINE[1], B3 = B2 + REV_LINE[2];
     {   /* the chorus' two read points (Q8 samples back) and line 0's extra length, at both ends of the block */
         int32_t s0 = osc_sine(fx.cho_ph), s1, m0 = osc_sine(fx.rev_ph), m1;
@@ -245,6 +234,10 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
             yr = (d0 + (((d1 - d0) * (r1 & 255)) >> 8)) << 1;
         }
         fx.cho_w++;
+        if (mt)
+            yl = ml[i], yr = mr[i];
+        if (song.g[G_CMIX] < 127)                       /* (BONBLOOP 1.6) the chorus' MIX: its return */
+            yl = mulq15(yl, song.g[G_CMIX] * 258), yr = mulq15(yr, song.g[G_CMIX] * 258);
         /* delay with a low-passed feedback (in the middle) */
         x = dly_buf[(fx.dly_w - dl) & (DLY_LEN - 1u)];
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
@@ -303,10 +296,75 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
             if (++fx.line_i[2] >= REV_LINE[2]) fx.line_i[2] = 0;
             if (++fx.line_i[3] >= REV_LINE[3]) fx.line_i[3] = 0;
         }
-        wet_l[i] = yl + o0 + o2;
-        wet_r[i] = yr + o1 - o3;
+        if (song.g[G_RMIX] < 127)                       /* (BONBLOOP 1.6) the reverb's MIX: its return */
+            wet_l[i] = yl + mulq15(o0 + o2, song.g[G_RMIX] * 258), wet_r[i] = yr + mulq15(o1 - o3, song.g[G_RMIX] * 258);
+        else
+            wet_l[i] = yl + o0 + o2, wet_r[i] = yr + o1 - o3;
         rev_l[i] = o0 + o2;
         rev_r[i] = o1 - o3;
+    }
+}
+
+/* (BONBLOOP 1.7) FX > COMP: the master's glue compressor, stereo linked. Each block: its peak in octaves (log2, Q16, 0 at
+ * 32768) into an envelope with ATK / REL (a block's share of exp(-t / tau)), above THRS reduced by 1 - 1 / RATIO, half
+ * of the reduction at full scale given back (make-up), the gain a straight line over the block. THRS 0 dB: off, the mix
+ * bit for bit */
+static const uint16_t K_ATK[6] = {65535, 59700, 33820, 14090, 4588, 1566};   /* 0.1 .. 30 ms, a block of 32 at 44.1 kHz */
+static const uint16_t K_REL[6] = {474, 237, 119, 79, 59, 40};                  /* 0.1 .. 1.2 s */
+static const uint16_t K_RAT[3] = {32768, 49152, 58982};                       /* 1 - 1 / RATIO, Q16: 2:1, 4:1, 10:1 */
+static struct {
+    int32_t env;                        /* the peak's envelope, octaves Q16 */
+    int32_t g;                          /* the gain at the end of the last block, Q12 */
+    uint32_t ml, mr;                    /* the COMP page's meter: the input's peaks, left and right, since it last read */
+    int32_t gr;                         /* .. and the most reduction (octaves Q16) */
+} kmp = {-(30 << 16), 4096, 0, 0, 0};
+static int32_t log2q16(uint32_t v)       /* log2(v / 32768), Q16 (a parabola between the octaves: within ~0.01) */
+{
+    int32_t m, x;
+    if (!v)
+        return -(30 << 16);
+    for (m = 0; m < 31 && (v >> m) > 1u; m++)          /* (the top bit: once a block) */
+        ;
+    x = (int32_t)(((m >= 16 ? v >> (m - 16) : v << (16 - m)) & 0xFFFFu));
+    return ((m - 15) << 16) + x + (int32_t)((((uint32_t)x * (uint32_t)(65536 - x)) >> 16) * 22713u >> 16);
+}
+static int32_t exp2q12(int32_t l)        /* 2^(l / 65536), Q12 */
+{
+    int32_t ip = l >> 16, f = l & 0xFFFF, m = 65536 + (int32_t)(((int64_t)f * (43024 + ((22512 * f) >> 16))) >> 16);
+    return ip >= 0 ? (m << ip) >> 4 : (m >> -ip) >> 4;
+}
+static void comp_process(int32_t *l, int32_t *r, uint32_t n)
+{
+    int32_t thr = song.g[G_KTHR], g0 = kmp.g, g1, pk, pl = 0, pr = 0, lg, k, over, i;
+    for (i = 0; i < (int32_t)n; i++) {
+        int32_t a = l[i] < 0 ? -l[i] : l[i], b = r[i] < 0 ? -r[i] : r[i];
+        pl = a > pl ? a : pl;
+        pr = b > pr ? b : pr;
+    }
+    if ((uint32_t)pl > kmp.ml)                          /* (the page's meter, ui_draw.c graph_comp: the input as it comes) */
+        kmp.ml = (uint32_t)pl;
+    if ((uint32_t)pr > kmp.mr)
+        kmp.mr = (uint32_t)pr;
+    if (!thr) {                                         /* off: at rest */
+        kmp.env = -(30 << 16), kmp.g = 4096;
+        return;
+    }
+    pk = pl > pr ? pl : pr;
+    lg = log2q16((uint32_t)pk);
+    k = lg > kmp.env ? K_ATK[clamp(song.g[G_KATK], 0, 5)] : K_REL[clamp(song.g[G_KREL], 0, 5)];
+    kmp.env += (int32_t)(((int64_t)(lg - kmp.env) * k) >> 16);
+    thr = thr * 10885;                                  /* dB -> octaves, Q16 (65536 / 6.0206) */
+    k = K_RAT[clamp(song.g[G_KRAT], 0, 2)];
+    over = kmp.env > thr ? kmp.env - thr : 0;
+    if ((int32_t)(((int64_t)over * k) >> 16) > kmp.gr)
+        kmp.gr = (int32_t)(((int64_t)over * k) >> 16);
+    g1 = exp2q12((int32_t)(((int64_t)(-thr / 2 - over) * k) >> 16));   /* the make-up: half of what full scale loses */
+    g1 = clamp(g1, 1, 32000);
+    kmp.g = g1;
+    for (i = 0; i < (int32_t)n; i++) {
+        int32_t g = g0 + (((g1 - g0) * i) >> CTL_LOG2);
+        l[i] = MULQ12R(clamp(l[i], -262143, 262143), g, 2);
+        r[i] = MULQ12R(clamp(r[i], -262143, 262143), g, 2);
     }
 }
 
@@ -473,7 +531,7 @@ typedef struct {
     int16_t line[IL_LEN];               /* FLANG / CHOR, at a quarter (headroom) */
 } ins_t;
 /* (in .bss, not the pool: tools/build.py keeps 8 KiB of the pool spare; RAM has room) */
-static ins_t ins[NPART + 4u];                    /* the parts; the drum track's L, R, REV, DLY */
+static ins_t ins[NPART];                         /* the parts (1.7: the drums' DST is the DRIVE, drum_fx) */
 
 static inline int32_t ins_mixq(int32_t m) { return m >= 127 ? 32768 : m <= 0 ? 0 : m * 258; }   /* MIX -> Q15 */
 static inline int32_t ins_mix(int32_t x, int32_t y, int32_t w) { return w == 32768 ? y : x + mulq16(y - x, (uint32_t)w << 1); }
@@ -509,14 +567,17 @@ static inline uint32_t ins_bits_sh(int32_t a) { return 15u - (uint32_t)(clamp(a,
 
 /* SOFT .. FUZZ: low cut -> DRIVE -> shape -> TONE -> LEVEL -> DC blocker; CRUSH: held sample -> bits -> LPF. The state
  * in locals for the block (b may alias it as far as the compiler knows: no load / store a sample), written back */
-static __attribute__((noinline)) void ins_drive(ins_t *s, const int16_t *p, int32_t *b, uint32_t n, int32_t tw)
+/* (BONBLOOP 1.7) q: TYPE, A, B, C, MIX in a row: a track's &p[P_ITYPE] (_Static_assert below), or FX > DIST's (dist_q) */
+_Static_assert(P_IA == P_ITYPE + 1 && P_IB == P_ITYPE + 2 && P_IC == P_ITYPE + 3 && P_IMIX == P_ITYPE + 4,
+               "the INSERT's settings in a row");
+static __attribute__((noinline)) void ins_drive(ins_t *s, const int16_t *q, int32_t *b, uint32_t n, int32_t tw, int par)
 {
-    uint32_t i, ty = s->type, sh = ins_bits_sh(p[P_IA]);
-    uint32_t hold = INS_HOLD[clamp(p[P_IB], 0, 127) >> 3];
-    int32_t a = clamp(p[P_IA], 0, 127), g = 4096 + a * a * 3;   /* DRIVE, Q12: 1x .. 12.8x, gentle at first */
+    uint32_t i, ty = s->type, sh = ins_bits_sh(q[1]);
+    uint32_t hold = INS_HOLD[clamp(q[2], 0, 127) >> 3];
+    int32_t a = clamp(q[1], 0, 127), g = 4096 + a * a * 3;   /* DRIVE, Q12: 1x .. 12.8x, gentle at first */
     int32_t w = s->w, lp1 = s->lp1, lp2 = s->lp2, x, y, v;
     if (ty == IT_CRUSH) {
-        uint32_t k = (uint32_t)ins_lpk(p[P_IC]), cnt = s->cnt;
+        uint32_t k = (uint32_t)ins_lpk(q[3]), cnt = s->cnt;
         int32_t hd = s->hold;
         for (i = 0; i < n; i++) {
             x = b[i];
@@ -533,13 +594,13 @@ static __attribute__((noinline)) void ins_drive(ins_t *s, const int16_t *p, int3
             v = mulq16(y - lp2, k);
             y = v + lp2;
             lp2 = y + v;
-            b[i] = ins_mix(x, (y + 8) >> 4, w);
+            b[i] = par ? x + mulq16((y + 8) >> 4, (uint32_t)w << 1) : ins_mix(x, (y + 8) >> 4, w);
         }
         s->cnt = (uint8_t)cnt;
         s->hold = hd;
     } else {
-        uint32_t k = (uint32_t)ins_lpk(p[P_IB]);
-        int32_t lvl = LEVEL_Q12[p[P_IC] & 127], hp = s->hp, dc = s->dc;
+        uint32_t k = (uint32_t)ins_lpk(q[2]);
+        int32_t lvl = LEVEL_Q12[q[3] & 127], hp = s->hp, dc = s->dc;
         for (i = 0; i < n; i++) {
             x = b[i];
             w += clamp(tw - w, -SL_SLOPE, SL_SLOPE);
@@ -554,7 +615,7 @@ static __attribute__((noinline)) void ins_drive(ins_t *s, const int16_t *p, int3
             lp2 = y + v;
             y = (((y + 8) >> 4) * lvl) >> 12;           /* LEVEL */
             dc += ((y << 8) - dc) >> 9;                 /* DC blocker, ~14 Hz (FUZZ's lopsided halves) */
-            b[i] = ins_mix(x, y - (dc >> 8), w);
+            b[i] = par ? x + mulq16(y - (dc >> 8), (uint32_t)w << 1) : ins_mix(x, y - (dc >> 8), w);
         }
         s->hp = hp;
         s->dc = dc;
@@ -564,11 +625,12 @@ static __attribute__((noinline)) void ins_drive(ins_t *s, const int16_t *p, int3
     s->lp2 = lp2;
 }
 
-/* PHASR, FLANG, CHOR: the sweep at RATE (one LFO per state), DEPTH, FDBK; the state in locals for the block */
-static __attribute__((noinline)) void ins_swept(ins_t *s, const int16_t *p, int32_t *b, uint32_t n, int32_t tw)
+/* PHASR, FLANG, CHOR: the sweep at RATE (one LFO per state), DEPTH, FDBK; the state in locals for the block. dm: -1 the
+ * pedal's (dry + swept) / 2, 0 the swept alone (BONBLOOP 1.7: FX > MOD on the chorus' bus, the dry in the mix) */
+static __attribute__((noinline)) void ins_swept(ins_t *s, const int16_t *q, int32_t *b, uint32_t n, int32_t tw, int32_t dm)
 {
-    uint32_t i, inc = LFO_INC[clamp(p[P_IA], 0, 127)] / CTL, dep = (uint32_t)clamp(p[P_IB], 0, 127);
-    int32_t c = clamp(p[P_IC], 0, 127), w = s->w, dc = s->dc;
+    uint32_t i, inc = LFO_INC[clamp(q[1], 0, 127)] / CTL, dep = (uint32_t)clamp(q[2], 0, 127);
+    int32_t c = clamp(q[3], 0, 127), w = s->w, dc = s->dc;
     if (s->type == IT_PHASER) {                         /* the coefficients a block at a time (at its middle) */
         uint32_t tr = ins_tri(s->ph + (n >> 1) * inc), q = 32768u + (uint32_t)(((int32_t)tr - 32768) * (int32_t)dep / 127);
         int32_t a = PH_A[q >> 11] + (((PH_A[(q >> 11) + 1u] - PH_A[q >> 11]) * (int32_t)(q & 2047u)) >> 11);
@@ -587,7 +649,7 @@ static __attribute__((noinline)) void ins_swept(ins_t *s, const int16_t *p, int3
             fb = clamp(y, -32767, 32767);
             y <<= 2;                                    /* (y: at an eighth) */
             dc += ((y << 8) - dc) >> 9;                 /* DC blocker, ~14 Hz (a clipped loud input is lopsided) */
-            b[i] = ins_mix(x, (x >> 1) + y - (dc >> 8), w);   /* (dry + all-passed) / 2 */
+            b[i] = ins_mix(x, ((x & dm) >> 1) + y - (dc >> 8), w);   /* (dry + all-passed) / 2 */
         }
         s->px[0] = x0, s->px[1] = x1, s->px[2] = x2, s->px[3] = x3;
         s->py[0] = y0, s->py[1] = y1, s->py[2] = y2, s->py[3] = y3;
@@ -615,7 +677,7 @@ static __attribute__((noinline)) void ins_swept(ins_t *s, const int16_t *p, int3
             wp = (wp + 1u) & (IL_LEN - 1u);
             v <<= 1;                                    /* (v: at a quarter) */
             dc += ((v << 8) - dc) >> 9;                 /* DC blocker (the line's clip on a loud lopsided wave) */
-            b[i] = ins_mix(x, (x >> 1) + v - (dc >> 8), w);   /* (dry + delayed) / 2 */
+            b[i] = ins_mix(x, ((x & dm) >> 1) + v - (dc >> 8), w);   /* (dry + delayed) / 2 */
         }
         s->ph = ph;
         s->wp = (uint16_t)wp;
@@ -625,12 +687,13 @@ static __attribute__((noinline)) void ins_swept(ins_t *s, const int16_t *p, int3
 }
 
 /* the INSERT of the settings p on one channel b through state s: 1 while it runs (or fades out); 0: dry, bit for bit */
-static __attribute__((noinline)) int ins_run(ins_t *s, const int16_t *p, int32_t *b, uint32_t n)
+static __attribute__((noinline)) int ins_run(ins_t *s, const int16_t *q, int32_t *b, uint32_t n, int par)   /* par (1.7):
+                                                         * the drive's wet added to the whole dry (FX > MIXER DST) */
 {
-    int32_t ty = clamp(p[P_ITYPE], 0, IT_N - 1), tw;
+    int32_t ty = clamp(q[0], 0, IT_N - 1), tw;
     if (s->type != ty && !s->w)                         /* faded out: the new type from rest */
         s->type = (uint8_t)ty;
-    tw = s->type == ty && ty ? ins_mixq(p[P_IMIX]) : 0;
+    tw = s->type == ty && ty ? ins_mixq(q[4]) : 0;
     if (!s->w) {
         if (!tw)
             return 0;                                   /* dry: bit for bit */
@@ -638,16 +701,53 @@ static __attribute__((noinline)) int ins_run(ins_t *s, const int16_t *p, int32_t
         s->type = (uint8_t)ty;
     }
     if (s->type >= IT_PHASER)
-        ins_swept(s, p, b, n, tw);
+        ins_swept(s, q, b, n, tw, -1);
     else
-        ins_drive(s, p, b, n, tw);
+        ins_drive(s, q, b, n, tw, par);
     return s->w != 0;
 }
 /* a part's INSERT on its block b (mix_part): nothing while TYPE is OFF or MIX is 0 and faded */
 static void track_insert(track_t *t, int32_t *b, uint32_t n)
 {
-    t->ins_run = (uint8_t)ins_run(&ins[(uint32_t)(t - trk) % NPART], t->p, b, n);
+    t->ins_run = (uint8_t)ins_run(&ins[(uint32_t)(t - trk) % NPART], &t->p[P_ITYPE], b, n, 0);
 }
+/* (BONBLOOP 1.7) FX > MIXER's DST on SLOOP's engines and the drums: the INSERT's drive (or CRUSH) of FX > DIST in
+ * parallel, the dry whole and DST how much of the driven is added (0: the dry, bit for bit; a change glides, a TYPE
+ * change fades out and in; FX > DIST's LEVEL the driven one's level) */
+static void dist_q(int16_t *q, int32_t amt)
+{
+    q[0] = (int16_t)(IT_SOFT + clamp(song.g[G_XTYPE], 0, IT_CRUSH - IT_SOFT));
+    q[1] = song.g[G_XA], q[2] = song.g[G_XB], q[3] = song.g[G_XC], q[4] = (int16_t)amt;
+}
+static void track_pdist(track_t *t, int32_t *b, uint32_t n)
+{
+    int16_t q[5];
+    dist_q(q, t->p[P_DIST]);
+    t->ins_run = (uint8_t)ins_run(&ins[(uint32_t)(t - trk) % NPART], q, b, n, 1);
+}
+/* (BONBLOOP 1.7) FX > MOD: the chorus' bus a chorus (TYPE CHOR, as ever), a flanger or a phaser: the INSERT's swept
+ * ones on the send, a state a side, the right one half a turn behind; their swept signal alone (the dry is in the mix:
+ * a track's MOD sets how deep the notches go). RATE, DEPTH: the chorus' (G_CRATE, G_CDEPTH), FDBK its own */
+static ins_t mod_s[2];
+static void mod_bus(const int32_t *in, int32_t *ml, int32_t *mr, uint32_t n)
+{
+    int16_t q[5] = {0, song.g[G_CRATE], song.g[G_CDEPTH], song.g[G_MFDBK], 127};
+    uint32_t ty = song.g[G_MTYPE] == 1 ? IT_FLANGER : IT_PHASER, i;
+    if (mod_ty != ty) {                                 /* from rest: no stale line */
+        memset(mod_s, 0, sizeof mod_s);
+        mod_s[0].type = mod_s[1].type = (uint8_t)ty;
+        mod_s[0].w = mod_s[1].w = 32768;
+        mod_s[1].ph = 0x80000000u;
+        mod_ty = (uint8_t)ty;
+    }
+    for (i = 0; i < n; i++)
+        ml[i] = mr[i] = in[i];
+    ins_swept(&mod_s[0], q, ml, n, 32768, 0);
+    ins_swept(&mod_s[1], q, mr, n, 32768, 0);
+}
+
+/* what runs the part's INSERT state: on WAVE the chain's PHASER (TYPE), else the parallel DIST (DST) */
+static int32_t ins_on(const track_t *t) { return t->engine == ENGI_WAVE ? t->p[P_ITYPE] : t->p[P_DIST]; }
 /* the INSERT at rest at once (mix_part: TYPE turned OFF while the part was silent, its fade never ran) */
 static __attribute__((noinline)) void ins_rest(track_t *t)
 {
@@ -674,7 +774,21 @@ static void mix_part(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)   /* into
     memcpy(t->p, pn, sizeof pnew[0]);
 }
 /* a part's DIST (FXI_DRIVE), INSERT (FXI_PHASER) or FILTER (FXI_FILTER) on its block b (mix_part_run) */
+static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx);
 static void track_fx_run(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
+{
+    uint32_t part = (uint32_t)(t - trk), i;
+    int32_t dry[CTL], m = part < NPART && fx != FXI_PHASER ? sx_get(part, fx == FXI_DRIVE ? SX_MXD : fx == FXI_EQ ? SX_MXE
+                                                                                                         : SX_MXF) : 15;
+    if (m < 15)                                         /* (BONBLOOP 1.6) its MIX: the dry kept (n <= CTL) */
+        for (i = 0; i < n && i < CTL; i++)
+            dry[i] = b[i];
+    track_fx_core(t, b, n, fx);
+    if (m < 15)
+        for (i = 0; i < n && i < CTL; i++)
+            b[i] = dry[i] + mulq15(b[i] - dry[i], m * 2184);
+}
+static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
 {
     if (fx == FXI_DRIVE) {
         track_dist(t, b, n);
@@ -684,6 +798,8 @@ static void track_fx_run(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
             t->ins_res = (uint16_t)(b[n - 1u] < 0 ? (-b[n - 1u] > 65535 ? 65535 : -b[n - 1u])
                                                   : (b[n - 1u] > 65535 ? 65535 : b[n - 1u]));   /* (its tail's end) */
         }
+    } else if (fx == FXI_EQ) {
+        eq_run(t, b, n);                                /* (BONBLOOP 1.5) eng_wave.c */
     } else {
         tsvf_t fc;
         djf_t *f = &tflt[(uint32_t)(t - trk) % NTRK];
@@ -696,13 +812,13 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
     uint32_t i;
     int32_t g0 = 32767 - t->att, g1 = gain_next(t);
     if (track_render(t, b, n))
-        t->tail = t->p[P_ITYPE] ? 64 : 16, t->ins_xt = 0;              /* blocks of DIST / INSERT state to run out after the last
+        t->tail = ins_on(t) ? 64 : 16, t->ins_xt = 0;              /* blocks of DIST / INSERT state to run out after the last
                                                          * voice (the INSERT's: 46 ms, a flanger's feedback) */
     else if ((!t->tail || !(t->p[P_DIST] | t->p[P_ITYPE]) || !--t->tail) && !slicer_busy(t) &&
              !(t->ins_run && t->ins_res > 16u && t->ins_xt < 255u && ++t->ins_xt)) {   /* (2.6: the INSERT's DC
                                                          * blocker run out first, up to 255 blocks more: no step) */
         slicer_track(t, 0, n);                          /* (the SLICER's step clock runs on) */
-        if (t->ins_run && !t->p[P_ITYPE])
+        if (t->ins_run && !ins_on(t))
             ins_rest(t);                                /* TYPE OFF while silent: no fade-out left for the next note */
         return;
     }
@@ -718,22 +834,22 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
         int32_t xmax = c > d ? c : d;
         int32_t ga = mulq15(g0, duck.g0), gb = mulq15(g1, duck.g1);   /* mute x duck, ramped over the block */
         xmax = 0x7FFFFFFF / ((xmax > r ? xmax : r) | 1);   /* sends: loud chords at a high LEVEL */
-        if (t->engine == ENGI_WAVE) {                   /* (BONBLOOP 1.2) the synth: DRIVE, PHASER and FILTER in its FX
-                                                         * chain's order (eng_wave.c synx), the others after, then the SLICER */
+        if (t->engine == ENGI_WAVE) {                   /* (BONBLOOP 1.2) the synth: DRIVE, PHASER and FILTER in the FX
+                                                         * chain's order (eng_wave.c synx), the others after, then the SLICER;
+                                                         * 1.6: the chain is the project's (1.7: on the synth's tracks) */
             uint32_t done = 0, s, fx;
             for (s = 0; s < SX_NSLOT + 3u; s++) {
                 fx = s < SX_NSLOT ? (uint32_t)sx_get((uint32_t)(t - trk), SX_C1 + s) : s - SX_NSLOT + FXI_DRIVE;
-                if (fx >= FXI_DRIVE && fx <= FXI_FILTER && !((done >> fx) & 1u)) {
+                if (((fx >= FXI_DRIVE && fx <= FXI_FILTER) || fx == FXI_EQ) && !((done >> fx) & 1u)) {   /* (1.5: EQ) */
                     done |= 1u << fx;
                     track_fx_run(t, b, n, fx);
                 }
             }
             slicer_track(t, b, n);
         } else {
-            track_fx_run(t, b, n, FXI_DRIVE);
-            track_fx_run(t, b, n, FXI_PHASER);
+            track_pdist(t, b, n);                       /* (1.7) DIST in parallel (FX > DIST) */
             slicer_track(t, b, n);                      /* slicer.c: before the level, pan and sends */
-            track_fx_run(t, b, n, FXI_FILTER);          /* the track's FILTER (P_TFLT), after the SLICER */
+            track_fx_core(t, b, n, FXI_FILTER);         /* the track's FILTER (P_TFLT), after the SLICER (no MIX) */
         }
         int32_t lvl0, dl, gl0, dgl, gr0, dgr;          /* (2.7) LEVEL (and a new sound's trim) and PAN glide (drums.c
                                                          * mix_glide), ramped sample by sample inside the block */
@@ -849,18 +965,36 @@ static void djf_process(int32_t *l, int32_t *r, uint32_t n)
 #define U_DRUMS (1u << NPART)
 #define U_ALL ((2u << NPART) - 1u)
 
-/* the drum track's INSERT (2.6): its left, right and the two sends, each through its own state, the same settings */
-static void drum_insert(int32_t *l, int32_t *r, int32_t *v, int32_t *d, uint32_t n)
+/* (BONBLOOP 1.7) the drums' DST: the synth's DRIVE (FX > DIST with the drum track selected: STYLE TONE PUNSH) on their
+ * left and right, in parallel, DST its drive and how much of it is added; then CLIP, a soft clipper: the drive into tanh,
+ * given back half way (x 2 / (1 + drive): the quiet hits a little louder, the peaks rounded). DST 0, CLIP 0: the drums
+ * bit for bit. Their sends stay dry */
+static int32_t drum_wd[2][3];
+static uint8_t drum_wd_on;
+static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
 {
-    track_t *t = TDRUM;
-    int run;
-    if (!(t->p[P_ITYPE] | t->ins_run))
-        return;
-    run = ins_run(&ins[NPART], t->p, l, n);
-    run |= ins_run(&ins[NPART + 1u], t->p, r, n);
-    run |= ins_run(&ins[NPART + 2u], t->p, v, n);
-    run |= ins_run(&ins[NPART + 3u], t->p, d, n);
-    t->ins_run = (uint8_t)run;
+    int32_t d = TDRUM->p[P_DIST], c = song.g[G_DRCLIP];
+    uint32_t i;
+    if (d) {
+        uint32_t st = (uint32_t)clamp(song.g[G_DRSTY], 0, 4);
+        int32_t tone = (song.g[G_DRTONE] >> 2) - 16, pun = song.g[G_DRPUN];
+        if (!drum_wd_on) {                              /* coming on: no stale low cut (a thump) */
+            drum_wd_on = 1;
+            drum_wd[0][0] = l[0], drum_wd[1][0] = r[0];
+            drum_wd[0][1] = drum_wd[0][2] = drum_wd[1][1] = drum_wd[1][2] = 0;
+        }
+        wd_core(drum_wd[0], l, n, d, st, tone, pun, d * 258);
+        wd_core(drum_wd[1], r, n, d, st, tone, pun, d * 258);
+    } else {
+        drum_wd_on = 0;
+    }
+    if (c) {
+        int32_t g = 4096 + c * 128, og = 268435456 / (4096 + g);   /* 1x .. ~5x; Q15 */
+        for (i = 0; i < n; i++) {
+            l[i] = mulq15(softclip(MULQ12R(clamp(l[i], -262143, 262143), g, 2)), og);
+            r[i] = mulq15(softclip(MULQ12R(clamp(r[i], -262143, 262143), g, 2)), og);
+        }
+    }
 }
 /* the drum track with the metronome: drums_render, through the SLICER when it is on (slicer.c), then through its
  * INSERT (2.6) and the track's FILTER when they are on (into drum_buf, left, right and the two sends apart, then added) */
@@ -873,12 +1007,14 @@ static void mix_drums(uint32_t n, mixacc_t *mx)
     drums.a0 = TDRUM->att;                              /* the drum track's mute / solo fade */
     drums.a1 = 32767 - gain_next(TDRUM);
     flt = n <= CTL && djf_block(f, TDRUM->p[P_TFLT], &fc, tflt_reso());   /* the drum track's FILTER */
-    if (flt || (n <= CTL && (TDRUM->p[P_ITYPE] | TDRUM->ins_run))) {   /* .. or its INSERT: left, right, the sends */
+    if (flt || (n <= CTL && (TDRUM->p[P_DIST] | drum_wd_on | song.g[G_DRCLIP] | TDRUM->p[P_CHOR]))) {   /* .. or (1.7)
+                                                         * its DST, CLIP, MOD send: left, right, the sends */
         int32_t *dl = drum_buf[0], *dr = drum_buf[1], *dv = drum_buf[2], *dd = drum_buf[3];
+        int32_t c = TDRUM->p[P_CHOR] * 258;
         for (i = 0; i < n; i++)
             dl[i] = dr[i] = dv[i] = dd[i] = 0;
         slicer_drums(dl, dr, dv, dd, n);
-        drum_insert(dl, dr, dv, dd, n);                 /* (2.6: off, nothing) */
+        drum_fx(dl, dr, n);                             /* (1.7: off, nothing) */
         if (flt) {
             tflt_run(f, &fc, dl, n, 0);
             tflt_run(f, &fc, dr, n, 1);
@@ -890,6 +1026,8 @@ static void mix_drums(uint32_t n, mixacc_t *mx)
             mx->r[i] += dr[i];
             mx->sr[i] += dv[i];
             mx->sd[i] += dd[i];
+            if (c)
+                mx->sc[i] += mulq15(clamp((dl[i] + dr[i]) >> 1, -262144, 262143), c);
         }
     } else {
         slicer_drums(mx->l, mx->r, mx->sr, mx->sd, n);   /* drums_render, through the SLICER when on */
@@ -1250,6 +1388,10 @@ static void mix_block(int32_t *out, uint32_t n)
     for (i = 0; i < n; i++) {
         mix_l[i] += wet_l[i];
         mix_r[i] += wet_r[i];
+    }
+    if (n <= CTL) {                                     /* (BONBLOOP 1.7) the master: FX > COMP, FX > EQ */
+        comp_process(mix_l, mix_r, n);
+        eq_master(mix_l, mix_r, n);
     }
     dust_process(mix_l, mix_r, n);
     punch_process(mix_l, mix_r, n);

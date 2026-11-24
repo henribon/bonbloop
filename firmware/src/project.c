@@ -41,7 +41,7 @@
                                                 * so the format and its size do not change */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
-_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DFIX + 1u,
+_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DRCLIP + 1u,
                "G_FXFADE (2.7.2) is the last global of SLOOP, a setting of the FM-1; then BONBLOOP's (bbx_t: G_DMS)");
 #define PROJ_NC6 ((uint32_t)P_ITYPE)           /* format 6: the parameters kept in 16 bits, P_LEVEL .. P_VLEAD (as 5), */
 #define PROJ_NX6 ((uint32_t)(P_E0 - P_ITYPE))  /* the 2.6 ones in a byte (0..127), then P_E0 .. P_E7 */
@@ -170,13 +170,23 @@ UI_SMALL static int proj_ok(const project_t *q) { return q->magic == PROJ_MAGIC 
  * A..D and one for any other copy (the working one's: the autosave), and in flash in the side record of the copy
  * (storage.c st_side). None, or not valid (a project of SLOOP or of 1.1): the synx 0 (the chain then shows the
  * effects that sound: ui.c syn_chain_fill), the ms at their default */
-#define BBX_MAGIC 0x32584242u                  /* "BBX2" (1.3; 1.2's "BBX1" held other fields: none) */
+#define BBX_MAGIC 0x35584242u                  /* "BBX5" (1.7: + FX > DIST, MOD, COMP and the master's EQ); "BBX2" (1.3
+                                                * .. 1.4.2: synx of 4 words), "BBX3" (1.5: 6) and "BBX4" (1.6: + the
+                                                * chorus' and the reverb's MIX) are read too (bbx_load); 1.2's "BBX1"
+                                                * held other fields: none */
+#define BBX2_MAGIC 0x32584242u
+#define BBX_G0 G_XTYPE                         /* (1.7) the globals in fx[], each as its value - its minimum */
+#define BBX_NG (G_KREL - G_XTYPE + 1u)
 typedef struct {
     uint32_t magic;
     synx_t x[NPART];
+    uint32_t meq[2];                           /* (1.7) the master's EQ (synx[NPART].w[4], w[5]) */
     int16_t dms;
-    uint16_t sum;
+    uint8_t cmix, rmix;                        /* (1.6) G_CMIX, G_RMIX */
+    uint8_t fx[12];                            /* (1.7) G_XTYPE .. G_KREL; [10] the drums' STYLE | PUNSH << 3, [11] CLIP */
+    uint16_t dtone, sum;                       /* (1.7) the drums' TONE ^ 64 (0: the default, 64) */
 } bbx_t;
+_Static_assert(BBX_NG <= 10u && G_KREL == G_XTYPE + 9u && G_DRCLIP == G_DRSTY + 3u, "1.7's globals in the side record");
 static bbx_t bbx_ram[5];                       /* (not .noinit, it is full: after a warm reset persist_boot reads the
                                                 * sections' back from flash) */
 UI_SMALL static bbx_t *bbx_of(const project_t *p)
@@ -512,7 +522,14 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
         memset(x, 0, sizeof *x);
         x->magic = BBX_MAGIC;
         memcpy(x->x, synx, sizeof x->x);
+        x->meq[0] = synx[NPART].w[4], x->meq[1] = synx[NPART].w[5];
         x->dms = song.g[G_DMS];
+        x->cmix = (uint8_t)song.g[G_CMIX];
+        x->rmix = (uint8_t)song.g[G_RMIX];
+        for (i = 0; i < BBX_NG; i++)
+            x->fx[i] = (uint8_t)(song.g[BBX_G0 + i] - GP[BBX_G0 + i].min);
+        x->fx[10] = (uint8_t)(song.g[G_DRSTY] | song.g[G_DRPUN] << 3), x->fx[11] = (uint8_t)song.g[G_DRCLIP];
+        x->dtone = (uint16_t)(song.g[G_DRTONE] ^ 64);
         x->sum = bbx_sum(x);
     }
 }
@@ -538,9 +555,22 @@ static void proj_apply(const project_t *p, int all)
                                                          * sx_default) */
         xok = bbx_ok(x);
         if (xok)
-            memcpy(synx, x->x, sizeof synx);
-        if (all)
-            song.g[G_DMS] = (int16_t)clamp(xok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max);
+            memcpy(synx, x->x, sizeof x->x);
+        if (all) {
+            song.g[G_DMS] = (int16_t)clamp(xok ? x->dms : GP[G_DMS].def, GP[G_DMS].min, GP[G_DMS].max),
+            song.g[G_CMIX] = (int16_t)(xok ? clamp(x->cmix, 0, 127) : 127),
+            song.g[G_RMIX] = (int16_t)(xok ? clamp(x->rmix, 0, 127) : 127);
+            for (i = 0; i < BBX_NG; i++) {               /* (1.7) FX > DIST, MOD, COMP; the master's EQ */
+                const param_desc_t *d = &GP[BBX_G0 + i];
+                song.g[BBX_G0 + i] = (int16_t)(xok ? clamp(x->fx[i] + d->min, d->min, d->max) : d->def);
+            }
+            song.g[G_DRSTY] = (int16_t)(xok ? clamp(x->fx[10] & 7, 0, 4) : 0);   /* (the drums' DST and CLIP) */
+            song.g[G_DRPUN] = (int16_t)(xok ? (x->fx[10] >> 3) & 1 : 0);
+            song.g[G_DRCLIP] = (int16_t)(xok ? clamp(x->fx[11], 0, 127) : 0);
+            song.g[G_DRTONE] = (int16_t)(xok ? clamp(x->dtone ^ 64, 0, 127) : 64);
+            synx[NPART].w[4] = xok ? x->meq[0] : EQ_W4;
+            synx[NPART].w[5] = xok ? x->meq[1] : 0u;
+        }
     }
     for (k = 0; k < NTRK; k++) {
         track_t *t = &trk[k];
@@ -628,7 +658,36 @@ UI_SMALL static int proj_store(uint32_t obj, const project_t *p)
 UI_SMALL static void bbx_load(uint32_t obj, const project_t *p)
 {
     bbx_t *x = bbx_of(p);
-    if (st_side_load(obj, x, sizeof *x) || !bbx_ok(x))
+    if (st_side_load(obj, x, sizeof *x) == 0 &&
+        (x->magic == BBX2_MAGIC || x->magic == BBX_MAGIC - 2u || x->magic == BBX_MAGIC - 1u)) {
+        /* (1.3 .. 1.4.2: synx of 4 words, the EQ flat; 1.5: of 6; 1.6: + the MIXes) the MIXes full, 1.7's at their
+         * defaults, the master's EQ flat */
+        uint32_t o[sizeof(bbx_t) / 4u], nw = x->magic == BBX2_MAGIC ? 4u : 6u, v4 = x->magic == BBX_MAGIC - 1u;
+        uint32_t base = 4u + NPART * nw * 4u, len = base + (v4 ? 8u : 4u), h, k;
+        uint16_t sum;
+        uint8_t mx[2] = {127, 127};
+        memcpy(o, x, sizeof o);
+        h = proj_hash(o, len - 2u);
+        memcpy(&sum, (const uint8_t *)o + len - 2u, 2u);
+        if (v4)
+            memcpy(mx, (const uint8_t *)o + base + 2u, 2u);
+        if (sum == (uint16_t)(h ^ h >> 16)) {
+            memset(x, 0, sizeof *x);
+            x->magic = BBX_MAGIC;
+            for (k = 0; k < NPART; k++) {
+                memcpy(x->x[k].w, &o[1u + k * nw], nw * 4u);
+                if (nw == 4u)
+                    x->x[k].w[4] = EQ_W4;
+            }
+            x->meq[0] = EQ_W4;
+            memcpy(&x->dms, (const uint8_t *)o + base, 2u);
+            x->cmix = mx[0], x->rmix = mx[1];
+            for (k = 0; k < BBX_NG; k++)
+                x->fx[k] = (uint8_t)(GP[BBX_G0 + k].def - GP[BBX_G0 + k].min);
+            x->sum = bbx_sum(x);
+        }
+    }
+    if (!bbx_ok(x))
         memset(x, 0, sizeof *x);
 }
 UI_SMALL static void proj_fetch(uint32_t slot)

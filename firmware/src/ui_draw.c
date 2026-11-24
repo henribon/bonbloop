@@ -142,9 +142,9 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
     int32_t x, gw = 52, fx;
     if (icon == ICON_AUTO)
         icon = icon_for_label(label);
-    fit(l, label, &FONT_S, 54 - LABEL_X);
+    fit(l, label, &FONT_T, 55 - LABEL_X);                 /* (1.7: the small font, the column's whole width) */
     fit(v, val, &FONT_S, is_eng_name(val) ? 56 : 40);   /* engine names whole */
-    fit(u, unit, &FONT_S, 54 - text_w(&FONT_S, v) - 3);
+    fit(u, unit, &FONT_T, 54 - text_w(&FONT_S, v) - 2);
     str_cpy(key, l, 8);                                 /* cache key: texts + colour + gauge */
     str_cpy(key + str_len(key), "|", 2);
     str_cpy(key + str_len(key), v, 8);
@@ -174,14 +174,14 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
     cv_begin(55, Y_SEP_END - Y_LABEL, C_BLACK);         /* x 4..58: the rule at 59 stays */
     if (FELUCCA_ICONS && icon != ICON_NONE && l[0])
         cv_icon(0, 1, icon, TE_COL[c & 3u]);            /* icon rows 1..10 = the label's cap height */
-    cv_text(l[0] ? LABEL_X : 0, 0, &FONT_S, l, C_GRAY);
+    cv_text(l[0] ? LABEL_X : 0, 2, &FONT_T, l, C_GRAY);   /* (1.7: names small, the value large: on the icon's line) */
     x = cv_text(0, Y_VALUE - Y_LABEL, &FONT_S, v, vc);
-    cv_text(x + 3, Y_VALUE - Y_LABEL, &FONT_S, u, C_DIM);
+    cv_text(x + 2, Y_VALUE - Y_LABEL + 4, &FONT_T, u, C_DIM);   /* (the unit small, on the value's baseline) */
     if (ratio >= 0) {                                   /* gauge: track, fill, 1 px end line */
         int32_t gy = Y_GAUGE - Y_LABEL;
         fx = ratio * gw / 1000;
         cv_rect(0, gy + 1, gw, 1, C_LINE);
-        cv_rect(0, gy, fx, 3, vc == C_DIM ? C_DIM : TE_DIM[c & 3u]);
+        cv_rect(0, gy, fx, 3, vc == C_DIM ? C_DIM : ARC_OF(c));
         cv_rect(fx, gy - 1, 1, 5, vc == C_DIM ? C_HI : vc);
     }
     cv_blit(c * 60u + 4u, Y_LABEL);
@@ -190,6 +190,48 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
 /* Matches voice.c: attack is linear, decay and release are exponential
  * (env += (target - env) * k each tick, ~99 % after the set time). Time
  * axis is the parameter value (the times themselves are exponential). */
+/* BONBLOOP 1.5: the EQ's curve (pages EQ 1, EQ 2), as a DAW's: the gain against frequency, 30 Hz .. 16 kHz on the
+ * filter's scale, +-15 dB (3 px a dB), lines at 0 dB and at 100 Hz, 1 kHz, 10 kHz; each band its shape (the filters'
+ * response at +12 dB, computed from eng_wave.c eq_run's: EQ_BELL by the distance in the scale's steps / 2, EQ_SHELF a
+ * LOW shelf from -64 to +64 steps) scaled by its GAIN, the shapes added in dB; a dot per band at its FREQ and GAIN */
+static const int8_t EQ_BELL[33] = {127, 126, 124, 120, 115, 109, 103, 96, 89, 81, 74, 67, 61, 54, 48, 43, 37, 33, 28, 24,
+                                   21, 18, 15, 13, 11, 9, 7, 6, 5, 4, 3, 3, 2};
+static const int8_t EQ_SHELF[65] = {127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+                                    127, 126, 126, 126, 125, 124, 122, 120, 117, 114, 108, 102, 94, 85, 74, 64, 53, 42, 33,
+                                    25, 19, 13, 10, 7, 5, 3, 2, 1, 1, 1};   /* (the rest 0) */
+UI_SMALL static void graph_eq(const track_t *t, uint16_t c)
+{
+    uint32_t part = cur_page()->scope == SC_GLOBAL ? NPART : (uint32_t)(t - trk) % NPART, b;   /* (1.7: FX > EQ, the
+                                                         * master's) */
+    uint32_t mine = cur_page()->id[0] == VX0 + SX_EF3 ? 1u : 0u;
+    int32_t x, py = 0, f[4], g[4];
+    static const uint8_t GRID_F[3] = {24, 71, 118};    /* 100 Hz, 1 kHz, 10 kHz */
+    for (b = 0; b < 4u; b++)
+        f[b] = sx_get(part, SX_EF1 + 2u * b), g[b] = sx_get(part, SX_EG1 + 2u * b);
+    for (b = 0; b < 3u; b++)
+        cv_line(6 + GRID_F[b] * 226 / 127, 10, 6 + GRID_F[b] * 226 / 127, 100, TE_G2);
+    cv_line(6, 55, 232, 55, TE_G2);
+    for (x = 6; x <= 232; x++) {
+        int32_t fi = (x - 6) * 127 / 226, db = 0, y;
+        for (b = 0; b < 4u; b++) {
+            int32_t d = fi - f[b];
+            if (b == 1u || b == 2u)
+                db += g[b] * EQ_BELL[clamp((d < 0 ? -d : d) / 2, 0, 32)];
+            else
+                db += g[b] * EQ_SHELF[clamp(((b ? -d : d) + 64) / 2, 0, 64)];
+        }
+        y = clamp(55 - db * 3 / 127, 10, 100);
+        if (x > 6)
+            cv_line(x - 1, py, x, y, c);
+        py = y;
+    }
+    for (b = 0; b < 4u; b++) {                        /* (this page's: its FREQ knob's colour, KNOB 1 or 3; the others
+                                                       * grey) */
+        int32_t r = (b >> 1) == mine ? 3 : 2;
+        cv_rect(6 + f[b] * 226 / 127 - r, clamp(55 - g[b] * 3, 10, 100) - r, 2 * r + 1, 2 * r + 1,
+                (b >> 1) == mine ? TE_COL[(b & 1u) * 2u] : TE_G3);
+    }
+}
 UI_SMALL static void graph_adsr(const track_t *t, uint16_t c)
 {
     uint32_t id = cur_page()->id[0], o = id == VX0 + SX_A2 ? 1u : id == VX0 + SX_A3 ? 2u : 0u;   /* (BONBLOOP 1.3: a
@@ -462,14 +504,31 @@ UI_SMALL static void graph_scale(const track_t *t, uint16_t c)
     }
 }
 
+/* FX > MIXER, the synth's OSC MIX and FX MIX (BONBLOOP 1.7): a mixer, a channel strip under each knob's column: the
+ * fader's slot and its ticks, the level up from the bottom in the knob's dim colour, the cap in its colour (white while
+ * it turns), the value under it, the name at the foot. An empty knob: no strip */
 UI_SMALL static void graph_fx(const track_t *t, uint16_t c)
 {
-    uint32_t i;
+    uint32_t i, k;
+    (void)t, (void)c;
     for (i = 0; i < 4u; i++) {
-        int32_t h = t->p[P_DIST + i] * 80 / 127, x = (int32_t)i * 60 + 28;
-        cv_rect(x, 10, 1, 80, C_LINE);
-        cv_rect(x, 90 - h, 1, h, c);
-        cv_rect(x - 3, 90 - h, 7, 1, c);
+        int16_t *vp;
+        const param_desc_t *d = page_desc(cur_page(), i, &vp);
+        int32_t x = (int32_t)i * 60 + 30, h, w;
+        uint16_t col = ui.big_c[i] == C_WHITE ? C_WHITE : TE_COL[i];
+        if (!d || !vp || d->max == d->min)
+            continue;
+        h = (clamp(*vp, d->min, d->max) - d->min) * 72 / (d->max - d->min);
+        for (k = 0; k <= 4u; k++)
+            cv_rect(x - 14, 8 + (int32_t)k * 18, 6, 1, TE_G2);
+        cv_rect(x - 2, 8, 4, 72, C_LINE);
+        cv_rect(x - 2, 80 - h, 4, h, ARC_OF(i));
+        cv_rect(x - 11, 76 - h, 22, 8, col);          /* the cap, a line across its middle */
+        cv_rect(x - 9, 80 - h, 18, 1, C_BLACK);
+        w = text_w(&FONT_S, ui.big_v[i]);
+        cv_text(x - w / 2, 88, &FONT_S, ui.big_v[i], col == C_WHITE ? C_WHITE : C_HI);
+        w = text_w(&FONT_T, ui.big_l[i]);
+        cv_text(x - w / 2, 108, &FONT_T, ui.big_l[i], C_GRAY);
     }
 }
 /* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as
@@ -519,6 +578,7 @@ UI_SMALL static int big_page(const page_t *pg)            /* (2.6: the INSERT pa
 {
     return (pg->graph == GR_NONE || pg->graph == GR_INS) && pg->scope != SC_SONG && pg->scope != SC_DRUM;
 }
+UI_SMALL static uint32_t comp_meter(uint32_t h);    /* (BONBLOOP 1.7: below, with graph_comp) */
 UI_SMALL static uint32_t graph_signature(void)
 {
     const page_t *pg = cur_page();
@@ -526,16 +586,21 @@ UI_SMALL static uint32_t graph_signature(void)
     uint32_t h = 2166136261u, i;
     if (ui.hot_t && settings.zoom)
         h = str_hash(str_hash(str_hash(h ^ 0x5555u, ui.focus_v), ui.focus_l), ui.focus_u);
-    if (!ui.home && big_page(pg))                    /* the big values: as the columns show them */
+    if (!ui.home && (big_page(pg) || pg->graph == GR_COMP || pg->graph == GR_FX))   /* the big values: as the columns
+                                                         * show them */
         for (i = 0; i < 4u; i++)
             h = str_hash(str_hash(str_hash(h ^ ui.big_c[i] * 31u, ui.big_v[i]), ui.big_l[i]), ui.big_u[i]);
+    if (!ui.home && pg->graph == GR_COMP)            /* (BONBLOOP 1.7) the COMP page's meter, falling */
+        h = comp_meter(h);
     if (ui.home)
         return h ^ (ui.frame / 2u);                  /* scope: redraw every other frame */
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u;
     for (i = 0; i < P_COUNT; i++)
         h = (h ^ (uint32_t)t->p[i]) * 16777619u;
-    for (i = 0; song.sel < NPART && i < 4u; i++)    /* (BONBLOOP 1.3) the synth's extras: OSC 2 and 3's ENV drawn */
+    for (i = 0; song.sel < NPART && i < NELEM(synx[0].w); i++)   /* (BONBLOOP 1.3) the synth's extras: OSC 2 and 3's
+                                                         * ENV drawn; 1.5 the EQ's curve */
         h = (h ^ synx[song.sel].w[i]) * 16777619u;
+    h = (((h ^ synx[NPART].w[4]) * 16777619u) ^ synx[NPART].w[5]) * 16777619u;   /* (1.7) FX > EQ's, the master's */
     h ^= ui.page * 2654435761u;
     h ^= (uint32_t)TSEL->preset * 7u + (uint32_t)song.g[G_SLOT] * 13u + TSEL->user * 257u + up_gen * 7919u + ui.uslot * 104729u;
     {   /* (2.7) the favourites: the PRESETS list and its FAV column */
@@ -816,30 +881,101 @@ UI_SMALL static void graph_scope(uint16_t c)
     }
 }
 
-/* SLOOP 2.4: a page without a graph (EDIT, VOICE, the DEST pages, GLOBAL, MASTER, SYSTEM...): its values
- * large in the empty space, 2 x 2 as the knobs (KNOB 1 2 / KNOB 3 4), the one turned in white; one value
- * alone (FILTER) across the width. The columns (draw_columns, drawn first) fill ui.big_* */
+/* (BONBLOOP 1.7) FX > COMP as a DAW's compressor: RATIO, ATTACK, RELEASE down the left, each in its knob's colour; on
+ * the right the THRESH meter, 0 dB at the top to -48 dB (2 px a dB): the gain reduction from the top, the master's
+ * left and right as they come in (brighter from -3 dB), the threshold a line and a pointer, its value beside it (1.7:
+ * the palette's tones, knobs on the left). The meter falls 0.5 dB a frame (comp_meter, each frame: graph_signature) */
+UI_SMALL static int32_t knob_ratio(uint32_t c);      /* (1.7: below, with graph_big) */
+#define KM_Y 20                                       /* the meter's 0 dB */
+static uint8_t km_px[3];                              /* left, right (up from -48 dB), the reduction (down from 0 dB) */
+UI_SMALL static uint32_t comp_meter(uint32_t h)
+{
+    uint32_t i;
+    int32_t v[3];
+    v[0] = clamp(96 + ((log2q16(kmp.ml) * 12) >> 16), 0, 96);   /* (octaves Q16 x 12.04: 2 px a dB) */
+    v[1] = clamp(96 + ((log2q16(kmp.mr) * 12) >> 16), 0, 96);
+    v[2] = clamp((kmp.gr * 12) >> 16, 0, 96);
+    kmp.ml = kmp.mr = 0, kmp.gr = 0;
+    for (i = 0; i < 3u; i++) {
+        km_px[i] = (uint8_t)(v[i] >= km_px[i] ? v[i] : km_px[i] - 1);
+        h = (h ^ km_px[i]) * 16777619u;
+    }
+    return h;
+}
+UI_SMALL static void graph_comp(void)
+{
+    static const char *const L[3] = {"RATIO", "ATTACK", "RELEASE"};
+    int32_t i, x, thr = song.g[G_KTHR], yt = KM_Y + clamp(-thr, 0, 48) * 2, y;
+    for (i = 1; i < 4; i++) {                         /* KNOB 2 .. 4: a knob each (1.7), its name and value beside */
+        int32_t y0 = 2 + (i - 1) * 41;
+        int hot = ui.big_c[i] == C_WHITE;
+        te_dial(20, y0 + 19, 15, knob_ratio((uint32_t)i), hot ? C_WHITE : KNOB_LIT, C_LINE);
+        cv_text(44, y0 + 6, &FONT_T, L[i - 1], C_GRAY);
+        x = cv_text(44, y0 + 17, &FONT_S, ui.big_v[i], hot ? C_WHITE : C_HI);
+        cv_text(x + 2, y0 + 21, &FONT_T, ui.big_u[i], C_DIM);
+    }
+    cv_text(136, 5, &FONT_T, "THRESH", C_GRAY);
+    for (i = 0; i <= 4; i++)                          /* 0, -12, -24, -36, -48 dB */
+        cv_rect(132, KM_Y + i * 24, 6, 1, TE_G2);
+    cv_rect(142, KM_Y, 8, 96, C_LINE);                /* the reduction, from the top */
+    cv_rect(142, KM_Y, 8, km_px[2], C_HI);
+    for (i = 0; i < 2; i++) {                         /* left, right: green, yellow from -12 dB, red from -3 */
+        int32_t bx = 156 + i * 10, top = KM_Y + 96 - km_px[i];
+        cv_rect(bx, KM_Y, 8, 96, C_LINE);
+        for (y = top; y < KM_Y + 96; y++)
+            cv_rect(bx, y, 8, 1, y < KM_Y + 6 ? RGB(150, 240, 190) : RGB(30, 204, 112));   /* (1.7: green, lighter
+                                                         * over -3 dB) */
+    }
+    cv_rect(140, yt, 37, 1, thr ? C_HI : C_DIM);      /* the threshold, its pointer */
+    for (i = 0; i < 7; i++)
+        cv_rect(178 + i, yt - i, 1, 2 * i + 1, thr ? C_HI : C_DIM);
+    y = clamp(yt - 8, KM_Y - 2, 84);
+    if (thr) {
+        x = cv_text(188, y, &FONT_S, ui.big_v[0], ui.big_c[0] == C_WHITE ? C_WHITE : C_HI);
+        cv_text(x + 2, y + 4, &FONT_T, "DB", C_GRAY);
+    } else {
+        cv_text(188, y, &FONT_S, "OFF", C_DIM);
+    }
+    if (thr && km_px[2] >= 2u) {                      /* the reduction now, in dB */
+        char b[8];
+        b[0] = '-';
+        fmt_int(b + 1, km_px[2] / 2u);
+        x = cv_text(188, 102, &FONT_S, b, C_AMB);
+        cv_text(x + 2, 106, &FONT_T, "DB", C_GRAY);
+    }
+}
+
+/* (BONBLOOP 1.7) a knob's dial for value c of the page: where its value sits in its range (0..1000; -1: no value) */
+UI_SMALL static int32_t knob_ratio(uint32_t c)
+{
+    int16_t *vp;
+    const param_desc_t *d = page_desc(cur_page(), c, &vp);
+    if (!d || !vp || d->max <= d->min)
+        return -1;
+    return (clamp(*vp, d->min, d->max) - d->min) * 1000 / (d->max - d->min);
+}
+/* a page without a graph of its own (EDIT, VOICE, the DEST pages, GLOBAL, DELAY, DIST, MOD ...; SLOOP 2.4: its values
+ * large): BONBLOOP 1.7, a knob under each column, its value and name below; one value alone (FILTER), one big knob in
+ * the middle. The one turned in white. The columns (draw_columns, drawn first) fill ui.big_* */
 UI_SMALL static void graph_big(void)
 {
     uint32_t c, n = 0;
     for (c = 0; c < 4u; c++)
         n += ui.big_l[c][0] != 0;
-    if (n > 1u) {
-        cv_rect(119, 6, 1, 112, C_LINE);
-        cv_rect(6, 62, 228, 1, C_LINE);
-    }
     for (c = 0; c < 4u; c++) {
-        int32_t x0 = c & 1u ? 126 : 6, y0 = c & 2u ? 64 : 2, x;
+        int32_t cx = n == 1u ? 120 : 30 + 60 * (int32_t)c, r = n == 1u ? 32 : 21, cy = n == 1u ? 46 : 38, w, x;
+        int hot = ui.big_c[c] == C_WHITE;
+        char v[12];
         if (!ui.big_l[c][0])
             continue;
-        if (n == 1u) {                                  /* one value: in the middle */
-            x0 = (240 - text_w(&FONT_L, ui.big_v[c]) - (ui.big_u[c][0] ? text_w(&FONT_S, ui.big_u[c]) + 4 : 0)) / 2;
-            y0 = 30;
-        }
-        cv_text(x0, y0 + 2, &FONT_S, ui.big_l[c], TE_COL[c & 3u]);
-        x = cv_text(x0, y0 + 20, &FONT_L, ui.big_v[c], ui.big_c[c] == C_DIM ? C_DIM : ui.big_c[c] == C_WHITE ? C_WHITE : C_HI);
-        if (ui.big_u[c][0])
-            cv_text(x + 4, y0 + 34, &FONT_S, ui.big_u[c], C_GRAY);
+        te_dial(cx, cy, r, knob_ratio(c), hot ? C_WHITE : KNOB_LIT, C_LINE);
+        fit(v, ui.big_v[c], &FONT_S, n == 1u ? 180 : 56);
+        w = text_w(&FONT_S, v) + (ui.big_u[c][0] && n == 1u ? text_w(&FONT_T, ui.big_u[c]) + 2 : 0);
+        x = cv_text(cx - w / 2, cy + r + 7, &FONT_S, v, hot ? C_WHITE : C_HI);
+        if (ui.big_u[c][0] && n == 1u)
+            cv_text(x + 2, cy + r + 11, &FONT_T, ui.big_u[c], C_DIM);
+        w = text_w(&FONT_T, ui.big_l[c]);
+        cv_text(cx - w / 2, cy + r + 27, &FONT_T, ui.big_l[c], C_GRAY);   /* (the name small, under) */
     }
 }
 
@@ -871,6 +1007,9 @@ UI_SMALL static void draw_graph(void)
         case GR_ADSR:
             graph_adsr(t, c);
             break;
+        case GR_EQ:                                  /* BONBLOOP 1.5 */
+            graph_eq(t, c);
+            break;
         case GR_LFO:
             graph_lfo(t, c);
             break;
@@ -887,11 +1026,16 @@ UI_SMALL static void draw_graph(void)
         case GR_SCALE:
             graph_scale(t, c);
             break;
-        case GR_FX:
+        case GR_FX:                                  /* (1.7: the faders, from the top) */
+            cv_oy = 0;
             graph_fx(t, c);
             break;
         case GR_SLCR:
             graph_slicer(t, c);
+            break;
+        case GR_COMP:                                /* (BONBLOOP 1.7) */
+            cv_oy = 0;
+            graph_comp();
             break;
         case GR_BROWSE:
             cv_oy = 0;
@@ -914,9 +1058,11 @@ UI_SMALL static void draw_graph(void)
         }
     }
     top = !ui.home && !drum_note && (pg->graph == GR_BROWSE || pg->graph == GR_SLOTS || pg->graph == GR_USER ||
-                                     pg->graph == GR_ROLL || big_page(pg));   /* these draw from the top */
+                                     pg->graph == GR_ROLL || pg->graph == GR_COMP || pg->graph == GR_FX ||
+                                     big_page(pg));   /* these draw from the top */
     cv_oy = 0;
-    if (ui.hot_t && settings.zoom && !(top && (big_page(pg) || pg->graph == GR_ROLL) && !drum_note)) {   /* (the big values show it already) */                 /* focus (menu ZOOM): the touched value, large and white */
+    if (ui.hot_t && settings.zoom &&
+        !(top && (big_page(pg) || pg->graph == GR_ROLL || pg->graph == GR_COMP || pg->graph == GR_FX) && !drum_note)) {   /* (the big values show it already) */                 /* focus (menu ZOOM): the touched value, large and white */
         int32_t x;
         top = 1;
         cv_rect(0, 0, 150, 50, C_BLACK);

@@ -109,7 +109,15 @@ enum {                          /* global parameters */
     G_FXFADE,                   /* SLOOP 2.7.2, the FX layer (FX held), SELECT: how fast a punch-in FX fades in and out, 0 (instant, as
                                  * before) .. 15 (punch.c; a setting of the FM-1, kept in BEND's byte) */
     G_DMS,                      /* BONBLOOP 1.2: the delay's TIME = FREE: this many ms (a project keeps it in its side record) */
-    G_DFIX,                     /* .. and FIX (a GO button): the time the tempo gives now, kept as FREE ms (ui_input.c) */
+    G_DFIX,                     /* .. and (1.4) its MODE, SYNC / MS (ui_input.c) */
+    G_PCOPY, G_PPASTE,          /* BONBLOOP 1.6: SAVE > TOOLS COPY, TOOLS 2 PASTE (GO buttons): a track's pattern to another */
+    G_CMIX, G_RMIX,             /* 1.6: the chorus' and the reverb's MIX, their return (a project keeps them: side record) */
+    G_XTYPE, G_XA, G_XB, G_XC,  /* 1.7, FX > DIST: the tracks' DIST in parallel, TYPE (the INSERT's drives, CRUSH), its A B C */
+    G_MTYPE, G_MFDBK,           /* .. FX > MOD: the chorus' bus CHOR / FLANG / PHASR (RATE, DEPTH: G_CRATE, G_CDEPTH), FDBK */
+    G_KTHR, G_KRAT, G_KATK, G_KREL,   /* .. FX > COMP: the master's glue compressor, THRS (0 dB: off) RATIO ATK REL. A
+                                       * project keeps them all (side record) */
+    G_DRSTY, G_DRTONE, G_DRPUN,       /* .. the drums' DST, the synth's DRIVE: FX > DIST with the drum track selected */
+    G_DRCLIP,                         /* .. the drums' soft clipper (FX > MIXER on the drum track, where DLY is) */
     G_COUNT
 };
 
@@ -367,13 +375,15 @@ static uint32_t div_units(uint32_t div)
 {
     return div < NDIV_SHORT ? BEAT_U / DIV_DEN[div] : BEAT_U * DIV_BEATS[(div - NDIV_SHORT) % 3u];
 }
-/* the delay's TIME in clock units (N_DLY order) */
-#define DLY_FREE 11u            /* (BONBLOOP 1.2) N_DLY: after 1/4D, 1/2 and 1/2T, FREE: G_DMS ms (fx.c delay_samples) */
-static uint32_t dly_units(uint32_t d)
-{
-    static const uint8_t Q[6] = {6, 3, 12, 16, 32, 8};   /* 1/8D 1/16D 1/4D 1/2 1/2T, FREE (unused): beats x 8 */
-    return d < NDIV_SHORT ? BEAT_U / DIV_DEN[d] : BEAT_U / 8u * Q[(d - NDIV_SHORT) % 6u] / (d == NDIV_SHORT + 4u ? 3u : 1u);
-}
+/* the note values in N_DLY order, beats = [0] / [1]: the delay's TIME, the arp's RATE (BONBLOOP 1.4: ARP_NV), the
+ * same units as before for the values that were there (append-only: projects keep their numbers) */
+#define DLY_FREE 11u            /* (BONBLOOP 1.2) N_DLY: FREE = MODE MS, G_DMS ms (fx.c delay_samples) */
+#define NNV 14u
+static const uint8_t NOTE_V[NNV][2] = {{1, 1}, {1, 2}, {1, 4}, {1, 8}, {1, 3}, {1, 6}, {3, 4}, {3, 8}, {3, 2}, {2, 1},
+                                       {4, 3}, {1, 1}, {2, 3}, {1, 12}};   /* .. 1/4D, 1/2, 1/2T, FREE, 1/4T, 1/32T */
+static uint32_t dly_units(uint32_t d) { return BEAT_U * NOTE_V[d % NNV][0] / NOTE_V[d % NNV][1]; }
+/* (1.4) the arp's RATE (N_DIV: 1/4 .. 16T as before, then 1/2, 1/2T, 1/4T, 1/32T) as a note value */
+static const uint8_t ARP_NV[10] = {0, 1, 2, 3, 4, 5, 9, 10, 12, 13};
 /* length of one step (N_SDIV order) in samples at the song tempo (rounded down) */
 static uint32_t div_samples(uint32_t div) { return div_units(div) / (uint32_t)song.g[G_BPM]; }
 /* length of the delay's TIME (N_DLY order) in samples at the song tempo (rounded down) */

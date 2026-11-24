@@ -4,11 +4,39 @@
 (que por sua vez é baseado no [Felucca](https://github.com/hugelton/Felucca)). Ele é **idêntico ao SLOOP** —
 mesmos 4 tracks, sequenciador, bateria, efeitos, projetos, editor web — e acrescenta o **MODO SYNTH**: um
 sintetizador de **3 osciladores** (wavetables e formas analógicas, com **reverse**), filtro, envelope, LFO e uma
-cadeia de efeitos própria (drive estilo Decapitator, transient shaper, phaser, chorus, delay, reverb).
+cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, delay, reverb).
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
-**Versão 1.3.1** — correção: nas páginas OSC2 ENV e OSC3 ENV o desenho do envelope agora acompanha os knobs.
+**Versão 1.7** — **páginas FX novas** fora do modo synth: o **MIXER** da track (DST · MOD · DLY · REV, tudo em
+paralelo), um **COMP** (glue) e um **EQ** de 4 bandas no master, os ajustes de DIST, MOD (chorus / flanger / phaser),
+DELAY e REVERB, o FILTER e, por último, o SLICER. No modo synth: **FX MIX** (um knob por efeito da cadeia, no lugar
+de TRACK FX + FX MIX), **OSC MIX** (o volume de cada oscilador) e **SAVE** abre a página **PRESET** para salvar o
+som; OSC MIX e FX MIX desenhados como **faders** de mixer. O **COMP** tem a tela de um compressor de DAW (RATIO,
+ATTACK, RELEASE à esquerda; à direita o medidor com o THRESH e a redução de ganho). A **bateria** ganhou o DRIVE do
+synth (estilo Decapitator) no DST e um **soft clipper** (CLIP) no lugar do DLY. O CLICK ON agora se chama **PL+REC**.
+Correção: girar um GAIN do EQ ou um MIX passando por 1–6 ligava e desligava efeitos (desde a 1.5).
+E uma **cara nova**: a fonte pixel **Pixelify Sans** e a paleta **PERI** (Pantone 17-3938 Very Peri sobre
+preto), com **knobs** em toda página que só mostrava números (ver *A cara nova*).
+
+**1.6** — a **FX CHAIN é do projeto** (uma só, para os sons do synth), com os **MIX** de cada efeito; **MIX** também
+no reverb e no chorus; **copiar e colar** o padrão de uma track em outra.
+
+**1.5** — um **EQ de 4 bandas** com a curva na tela, como o de uma DAW (FX CHAIN → EQ); o **REC grava em tempo
+real** de fábrica (o QUANT da tela REC READY liga a quantização).
+
+**1.4.2** — tercinas do REPEAT gravadas no tempo exato, na grade de 1/16 (o micro-timing de cada passo),
+sem mudar a grade do padrão.
+
+**1.4.1** — tercinas do REPEAT gravadas no lugar; REPEAT com 1/4T e 1/2T; o **TRANSIENT saiu** (sobrava pouco
+uso para a flash que ocupava: 424 bytes). Os presets WT PLUCK, WT BELLS e DIGI BASS, que o usavam, foram reajustados. E as caudas
+já quase mudas de dois samples foram encurtadas (BASS: a partir de 0,8 s, abaixo de -27 dB; VIBES F3: a partir de
+0,7 s, abaixo de -40 dB): 7 KB de flash livres para o que vem (o EQ do synth).
+
+**1.4** — **REPEAT** na bateria (toque no ARP); o ARP com **1/2, 1/2T, 1/4T e 1/32T**; o delay com
+**todas as tercinas** e um **MODE SYNC / MS**; as divisões em ordem musical no knob; o modo synth **começa num seno puro**.
+
+**1.3.1** — correção: nas páginas OSC2 ENV e OSC3 ENV o desenho do envelope agora acompanha os knobs.
 
 **1.3** — no MODO SYNTH não existe mais o envelope da voz: **cada oscilador tem o seu envelope completo**
 (ATK · DEC · SUS · REL, igual ao do SLOOP).
@@ -29,8 +57,8 @@ synth, o modo segura a tela.)
 
 Ao ligar:
 
-- o **track selecionado** passa a tocar o engine **WAVE** (o primeiro som dele, *WT BASIC*), a menos que já
-  esteja em WAVE — aí o som é mantido;
+- o **track selecionado** passa a tocar o engine **WAVE** no som **SINE** (1.4): só o OSC 1, numa senoide, OSC 2
+  e 3 desligados, filtro aberto, sem efeitos e sem LFO — a menos que já esteja em WAVE: aí o som é mantido;
 - se a **bateria** (track 4) estiver selecionada, o modo pega o **track 1**;
 - o cabeçalho mostra o selo **SYNTH** na cor do track e a linha sob ele fica colorida.
 
@@ -40,9 +68,12 @@ Um toque rápido em ENV continua abrindo a página ENV, como sempre; só **segur
 
 Dentro do MODO SYNTH você **não sai sem querer**:
 
-- **ARP, SEQ, SEL, GLO e SAVE** tocados rapidamente não abrem nada (a tela avisa *HOLD ENV: SYNTH OFF*).
+- **ARP, SEQ, SEL e GLO** tocados rapidamente não abrem nada (a tela avisa *HOLD ENV: SYNTH OFF*).
   **Segurados**, as camadas deles funcionam como sempre (passos no SEQ, mute/solo no GLO, seções no SAVE, roll
   no ARP...) e, ao soltar, você volta ao synth.
+- **SAVE** tocado rapidamente abre a página **PRESET** do synth (1.7): **SLOT · LOAD · ERASE · SAVE**, os presets de
+  usuário (os mesmos de SAVE → USER). Escolha o slot no KNOB 1 e gire o KNOB 4 duas vezes para salvar o som da track
+  (osciladores, envelopes, LFOs, EQ, MIX e envios). Ele aparece no navegador de PRESETS.
 - **HOME** volta à página OSC 1 (segurar HOME ainda abre o menu).
 - **ALGORITHM** (troca de track) só passa pelos tracks de synth 1 a 3.
 - Se algo trocar a tela (carregar um projeto, o editor web), ela volta ao synth.
@@ -55,9 +86,10 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 
 | Botão | Página | KNOB 1 · KNOB 2 · KNOB 3 · KNOB 4 |
 | --- | --- | --- |
-| **EDIT** | OSC 1 | WAVE · POS · LVL · REV |
-| | OSC 2 | WAVE · POS · LVL · REV |
-| | OSC 3 | WAVE · POS · LVL · REV |
+| **EDIT** | OSC 1 | WAVE · POS · LVL1 · REV |
+| | OSC 2 | WAVE · POS · LVL2 · REV |
+| | OSC 3 | WAVE · POS · LVL3 · REV |
+| | OSC MIX | LVL1 · LVL2 · LVL3 · LEVEL — **o volume de cada oscilador e o da track**, em faders (1.7) |
 | | TUNE | SEMI2 · FINE2 · SEMI3 · FINE3 |
 | | FILTER | CUT · RES · TYPE (LP/BP/HP) · FLT (quanto o envelope abre o filtro) |
 | | VOICE | WARP · VCE (POLY/MONO/LEG/UNI) · DTUNE (abertura do unison) · GLD |
@@ -71,14 +103,18 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
 | | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
+| | FX MIX | **um fader por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER, FILTER e EQ o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio |
+| | FX MIX 2 | os efeitos dos slots 5 a 7 (só aparece com 5 efeitos ou mais) |
 | | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
 | | DJ FILT | FILT (filtro DJ do track) |
-| | TRANSNT | ATTCK · SUSTN |
-| | CHORUS | CHO (envio) · CRT · CDP |
-| | DELAY | DLY (envio) · TIME (1/4 … 1/2, 1/2T, FREE) · FDBK · MS |
-| | DELAY 2 | COLR · MIX · **FIX** |
-| | REVERB | REV (envio) · SIZE · DAMP |
+| | EQ 1 | LOW (Hz) · GAIN · MID1 (Hz) · GAIN — com a curva (1.5) |
+| | EQ 2 | MID2 (Hz) · GAIN · HIGH (Hz) · GAIN — com a curva |
+| | CHORUS | MOD (envio) · CRT · CDP · **MIX** (o retorno, 1.6) — o TYPE (chorus / flanger / phaser) fica em FX → MOD |
+| | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
+| | DELAY 2 | COLR · MIX |
+| | REVERB | REV (envio) · SIZE · DAMP · **MIX** (o retorno, 1.6) |
+| **SAVE** | PRESET | SLOT · LOAD · ERASE · SAVE — **salvar o som** (1.7) |
 
 As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
 
@@ -86,6 +122,26 @@ As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abai
 - No engine WAVE, os destinos **SHP** do envelope e do LFO aparecem como **POS**: movem a posição de **todos** os
   osciladores ao mesmo tempo (o *wavetable sweep*).
 - Fora do modo, as páginas EDIT do SLOOP mostram, num track WAVE, os campos de verdade (OSC 1 e 2; filtro e OSC 3).
+
+### A cara nova (1.7)
+
+- **Fonte**: **Pixelify Sans** (SIL OFL 1.1), uma fonte pixel, na grade dela mesma: 11 px, maiúsculas de 7 px, cada
+  pixel aceso ou apagado (nítida, sem borrão), no mesmo espaço da Terminus de antes: nada mudou de lugar. O texto
+  grande é ela em dobro (maiúsculas de 14 px), limpo. Os números têm todos a mesma largura (um valor não "dança"
+  enquanto o knob gira). Ocupa bem menos flash que a Terminus (1,9 KB contra 5,4 KB). (A primeira versão da 1.7
+  usava a Inter Tight suavizada: sem *hinting*, borrava nesse tamanho.)
+- **Paleta PERI** (o novo padrão, no lugar da MONO): **Very Peri** `#6667AB` e preto. Rótulos e preenchimentos em
+  Very Peri, valores em lilás claro `#D9DAF4`, linhas em roxo bem escuro; o que você gira fica branco. GREEN,
+  AMBER, CYAN e RED continuam em MENU → COLOR (e o tema do editor web).
+- **Knob ou fader em toda tela**: as páginas que só mostravam números (EDIT, VOICE, DEST, GLOBAL, DELAY, DIST, MOD,
+  DRIVE, FILTER...) mostram uma **fileira de knobs**, um embaixo de cada coluna, com o valor e o nome; uma página de
+  um valor só, **um knob grande**. Os mixers (FX → MIXER, OSC MIX, FX MIX) são **faders**. As telas com desenho
+  próprio (envelope, LFO, curva do EQ, wavetable, passos) continuam com ele.
+- **Verde puxado pro roxo** `#3BA488` na paleta PERI: o arco aceso dos knobs, a barrinha embaixo das colunas e o
+  nível dos faders.
+- **Nomes e valores**: os nomes (e as unidades) num espaço menor, os valores em destaque; a cor separa um do outro.
+- **COMP**: RATIO, ATTACK e RELEASE como knobs; o medidor L/R **verde** (mais claro acima de −3 dB).
+- **Boot**: BON em lilás claro, BLOOP em Very Peri.
 
 ### A tela
 
@@ -170,36 +226,66 @@ Além do LFO da voz (que vale para todos), cada oscilador tem o seu, na página 
 **DEPTH** (−8 a +7; 0 desliga) e **DEST**: **POS** (varre a tabela só daquele oscilador), **PITCH** (vibrato só nele)
 ou **LVL** (tremolo só nele).
 
-### A cadeia de efeitos (1.2)
+### A cadeia de efeitos (1.2; do projeto desde a 1.6)
+
+**A FX CHAIN é uma só, do projeto (1.6):** os efeitos escolhidos e a ordem deles valem para **todas as tracks com som
+do synth** (1.7: só elas; as outras tracks usam as páginas FX normais, ver *Efeitos fora do modo synth*). Cada track
+regula **quanto** de cada efeito na página **FX MIX** (1.7): um knob por efeito, na ordem da cadeia — o **MIX**
+seco/molhado de DRIVE, PHASER, FILTER e EQ, o **envio** de CHORUS, DELAY e REVERB. O EQ tem as bandas de cada track.
+Tirar um efeito da cadeia desliga ele nas três tracks. Num projeto salvo antes da 1.6, a cadeia que vale é a que
+estava na track 1.
+
 
 No MODO SYNTH **todo efeito começa desligado**. A primeira página do FX é a **FX CHAIN**: 7 slots (4 aqui, 3 em
-CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, TRANS.
+CHAIN 2, um por efeito), cada um com **--** ou um efeito — DRIVE, PHASR, FILTR, CHORS, DELAY, REVRB, EQ.
 
 - Escolher um efeito num slot **liga** o efeito (numa quantidade que já se ouve) e faz a página de detalhes dele
   aparecer depois de CHAIN 2. Voltar o slot para **--** desliga o efeito e esconde a página.
 - **DRIVE, PHASER e FILTER** tocam **na ordem dos slots** (ex.: PHASER antes do DRIVE soa diferente de DRIVE antes
-  do PHASER). TRANSIENT é por nota (antes de todos); CHORUS, DELAY e REVERB são envios (depois de todos).
+  do PHASER). CHORUS, DELAY e REVERB são envios (depois de todos).
 - Um efeito ligado por fora do modo (nas páginas normais do SLOOP, ou num projeto antigo) entra sozinho no primeiro
   slot livre: a cadeia sempre mostra tudo o que está soando.
 
 | Efeito | O que é |
 | --- | --- |
 | **DRIVE** | Estilo **Decapitator**, num track WAVE: 5 estilos — **A** fita, **E** válvula (harmônicos pares), **N** transformador, **T** triodo, **P** pentodo —, **TONE** (escuro ↔ aberto) e **PUNSH**. No 1.2 ficou bem mais pesado: mais ganho em todo o curso do DST e o PUNSH soma +18 dB. |
-| **TRANSIENT** | **ATTCK** sobe até +12 dB os primeiros ~25 ms de cada nota (negativo: entrada suave); **SUSTN** sobe até +6 dB o corpo da nota (negativo: só o ataque). |
 | **PHASER** | O INSERT do SLOOP como PHASR (MIX · RATE · DEPTH · FDBK). |
 | **FILTER** | O filtro DJ do track (passa-baixa para a esquerda, passa-alta para a direita). |
 | **CHORUS, DELAY, REVERB** | Os envios do SLOOP e os ajustes globais deles, na mesma página. |
 
-### Delay: 1/2, 1/2T, livre e FIX (1.2)
+### EQ de 4 bandas (1.5)
 
-O **TIME** do delay ganhou **1/2** (2 tempos), **1/2T** (tercina de mínima) e **FREE**: no FREE o tempo é o **MS**
-(10–1480 ms) e não muda com o BPM. O **FIX** (DELAY 2, ou FX → DLY 2 fora do modo) **fixa** o tempo atual: converte
-a divisão que está tocando no BPM de agora em ms e passa para FREE — mude o andamento e o eco fica onde estava.
+Ponha **EQ** num slot da FX CHAIN e aparecem as páginas **EQ 1** e **EQ 2**, com a **curva** do EQ desenhada como numa
+DAW: o ganho (±15 dB) em função da frequência (30 Hz a 16 kHz), com linhas em 0 dB e em 100 Hz, 1 kHz e 10 kHz.
+
+| Banda | Tipo | Knobs |
+| --- | --- | --- |
+| **LOW** | shelf (graves) | EQ 1: KNOB 1 frequência, KNOB 2 ganho |
+| **MID1** | sino | EQ 1: KNOB 3 frequência, KNOB 4 ganho |
+| **MID2** | sino | EQ 2: KNOB 1 frequência, KNOB 2 ganho |
+| **HIGH** | shelf (agudos) | EQ 2: KNOB 3 frequência, KNOB 4 ganho |
+
+- Cada banda é um **ponto** no gráfico, na frequência e no ganho dela, na cor do seu knob de frequência (azul KNOB 1,
+  amarelo KNOB 3); as da outra página aparecem em cinza.
+- O EQ começa **plano** (100 Hz, 500 Hz, 2 kHz, 8 kHz, todos em 0 dB) e fica na ordem da cadeia junto com DRIVE,
+  PHASER e FILTER. Tirar o EQ da cadeia desliga, sem perder os ajustes.
+- Os filtros são os SVF do Andrew Simper (os mesmos do filtro do synth): shelves sem o "afundamento" depois do corte.
+  Uma banda em 0 dB não gasta nada.
+- O EQ fica salvo com o som: nos projetos e nos presets de usuário.
+
+### Delay: MODE SYNC / MS (1.4)
+
+O delay tem um **MODE** (KNOB 4 da página DELAY, dentro e fora do modo synth):
+
+- **SYNC**: o **TIME** é uma figura, no BPM: **1/2, 1/2T, 1/4, 1/4T, 1/4D, 1/8, 1/8T, 1/8D, 1/16, 1/16T, 1/16D,
+  1/32, 1/32T** — o knob anda nessa ordem, uma figura por clique.
+- **MS**: o **TIME** vira **ms** (10–1480) e não muda com o BPM. Ao passar para MS, o tempo que estava tocando vira
+  ms (é o antigo FIX: mude o andamento e o eco fica onde estava). De volta a SYNC, volta a figura de antes.
 
 ### Limpar o synth: REC + SAVE (1.2)
 
 No MODO SYNTH, segure **SAVE** e **REC** juntos: depois de ~0,7 s aparece o anel **clear / synth sound**; segure
-até ele fechar (~1,3 s) e o track volta ao **primeiro som do WAVE**, com todos os efeitos desligados, a cadeia
+até ele fechar (~1,3 s) e o track volta ao **SINE**, com todos os efeitos desligados, a cadeia
 vazia, sem LFO nos osciladores e os três envelopes iguais ao do som. **As notas do track ficam** (para apagar as notas, REC sozinho segurado,
 como no SLOOP). Soltou antes: nada acontece.
 
@@ -227,7 +313,93 @@ DIGI BASS, FM GROWL, FOLD LEAD, SUPER WAVE, CHIP WAVE e **REV SWELL** — no nav
 
 ---
 
-## Fora do modo synth: VOICING (1.2)
+## Fora do modo synth
+
+### Efeitos fora do modo synth (1.7)
+
+O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar):
+
+| Página | KNOB 1 · KNOB 2 · KNOB 3 · KNOB 4 | De quem |
+| --- | --- | --- |
+| **MIXER** | DST · MOD · DLY · REV, em faders (na bateria: DST · MOD · **CLIP** · REV) | da track |
+| **COMP** | THRS (0 dB = desligado, até −40 dB) · RATIO (2:1, 4:1, 10:1) · ATK (0,1–30 ms) · REL (0,1–1,2 s) | do master |
+| **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | do master |
+| **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF); na bateria: STYLE · TONE · PUNSH | do projeto |
+| **MOD** | TYPE (CHOR, FLANG, PHASR) · RATE · DEPTH · FDBK | do projeto |
+| **DELAY** | TIME · FDBK · COLR · MODE (SYNC / MS) | do projeto |
+| **REVERB** | SIZE · DAMP | do projeto |
+| **FILTER** | FILT (o filtro DJ da track) | da track |
+| **SLICER** | SLCR · PAT · RATE · DEPTH | da track |
+
+- **Tudo em paralelo:** no MIXER, cada knob soma o efeito ao som seco, que fica inteiro. **DST** soma o som
+  distorcido (o DIST da página DIST); **MOD**, **DLY** e **REV** são os envios para o MOD, o delay e o reverb. Em 0, a
+  track sai exatamente como sem o efeito.
+- O **MOD** é o barramento do chorus, agora com três tipos: **CHOR** (o chorus de sempre), **FLANG** e **PHASR**
+  (estéreo, um lado meia volta atrás do outro). O FDBK vale para FLANG e PHASR.
+- O **COMP** é um *glue compressor* no master (depois dos efeitos, antes do volume): estéreo, com make-up automático
+  (devolve metade do que o compressor tira em fundo de escala). Em THRS 0 dB não faz nada. A tela é a de um compressor
+  de DAW: RATIO, ATTACK e RELEASE à esquerda; à direita o medidor de 0 a −48 dB com a entrada (esquerda e direita:
+  verde, amarelo a partir de −12 dB, vermelho a partir de −3), a **redução de ganho** descendo do topo (laranja) e o
+  **THRESH** como uma linha com a seta azul e o valor ao lado.
+- O **EQ** do master é o mesmo EQ de 4 bandas do synth, para a mistura inteira. Plano, não gasta nada.
+- Na **bateria**: o **DST** é o DRIVE do modo synth (estilo Decapitator), em paralelo, com STYLE (A E N T P), TONE e
+  PUNSH na página **DIST** (com a bateria selecionada); **MOD** é dela; no lugar do DLY fica o **CLIP**, um *soft clipper*
+  (empurra a bateria num tanh e devolve metade do ganho: os golpes baixos um pouco mais fortes, os picos arredondados);
+  **REV** é o envio da bateria (o mesmo de GLO → DRUMS). O envio de delay da bateria continua em GLO → DRUMS.
+- **Sem MIX nestas páginas:** os MIX (seco/molhado e retornos) ficam só no modo synth.
+- O antigo **INSERT** saiu destas páginas: as distorções dele são o DIST, e PHASR / FLANG / CHOR são o MOD. Ele continua
+  existindo só como o PHASER da cadeia do synth. Num som antigo com INSERT, ele deixa de soar nas tracks do SLOOP; o
+  DST antigo agora soa em paralelo, com o DIST do projeto.
+- Tudo fica salvo no projeto (num projeto antigo: COMP desligado, MOD em CHOR, EQ do master plano).
+
+### CLICK: PL+REC (1.7)
+
+O metrônomo fica em **GLO → GLOBAL → KNOB 3 (CLICK)**: **OFF**, **REC** (só gravando) ou **PL+REC** (tocando e
+gravando; antes se chamava ON).
+
+### Copiar e colar um padrão (1.6)
+
+**SAVE → TOOLS → COPY** (KNOB 3) guarda o padrão da track selecionada: os passos, o micro-timing, as condições de
+FILL, os locks e LEN, DIV, SWING e GATE. Selecione outra track e **SAVE → TOOLS 2 → PASTE** (KNOB 1; gire duas vezes
+para confirmar) cola nela. De uma track de synth para outra de synth, da bateria para a bateria (de uma para a outra a
+tela avisa *DRUMS / SYNTH: NO*). Os locks só vão junto se a outra track tiver o mesmo engine. **EDIT + OCT−** desfaz o
+PASTE.
+
+### MIX do reverb e do chorus (1.6)
+
+Reverb e chorus são envios: a quantidade em cada track é o som molhado, e o seco fica inteiro. O **MIX** de cada um
+(nas páginas REVERB / CHORUS do modo synth) é o nível do retorno, como o MIX do delay.
+
+### REC em tempo real (1.5)
+
+O **REC grava em tempo real** de fábrica: cada nota fica no passo mais perto e o **micro-timing** do passo (1/64 de um
+passo, ~2 ms a 120 BPM em 1/16) guarda o tempo em que você tocou. Para gravar **quantizado**, na tela **REC READY**
+(REC com o transporte parado) gire o **KNOB 4 (QUANT)** para a direita: **ON**; para a esquerda volta a **OFF**. A
+escolha fica salva no FM-1. Um passo tem um micro-timing só: num acorde, ou com dois sons da bateria no mesmo passo,
+vale o da primeira nota.
+
+### REPEAT da bateria (1.4)
+
+Com a **bateria** (track 4) selecionada, um **toque no ARP** liga o **REPEAT** (o ARP fica aceso): cada tecla
+segurada repete no tempo, como o *note repeat* de uma drum machine, sem precisar segurar nada. Com **REC** ligado,
+as batidas são gravadas (mais rápidas que o passo viram ratchets). Outro toque no ARP desliga.
+
+A divisão é a do roll: **ARP + KNOB 1** — **1/2T, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64** (1.4.1: 1/4T
+e 1/2T). Segurar ARP + teclas continua sendo o roll de sempre, em qualquer track.
+
+**Tercinas gravadas (1.4.2).** O REPEAT toca cada figura no tempo exato (a 480 ticks por semínima: 1/2T = 640,
+1/4T = 320, 1/8T = 160, 1/16T = 80). Ao gravar, cada batida vai para o passo mais perto e o **micro-timing (nudge)**
+desse passo guarda o tempo dela: **1/2T, 1/4T e 1/8T ficam exatas na grade normal de 1/16**. Um passo tem um nudge só:
+se ele já tem outra batida, a nova fica na grade e a tela avisa **TRIPLETS: DIV 16T**; o 1/16T põe duas batidas num
+passo de 1/16, então para ele use PATTERN → DIV 16T. 1/32T grava certo em 1/16 (três por passo, ratchet x3). A grade
+do padrão nunca muda sozinha (a 1.4.1 mudava para 16T, e aí até o 1/16 tocava em tercina).
+
+### ARP: todas as tercinas (1.4)
+
+O **RATE** do arpejador ganhou **1/2, 1/2T, 1/4T e 1/32T** e anda em ordem musical: 1/2, 1/2T, 1/4, 1/4T, 1/8, 1/8T,
+1/16, 1/16T, 1/32, 1/32T. Os valores antigos continuam com o mesmo número (projetos abrem iguais).
+
+### VOICING (1.2)
 
 Com o **CHORD** ligado (SEL → página SEL 2), o antigo **VLEAD** virou **VOIC**, o voicing do acorde:
 
@@ -256,7 +428,8 @@ Funciona nas teclas, nos passos e com os modificadores das teclas pretas.
   dos osciladores, cadeia, MS): o OSC 1 segue o ENV do track.
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
-- A identidade do pacote continua `FM-1_900` (build de desenvolvimento), instalável pelo mesmo instalador.
+- A identidade do pacote é **`FM-1_962`** (1.7), só do BONBLOOP, em todas as versões (até a 1.7 era `FM-1_900`, a do
+  SLOOP, que vários firmwares dividem). Instala por cima do SLOOP e de qualquer versão anterior, pelo mesmo instalador.
 
 ## Instalar
 
@@ -276,21 +449,25 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.3.1: 580.448 de 581.564 bytes de flash (1,1 KB livres); RAM 59.740 de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.7: 577.772 de 581.564 bytes de flash (3,7 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
+de 98.304 bytes, pool igual ao do SLOOP.
+Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
+0,93 s, abaixo de −27 dB).
 
 ## Testes
 
 `tests/run_tests.sh` roda tudo, incluindo os dois testes novos:
 
 - `tests/wave_test.c` — o engine sozinho: os 24 campos empacotados, todas as tabelas em cada oscilador, todos os
-  presets (limites, DC, volume), as formas varridas, REV, TRANSIENT, DRIVE, extremos, custo de CPU; grava
+  presets (limites, DC, volume), as formas varridas, REV, DRIVE, extremos, custo de CPU; grava
   `wave_presets.wav` e `wave_sweep.wav` para ouvir.
 - `tests/synth_mode_test.c` — a interface real: segurar ENV, os 4 grupos e as 18 páginas, cada knob mexendo
   um campo só, os 3 osciladores tocando, os efeitos, o modo segurando a tela (ARP/SEQ/SEL/GLO/SAVE/HOME/ALGO),
   sair, a bateria selecionada; grava as telas em `synth-*.ppm`.
 
-A suíte de regressão (`tests/regress.c`) confirma que **nenhum som do SLOOP mudou**: as 182 renderizações batem
-bit a bit com o `golden.txt`; as 16 do WAVE foram atualizadas.
+A suíte de regressão (`tests/regress.c`) confere as 199 renderizações bit a bit com o `golden.txt`. Na 1.7 mudaram
+só as que usam o DST (os presets de fábrica com distorção, os testes de envio: o DST agora é em paralelo) e as duas
+que tocam o VIBES (as caudas mais curtas).
 
 ## Créditos
 

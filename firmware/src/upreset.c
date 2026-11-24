@@ -298,6 +298,12 @@ UI_SMALL static int up_store(uint32_t k, const char *name)
                                                          * 16 bits in the record's spare parameter */
         sx_give(trk_index(TSEL), up_sx);
         r.p[P_COUNT] = (int16_t)synx[trk_index(TSEL) % NPART].w[3];
+        for (i = 0; i < 15u; i++)                     /* (1.5) the EQ: bits 3..6 of the pattern's flags (accent, slide,
+                                                       * tie are 0..2; the editor sends 7 bits), w[4] in 0..6, w[5] 7..14
+                                                       * (1.6: its MIXes, bits 20..31) */
+            r.flags[i] = (uint8_t)((r.flags[i] & 7u) |
+                                   (((i < 7u ? synx[trk_index(TSEL) % NPART].w[4] >> (4u * i)
+                                             : synx[trk_index(TSEL) % NPART].w[5] >> (4u * (i - 7u))) & 15u) << 3));
     }
     return up_put(k, &r);
 }
@@ -336,8 +342,20 @@ UI_SMALL static int up_load_to(track_t *t, uint32_t k)       /* user preset k in
 #ifndef UP_HOST
     {   /* (BONBLOOP 1.2) its synx: the bank's side record, beside its copy in the XIP window (up_put) */
         const up_bank_t *bk = up_bank_xip[(k / UP_PER_BANK) % NELEM(up_bank_xip)];
-        sx_take(t, bk ? (const uint32_t *)((const uint8_t *)bk - ST_PAYLOAD_OFF + ST_SIDE_OFF) + (k % UP_PER_BANK) * 3u
-                      : 0, (uint16_t)r->p[P_COUNT]);
+        if (sx_take(t, bk ? (const uint32_t *)((const uint8_t *)bk - ST_PAYLOAD_OFF + ST_SIDE_OFF) + (k % UP_PER_BANK) * 3u
+                          : 0, (uint16_t)r->p[P_COUNT])) {
+            uint32_t w4 = 0, w5 = 0, j;                 /* (1.5) its EQ (up_store), none before 1.5: flat */
+            for (j = 0; j < 15u; j++) {
+                if (j < 7u)
+                    w4 |= (uint32_t)((r->flags[j] >> 3) & 15u) << (4u * j);
+                else
+                    w5 |= (uint32_t)((r->flags[j] >> 3) & 15u) << (4u * (j - 7u));
+            }
+            if (w4) {
+                synx[trk_index(t) % NPART].w[4] = w4;
+                synx[trk_index(t) % NPART].w[5] = w5;
+            }
+        }
     }
 #endif
     fm1_irq_on();

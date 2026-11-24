@@ -27,14 +27,15 @@ static void scheck(int ok, const char *what) { if (!ok) { printf("FAIL %s\n", wh
 static double st_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e9 + t.tv_nsec; }
 
 /* ---- font ---- */
-static uint8_t big_data[64 * 24 * 32 / 2 + 64];   /* the old FONT_L: S enlarged and stored (reference only) */
-static uint16_t big_off[64];
+static uint8_t big_data[96 * 32 * 32 / 2 + 64];   /* the old FONT_L: S enlarged and stored (reference only; 1.7: all
+                                                 * 96 glyphs, up to 32 px wide at 2x) */
+static uint16_t big_off[96];
 static felucca_font_t FONT_L2X;
 
 static void font_ref_build(void)
 {
     uint32_t gi, o = 0;
-    for (gi = 0; gi < 64u; gi++) {
+    for (gi = 0; gi <= (uint32_t)(FONT_S.last - FONT_S.first) && gi < 96u; gi++) {
         uint32_t ws = FONT_S.bw[gi], wb = FONT_L.bw[gi], bs = (ws + 1u) / 2u, bb = (wb + 1u) / 2u, x, y;
         const uint8_t *s = FONT_S.data + FONT_S.off[gi];
         big_off[gi] = (uint16_t)o;
@@ -44,6 +45,8 @@ static void font_ref_build(void)
                 if (FONT_S.bits == 1u) {                  /* (2.6: S at 1 bit a pixel) */
                     uint32_t i = (y / 2u) * ws + sx;
                     v = (s[i >> 3] >> (7u - (i & 7u))) & 1u ? 15u : 0u;
+                } else if (FONT_S.bits == 2u) {           /* (BONBLOOP 1.7: 2 bits a pixel, the first look) */
+                    v = ((s[(y / 2u) * ((ws + 3u) / 4u) + sx / 4u] >> (6u - 2u * (sx & 3u))) & 3u) * 5u;
                 } else {
                     v = s[(y / 2u) * bs + sx / 2u];
                     v = (sx & 1u) ? (v & 15u) : (v >> 4);
@@ -75,8 +78,11 @@ static void t_font(void)
         memcpy(a, cv_px, sizeof(uint16_t) * 40u * 40u);
         cv_begin(40, 40, C_BLACK); cv_text(6, 3, &FONT_L, s, C_HI);
         for (i = 0; i < 40u * 40u; i++) { n++; bad += a[i] != cv_px[i]; }
-        scheck(text_w(&FONT_L, s) == text_w(&FONT_L2X, s) && text_w(&FONT_L, s) == 2 * text_w(&FONT_S, c < 'a' || c > 'z' ? s : "A"),
-               "font: L advance = 2 x S");
+        {   /* (BONBLOOP 1.7: proportional, a lower case letter as wide as its own capital) */
+            char up[2] = {(char)(c >= 'a' && c <= 'z' ? c - 32u : c), 0};
+            scheck(text_w(&FONT_L, s) == text_w(&FONT_L2X, s) && text_w(&FONT_L, s) == 2 * text_w(&FONT_S, up),
+                   "font: L advance = 2 x S");
+        }
     }
     printf("font: %u characters, %u pixels compared, %u different\n", 96u, n, bad);
     scheck(bad == 0, "font: FONT_L from S at 2x = the stored 2x font, pixel for pixel");

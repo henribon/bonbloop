@@ -254,6 +254,92 @@ static void t_roll(void)
     }
 }
 
+/* BONBLOOP 1.4.2: a triplet roll recorded on the drums keeps its time: each hit in its nearest step, the step's nudge
+ * (1/64 of a step) its offset, when the step held nothing; the pattern's grid never changes. A step with other hits
+ * keeps its nudge (the hit on the grid) and the UI says TRIPLETS: DIV 16T (trip_msg); so does 1/16T on 1/16 (two hits
+ * in one step) */
+static uint32_t roll_take(uint32_t rate, uint32_t beats)    /* lane 3 rolled from beat 0, REC on: its steps as bits */
+{
+    uint32_t i, s, bits = 0;
+    song.g[G_ROLL] = (int16_t)rate;
+    song.sel = TRK_DRUM;
+    song.rec = 1u << TRK_DRUM;
+    trip_msg = 0;
+    transport_req = 1;
+    run_block();
+    fm1_in.buttons = ly_bit[LY_ROLL];
+    fm1_in.notes = 1u << 6;
+    for (i = 0; i < div_samples(0) * beats / CTL; i++)
+        run_block();
+    fm1_in.notes = 0;
+    fm1_in.buttons = 0;
+    run_block();
+    for (s = 0; s < 32u; s++)
+        bits |= (uint32_t)dstep_has(&TDRUM->dstep[s], 3) << s;
+    return bits;
+}
+static int near_m(uint32_t step, int32_t want)    /* the drum step's nudge within 2/64 of want */
+{
+    int32_t m = TDRUM->micro[step];
+    return m - want <= 2 && want - m <= 2;
+}
+static void t_roll_triplets(void)
+{
+    uint32_t b;
+    char line[96];
+    reset(120);
+    b = roll_take(6, 2);                              /* 1/8T, two beats: at 0, 4/3, 8/3, 4, 16/3, 20/3 steps */
+    snprintf(line, sizeof line, "1.4.2: 1/8T on 1/16: steps 0 1 3 4 5 7 (got %02x), the grid kept", b);
+    check((b & 0xFFu) == 0xBBu && TDRUM->p[P_SDIV] == TP[P_SDIV].def && TDRUM->p[P_SLEN] == TP[P_SLEN].def, line);
+    check(near_m(0, 0) && near_m(1, 21) && near_m(3, -21) && near_m(4, 0) && near_m(5, 21) && near_m(7, -21),
+          "1.4.2: 1/8T: each step nudged to the triplet's time (+1/3, -1/3 of a step)");
+    reset(120);
+    b = roll_take(8, 2);                              /* 1/4T: 0, 8/3, 16/3 steps */
+    check((b & 0xFFu) == 0x29u && near_m(3, -21) && near_m(5, 21), "1.4.2: 1/4T on 1/16: steps 0 3 5, nudged");
+    reset(120);
+    b = roll_take(9, 4);                              /* 1/2T over a bar: 0, 16/3, 32/3 steps */
+    check((b & 0xFFFFu) == 0x821u && near_m(5, 21) && near_m(11, -21), "1.4.2: 1/2T on 1/16: steps 0 5 11, nudged");
+    reset(120);
+    dstep_set(&TDRUM->dstep[1], 0, LV_NORM, 0);      /* a kick on step 1: that step keeps its nudge */
+    b = roll_take(6, 1);
+    check(TDRUM->micro[1] == 0 && trip_msg == 1u && (b & 2u), "1.4.2: a step with other hits keeps its nudge: TRIPLETS: DIV 16T");
+    reset(120);
+    b = roll_take(7, 1);                              /* 1/16T: two hits in steps 1 and 3 */
+    check(trip_msg == 1u, "1.4.2: 1/16T on 1/16 (two hits in a step): TRIPLETS: DIV 16T");
+    reset(120);
+    TDRUM->p[P_SDIV] = 5, TDRUM->p[P_SLEN] = 24;     /* 16T: the triplets on the grid */
+    b = roll_take(7, 1);
+    check((b & 0x3Fu) == 0x3Fu && !(b & 0xFC0u & ~0x40u) && !trip_msg && near_m(1, 0) && near_m(4, 0), "1.4.2: 1/16T on 16T: a hit a step, on the grid");
+    reset(120);
+    b = roll_take(6, 4);                              /* a bar of 1/8T, then the next pass plays it back */
+    {
+        uint32_t i, k, n = 0, last = 0, ok = 1, d, worst = 0;
+        nhits = 0;
+        for (i = 0; i < 22050u * 4u / CTL; i++)
+            run_block();
+        for (k = 0; k < nhits; k++)
+            if (hits[k].note == LANE_NOTE[3]) {
+                if (n) {
+                    d = (hits[k].blk - last) * CTL;
+                    d = d > 7350u ? d - 7350u : 7350u - d;
+                    worst = d > worst ? d : worst;
+                    ok &= d < 160u;
+                }
+                last = hits[k].blk;
+                n++;
+            }
+        snprintf(line, sizeof line, "1.4.2: the recorded 1/8T plays back as 1/8T: %u hits, 7350 samples apart (+-%u)", n, worst);
+        check(ok && n >= 11u, line);
+    }
+    reset(120);
+    b = roll_take(2, 1);                              /* 1/32: straight, as before */
+    check(TDRUM->p[P_SDIV] == TP[P_SDIV].def && !trip_msg && near_m(0, 0) && near_m(1, 0),
+          "1.4.2: a straight roll: on the grid, no nudge");
+    transport_req = 2;                               /* (stopped, as the tests after expect to start it) */
+    run_block();
+    trip_msg = 0;
+}
+
 static void t_erase_undo(void)
 {
     uint32_t i, left = 0, kept = 0;
@@ -265,6 +351,7 @@ static void t_erase_undo(void)
     }
     song.sel = TRK_DRUM;
     transport_req = 1;
+    run_block();                                     /* (the start first: the step left by the test before may be 4) */
     while (TDRUM->seq_idx != 4u)
         run_block();
     fm1_in.buttons = ly_bit[LY_ERASE];               /* EDIT held + the hat key (C4 = key 7) */
@@ -869,9 +956,41 @@ static void t_longdiv(void)
     check(dly_samples(8) == (uint32_t)FS * 60u / 120u * 3u / 2u && !strcmp(GP[G_DTIME].names[8], "1/4D"),
           "2.6: delay TIME 1/4D = 1.5 beats, after 1/16D (older projects keep their value)");
     check(dly_samples(9) == (uint32_t)FS * 60u / 120u * 2u && dly_samples(10) == (uint32_t)FS * 60u / 120u * 4u / 3u &&
-          GP[G_DTIME].max == (int16_t)DLY_FREE && !strcmp(GP[G_DTIME].names[9], "1/2") &&
-          !strcmp(GP[G_DTIME].names[10], "1/2T") && !strcmp(GP[G_DTIME].names[DLY_FREE], "FREE"),
-          "BONBLOOP 1.2: delay TIME 1/2 = 2 beats, 1/2T = 4/3 beat, then FREE (GLO > DLY 2 > MS)");
+          !strcmp(GP[G_DTIME].names[9], "1/2") && !strcmp(GP[G_DTIME].names[10], "1/2T") &&
+          !strcmp(GP[G_DTIME].names[DLY_FREE], "FREE"),
+          "BONBLOOP 1.2: delay TIME 1/2 = 2 beats, 1/2T = 4/3 beat, then FREE (MODE MS)");
+    check(dly_samples(12) == (uint32_t)FS * 60u / 120u * 2u / 3u && dly_samples(13) == (uint32_t)FS * 60u / 120u / 12u &&
+          GP[G_DTIME].max == 13 && !strcmp(GP[G_DTIME].names[12], "1/4T") && !strcmp(GP[G_DTIME].names[13], "1/32T") &&
+          !strcmp(GP[G_DTIME].names[4], "1/8T"), "BONBLOOP 1.4: delay TIME 1/4T = 2/3 beat, 1/32T = 1/12 beat");
+    {   /* 1.4: the knob in musical order: 1/2 1/2T 1/4 1/4T 1/4D 1/8 1/8T 1/8D ... 1/32 1/32T, never FREE */
+        uint32_t i;
+        int32_t v = 13, ok = 1;
+        static const int8_t WANT[13] = {9, 10, 0, 12, 8, 1, 4, 6, 2, 5, 7, 3, 13};
+        for (i = 0; i < 13u; i++)
+            v = order_turn(ORD_DLY, sizeof ORD_DLY, v, -1);
+        ok &= v == 9;
+        for (i = 0; i < 13u; i++, v = order_turn(ORD_DLY, sizeof ORD_DLY, v, 1))
+            ok &= v == WANT[i];
+        ok &= order_turn(ORD_DLY, sizeof ORD_DLY, DLY_FREE, 0) == 9;
+        check(ok, "BONBLOOP 1.4: delay TIME a value a detent, in musical order (1/2 .. 1/32T), FREE not on the knob");
+    }
+    {   /* 1.4: the arp's RATE: 1/2, 1/2T, 1/4T, 1/32T on the clock's grid (beat 5.5) */
+        uint32_t into, len, a, b, c, d, i2, i3, i4;
+        int ok;
+        clk_beat = 5, clk_pos = BEAT_U / 2u;
+        a = grid_nv(4, 3, 0, &into, &len);
+        ok = a == 4u && len == BEAT_U * 4u / 3u && into == BEAT_U / 6u;
+        b = grid_nv(2, 3, 0, &i2, &len);
+        ok &= b == 8u && len == BEAT_U * 2u / 3u && i2 == BEAT_U / 6u;
+        c = grid_nv(2, 1, 0, &i3, &len);
+        ok &= c == 2u && i3 == BEAT_U * 3u / 2u;
+        d = grid_nv(1, 12, 0, &i4, &len);
+        ok &= d == 66u && i4 == 0u;
+        ok &= grid_nv(1, 4, 0, &i4, &len) == 22u && dly_units(ARP_NV[2]) == div_units(2);   /* (1/16 as before) */
+        clk_beat = 0, clk_pos = 0;
+        check(ok && !strcmp(TP[P_ARATE].names[6], "1/2") && !strcmp(TP[P_ARATE].names[9], "1/32T") && TP[P_ARATE].max == 9,
+              "BONBLOOP 1.4: arp RATE 1/2, 1/2T, 1/4T, 1/32T on the grid (steps of 2, 4/3, 2/3, 1/12 beat)");
+    }
     song.g[G_DTIME] = (int16_t)DLY_FREE;
     song.g[G_DMS] = 300;
     check(delay_samples() == 300u * 441u / 10u, "BONBLOOP 1.2: delay FREE: its MS, whatever the tempo");
@@ -2183,6 +2302,7 @@ int main(void)
     t_len_phase();
     t_ratchet();
     t_roll();
+    t_roll_triplets();
     t_erase_undo();
     t_levels();
     t_chords();

@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.3.1"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.7"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -505,7 +505,8 @@ UI_SMALL static void note_name(char *b, uint32_t n)
  * nothing of it is saved, the sound is the track's like any other */
 static uint8_t syn_mode;
 static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
-static const uint8_t SYN_GRP[5] = {0, 6, 10, 16, 26};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end */
+static const uint8_t SYN_GRP[5] = {0, 7, 11, 17, 30};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end
+                                                         * (1.7: then PRESET, SAVE's) */
 static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
 UI_SMALL static int syn_group_of(uint32_t fam)
 {
@@ -525,8 +526,7 @@ UI_SMALL static void syn_chain_fill(track_t *t)
 {
     const int16_t *p = t->p;
     uint32_t part = (uint32_t)(t - trk), fx, s;
-    uint8_t on[FXI_N] = {0, p[P_DIST] != 0, p[P_ITYPE] != 0, p[P_TFLT] != 0, p[P_CHOR] != 0, p[P_DLY] != 0, p[P_REV] != 0,
-                         (wv_get(p, WV_TATK) | wv_get(p, WV_TSUS)) != 0};
+    uint8_t on[FXI_N] = {0, p[P_DIST] != 0, p[P_ITYPE] != 0, p[P_TFLT] != 0, p[P_CHOR] != 0, p[P_DLY] != 0, p[P_REV] != 0, 0};
     if (is_drum(t) || t->eng_req % NENGINES != ENGI_WAVE)
         return;
     for (fx = 1; fx < FXI_N; fx++)
@@ -813,7 +813,8 @@ static const struct { uint8_t kind, e; const char *name; } BANK[] = {
     {BK_LEAD, 6, "HOOVER"}, {BK_LEAD, 5, "TALKBOX"}, {BK_LEAD, 3, "GAME LEAD"}, {BK_LEAD, 4, "LOFI FLUTE"},
     {BK_LEAD, 8, "FLUTE DUST"}, {BK_LEAD, 0, "FAT LEAD"}, {BK_LEAD, 0, "PAN FLUTE"}, {BK_LEAD, 5, "HARMONICA"},
     {BK_LEAD, ENGI_NOISE, "NZ ARCADE"}, {BK_LEAD, 3, "WAVE LEAD"}, {BK_LEAD, 2, "CZ LEAD"},
-    {BK_LEAD, 5, "ROBOT"}, {BK_LEAD, 0, "PWM LEAD"}, {BK_LEAD, 6, "SQR LEAD"}, {BK_LEAD, ENGI_WAVE, "FOLD LEAD"},
+    {BK_LEAD, 5, "ROBOT"}, {BK_LEAD, 0, "PWM LEAD"}, {BK_LEAD, 6, "SQR LEAD"}, {BK_LEAD, ENGI_WAVE, "SINE"},
+    {BK_LEAD, ENGI_WAVE, "FOLD LEAD"},
     {BK_LEAD, ENGI_WAVE, "SUPER WAVE"}, {BK_LEAD, ENGI_WAVE, "CHIP WAVE"}, {BK_PLUCK, 0, "TRAP PLUCK"},
     {BK_PLUCK, 2, "RESO PLUCK"}, {BK_PLUCK, 1, "PLUGG BELL"}, {BK_PLUCK, 1, "TRAP BELL"},
     {BK_PLUCK, 1, "MUSIC BOX"}, {BK_PLUCK, 1, "KALIMBA"}, {BK_PLUCK, 1, "MARIMBA"}, {BK_PLUCK, 4, "VIBES"},

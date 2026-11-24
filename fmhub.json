@@ -1,0 +1,12 @@
+{
+  "what": "A groovebox built on SLOOP: three synth tracks, drums, a step sequencer and song mode. Hold ENV for the SYNTH MODE: three wavetable oscillators, an envelope and an LFO for each, and an FX chain you build. A parallel FX mixer, a glue compressor and an EQ on the master.",
+  "author": "henribon",
+  "kinds": [
+    "groove",
+    "synth"
+  ],
+  "editor": "https://bonbap.com.br/bonbloop/webapp/editor/",
+  "image": "docs/card.png",
+  "color": "#6667AB",
+  "sounds": "licensed: VSCO-2 CE and VCSL by Versilian Studios and the Sonic Pi samples (CC0 1.0), Wurlitzer EP200 samples by Greg Sullivan (CC BY 3.0)"
+}

@@ -4,9 +4,9 @@
 // https, so Web MIDI asks as usual (a downloaded file on Android opens as content://, where Chrome refuses MIDI).
 // Online the network always wins (the page as published, never an old one); the copy is only the fallback.
 // A new site (any file changed) is a new sw.js: the new copy replaces the old one.
-const STAMP = "1.3.1-5b70772c3a4e";                          // version + a hash of the files
+const STAMP = "1.7-433cdf6361c5";                          // version + a hash of the files
 const CACHE = "sloop-site-" + STAMP;
-const FILES = ["../firmware/bonbloop-1.3.1.fwsc", "editor/", "editor/FUKIAI-LICENSE.txt", "editor/fukiai.ttf", "editor/preview-worklet.js", "editor/preview.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "installer/", "sloop.webmanifest"];                          // relative to this file
+const FILES = ["../firmware/bonbloop-1.7.fwsc", "editor/", "editor/FUKIAI-LICENSE.txt", "editor/fukiai.ttf", "editor/preview-worklet.js", "editor/preview.js", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "installer/", "sloop.webmanifest"];                          // relative to this file
 const KEEP = new Set(FILES.map((f) => new URL(f, self.location).href));
 
 const key = (url) => {                              // the copy's name of a request: no query, index.html = the folder

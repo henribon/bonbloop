@@ -2915,7 +2915,11 @@ function mockSettings() {
 const mlDefault = (b) => b.every((x, i) => i < 32 ? !x : i === 32 ? x === 1 : i === 33 ? x === 2 : i === 34 ? x === 3 : i === 35 ? x === 10 : i === 36 ? x === 2 : !x);
 function makeMockDevice(opt = {}) {
   const NONOFF = ["OFF", "ON"], NDIV = ["1/4", "1/8", "1/16", "1/32", "8T", "16T"], NGO = ["--", "GO"], NDASH = ["--"];
-  const NSDIV = [...NDIV, "1/2", "1BAR", "2BAR"], NDLY = [...NDIV, "1/8D", "1/16D", "1/4D"];   /* SLOOP 2.4: long steps, dotted delays */
+  const NSDIV = [...NDIV, "1/2", "1BAR", "2BAR"];   /* SLOOP 2.4: long steps */
+  /* BONBLOOP 1.4: the arp's RATE and the delay's TIME with every triplet (the firmware's knob walks them in musical order;
+   * TIME 11 is the delay's MODE MS) */
+  const NARP = ["1/4", "1/8", "1/16", "1/32", "1/8T", "1/16T", "1/2", "1/2T", "1/4T", "1/32T"];
+  const NDLY = ["1/4", "1/8", "1/16", "1/32", "1/8T", "1/16T", "1/8D", "1/16D", "1/4D", "1/2", "1/2T", "MS", "1/4T", "1/32T"];
   const D = (label, fmt, min, max, def, names = null, unit = "") => ({ label, fmt, min, max, def, names, unit });
   const E = (label, names, def) => D(label, F.ENUM, 0, names.length - 1, def, names);
   const TP = [
@@ -2924,11 +2928,11 @@ function makeMockDevice(opt = {}) {
     D("FLT", F.BIPCT, -64, 63, 0), D("PIT", F.BIPCT, -64, 63, 0), D("SHP", F.BIPCT, -64, 63, 0), D("FX", F.BIPCT, -64, 63, 0),
     D("RATE", F.LFOHZ, 0, 127, 60), E("WAVE", ["SIN", "TRI", "SAW", "SQR", "S&H"], 0), D("PHS", F.INT, 0, 127, 0), D("FADE", F.TIME, 0, 127, 0),
     D("PIT", F.BIPCT, -64, 63, 0), D("FLT", F.BIPCT, -64, 63, 0), D("SHP", F.BIPCT, -64, 63, 0), D("AMP", F.PCT, 0, 127, 0),
-    E("MODE", ["OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT", "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD"], 0), E("RATE", NDIV, 2), D("OCT", F.INT, 1, 4, 1), D("GATE", F.PCT, 1, 127, 64),
+    E("MODE", ["OFF", "UP", "DN", "UPDN", "RND", "ORD", "REPEAT", "DNUP", "UP+8", "CONV", "DIVG", "PINKY", "THUMB", "WALK", "CHORD"], 0), E("RATE", NARP, 2), D("OCT", F.INT, 1, 4, 1), D("GATE", F.PCT, 1, 127, 64),
     D("SWG", F.SWING, 0, 100, 0), D("PROB", F.PCT, 0, 127, 127), E("HOLD", NONOFF, 0), E("ORD", ["NOTE", "PLAY"], 0),
     D("ROOT", F.NOTE, 0, 11, 0), E("SCL", ["CHR", "MAJ", "MIN", "DOR", "MIX", "PEN", "MPEN", "HARM", "PHRY", "LYD", "LOC", "MEL", "BLUES", "WHOLE", "DIMHW", "DIMWH"], 0), E("QNT", ["OFF", "SNAP", "WHITE"], 0), D("TRN", F.SEMI, -24, 24, 0),
     D("LEN", F.STEPS, 1, 64, 16), E("DIV", NSDIV, 2), D("SWG", F.SWING, 0, 100, 0), D("GATE", F.PCT, 1, 127, 64),
-    D("DST", F.PCT, 0, 127, 0), D("CHO", F.PCT, 0, 127, 0), D("DLY", F.PCT, 0, 127, 0), D("REV", F.PCT, 0, 127, 0),
+    D("DST", F.PCT, 0, 127, 0), D("MOD", F.PCT, 0, 127, 0), D("DLY", F.PCT, 0, 127, 0), D("REV", F.PCT, 0, 127, 0),
     E("VCE", ["POLY", "MONO", "LEG", "UNI"], 0), D("GLD", F.TIME, 0, 127, 0), D("PAN", F.BIPCT, -64, 63, 0), E("MUTE", NONOFF, 0),
     E("GLMOD", ["RATE", "TIME"], 0), E("PRIO", ["LAST", "LOW", "HIGH"], 0), E("ALLOC", ["ROT", "REUSE"], 0), D("DTUNE", F.INT, 0, 127, 40),
     E("SLCR", ["OFF", "GATE", "STUT"], 0), D("PAT", F.INT, 1, 16, 1), E("RATE", ["1/8", "1/16", "1/32", "8T", "16T", "32T"], 1), D("DEPTH", F.PCT, 0, 127, 127),
@@ -2942,7 +2946,7 @@ function makeMockDevice(opt = {}) {
     E("TRIG", ["NOTE", "FREE"], 0), E("POL", ["BI", "UNI"], 0),
   ];
   const GP = [
-    D("BPM", F.BPM, 40, 240, 90), D("SWING", F.SWING, 0, 100, 0), E("CLICK", ["OFF", "REC", "ON"], 0), D("TUNE", F.INT, -50, 50, 0),
+    D("BPM", F.BPM, 40, 240, 90), D("SWING", F.SWING, 0, 100, 0), E("CLICK", ["OFF", "REC", "PL+REC"], 0), D("TUNE", F.INT, -50, 50, 0),
     E("TIME", NDLY, 1), D("FDBK", F.PCT, 0, 120, 60), D("COLR", F.PCT, 0, 127, 70), D("MIX", F.PCT, 0, 127, 90),
     D("SIZE", F.PCT, 0, 127, 90), D("DAMP", F.PCT, 0, 127, 60), D("CRT", F.LFOHZ, 0, 127, 40), D("CDP", F.PCT, 0, 127, 60),
     E("OUT", ["KEYS", "SEQ"], 0), E("SYNC", ["INT", "USB", "TRS"], 0), E("IN", ["NOTES", "CLOCK", ...Array.from({ length: 16 }, (_, k) => `CH ${k + 1}`)], 0), D("CPU", F.INT, 0, 0, 0),
@@ -2952,7 +2956,7 @@ function makeMockDevice(opt = {}) {
     E("CLRSQ", NGO, 0), E("INIT", NGO, 0),
     E("CH4", ["OFF", ...Array.from({ length: 16 }, (_, i) => String(i + 1))], 10), D("LVL", F.INT, 0, 127, 100), D("REV", F.INT, 0, 127, 16),
     D("DUST", F.PCT, 0, 127, 0), D("DUCK", F.PCT, 0, 127, 0), D("FILT", F.FILT, -64, 63, 0),
-    E("ROLL", ["1/8", "1/16", "1/32", "32T", "1/64"], 1), E("NEW", NGO, 0), D("DLY", F.INT, 0, 127, 0),
+    E("ROLL", ["1/8", "1/16", "1/32", "1/32T", "1/64", "1/4", "1/8T", "1/16T", "1/4T", "1/2T"], 1), E("NEW", NGO, 0), D("DLY", F.INT, 0, 127, 0),
     /* SLOOP 2.6: GLO > MIDI, each synth track's channel (OFF, 1..16) and the other channels (SEL / OFF) */
     ...[1, 2, 3].map((k) => E("CH" + k, ["OFF", ...Array.from({ length: 16 }, (_, i) => String(i + 1))], k)), E("OTHER", ["SEL", "OFF"], 0),
     /* GLO > TEXTURE (2.6): the bed under the mix */
@@ -4415,7 +4419,7 @@ const THEME = {
     ["AMBER", [[60, 26, 0], [110, 50, 0], [170, 82, 0], [225, 120, 8], [255, 166, 40]]],
     ["CYAN", [[0, 30, 50], [0, 62, 96], [16, 112, 160], [56, 172, 222], [140, 222, 255]]],
     ["RED", [[52, 8, 8], [100, 18, 14], [170, 36, 26], [226, 64, 48], [255, 112, 92]]],
-    ["MONO", [[40, 40, 40], [80, 80, 80], [130, 130, 130], [186, 186, 186], [226, 226, 226]]]],
+    ["PERI", [[38, 39, 74], [75, 76, 128], [102, 103, 171], [156, 157, 216], [217, 218, 244]]]],   /* (BONBLOOP 1.7: Very Peri, where MONO was) */
   TRACKS: [[40, 124, 255], [30, 204, 112], [255, 198, 24], [255, 98, 26]],
   to565: ([r, g, b]) => ((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3),
   from565: (v) => [Math.round((((v >> 11) & 31) * 255) / 31), Math.round((((v >> 5) & 63) * 255) / 63), Math.round(((v & 31) * 255) / 31)],

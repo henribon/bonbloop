@@ -32,9 +32,10 @@ UI_SMALL static void logo_word(const char *s, const uint16_t *col, uint32_t y)
 }
 UI_SMALL static void sloop_logo_draw(uint32_t y0)
 {
-    const uint16_t bon[3] = {C_WHITE, C_WHITE, C_WHITE};
-    const uint16_t bloop[5] = {C_WHITE, TE_COL_DEF[0], TE_COL_DEF[1], TE_COL_DEF[2], TE_COL_DEF[3]};
-    logo_word("BON", bon, y0 + 52u);                    /* BON in white, BLOOP: B white, L O O P the tracks' colours */
+    const uint16_t L = RGB(217, 218, 244), P = RGB(102, 103, 171);   /* (BONBLOOP 1.7) light lilac, Very Peri */
+    const uint16_t bon[3] = {L, L, L};
+    const uint16_t bloop[5] = {P, P, P, P, P};
+    logo_word("BON", bon, y0 + 52u);                    /* BON light, BLOOP in Very Peri */
     logo_word("BLOOP", bloop, y0 + 118u);
 }
 #else
@@ -69,8 +70,8 @@ UI_SMALL static void sloop_splash(void)
     if (*sp)
         v = sp + 1;                                     /* "BONBLOOP 1.0" -> "1.0" under the wordmark */
     cv_begin(240, 36, C_BLACK);
-    cv_text(120 - text_w(&FONT_S, v) / 2, 0, &FONT_S, v, RGB(196, 196, 204));
+    cv_text(120 - text_w(&FONT_S, v) / 2, 0, &FONT_S, v, RGB(217, 218, 244));
     cv_text(120 - text_w(&FONT_S, "based on sloop + felucca") / 2, 18, &FONT_S, "based on sloop + felucca",
-            RGB(96, 96, 104));
+            RGB(102, 103, 171));
     cv_blit(0, 202);
 }

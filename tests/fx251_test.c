@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* SLOOP 2.6, after Felucca 1.4 / 1.5 (Leo Kuroshita): the sound side of what came from there.
- *   insert   each INSERT type changes a part and stays bounded; TYPE OFF and MIX 0 leave it bit for bit; TYPE OFF
- *            again: dry once its fade ran; the drum track's INSERT works on its left, right and sends
+ *   insert   (BONBLOOP 1.7: the INSERT's drives are FX > DIST, in parallel, MIXER's DST the amount on SLOOP's
+ *            engines and the drums) each DIST type changes a part and stays bounded; DST 0 leaves it bit for bit;
+ *            DST 0 again: dry once its fade ran; the drum track's DST (the synth's DRIVE) changes the kick
  *   filter   ANALOG's TYPE: LP keeps the lows, HP the highs, BP the middle
  *   esync    ENV SYNC: ATK as a note value of the tempo (a quarter at 120 BPM: 0.5 s; at 60: 1 s)
  *   lfo 2    SYNC: a cycle a note value; TRIG FREE: a new phrase does not restart it; POL UNI: 0..+1
@@ -116,15 +117,16 @@ static void t_insert(void)
     trk_note_on(&trk[0], 45, 100);                    /* A2 */
     fork_dry(400);                                    /* the same start (voices, buses, random numbers), TYPE OFF */
     memcpy(dry, shared_dry, 400u * CTL * 4u);
-    trk[0].p[P_ITYPE] = 1, trk[0].p[P_IMIX] = 0;       /* SOFT at MIX 0: nothing runs */
+    song.g[G_XTYPE] = 0, trk[0].p[P_DIST] = 0;      /* SOFT at DST 0: nothing runs */
+    trk[0].p[P_ITYPE] = 7, trk[0].p[P_IMIX] = 127;     /* (an INSERT left in an old sound: no longer on SLOOP's engines) */
     render(400);
-    check(!memcmp(dry, out_l, 400u * CTL * 4u) && !trk[0].ins_run, "INSERT at MIX 0: the part bit for bit as with TYPE OFF");
-    for (ty = 1; ty < IT_N; ty++) {
+    check(!memcmp(dry, out_l, 400u * CTL * 4u) && !trk[0].ins_run, "DIST at DST 0: the part bit for bit (an old INSERT idle)");
+    for (ty = IT_SOFT; ty <= IT_CRUSH; ty++) {
         double d = 0, r;
         int32_t mx = 0;
         setup();
-        trk[0].p[P_ITYPE] = (int16_t)ty, trk[0].p[P_IMIX] = 127;
-        trk[0].p[P_IA] = 100, trk[0].p[P_IB] = 96, trk[0].p[P_IC] = 96;
+        song.g[G_XTYPE] = (int16_t)(ty - IT_SOFT), trk[0].p[P_DIST] = 127;
+        song.g[G_XA] = 100, song.g[G_XB] = 96, song.g[G_XC] = 96;
         trk_note_on(&trk[0], 45, 100);
         render(400);
         for (i = 0; i < 400u * CTL; i++) {
@@ -134,12 +136,13 @@ static void t_insert(void)
         r = rms(100u * CTL, 400u * CTL);
         printf("  %-5s: rms %.0f, mean |diff| %.0f, peak %d\n", N_ITYPE[ty], r, d / (400.0 * CTL), mx);
         check(d / (400.0 * CTL) > 50.0 && mx < 32767 && r > 200.0 && trk[0].ins_run,
-              ty == 1 ? "each INSERT type (SOFT .. CHOR) changes the part, bounded, heard" : N_ITYPE[ty]);
-        trk[0].p[P_ITYPE] = 0;                        /* OFF: it fades out, then the part is dry again */
+              ty == IT_SOFT ? "each DIST type (SOFT .. CRUSH) in parallel changes the part, bounded, heard" : N_ITYPE[ty]);
+        trk[0].p[P_DIST] = 0;                         /* DST 0: it fades out, then the part is dry again */
         render(4);
         same = !trk[0].ins_run;
-        check(same, ty == 1 ? "TYPE OFF: the INSERT stops after its fade" : "  (fade out)");
+        check(same, ty == IT_SOFT ? "DST 0: the DIST stops after its fade" : "  (fade out)");
     }
+    song.g[G_XTYPE] = GP[G_XTYPE].def, song.g[G_XA] = GP[G_XA].def, song.g[G_XB] = GP[G_XB].def, song.g[G_XC] = GP[G_XC].def;
     {   /* the drum track: a kick on every beat through FUZZ, its left, right and sends */
         double a, b;
         setup();
@@ -156,13 +159,14 @@ static void t_insert(void)
             if (!(i & 3u)) dstep_set(&TDRUM->dstep[i], 0, LV_NORM, 0);
         TDRUM->p[P_SLEN] = 16;
         TDRUM->p[P_REV] = 60;
-        TDRUM->p[P_ITYPE] = 4, TDRUM->p[P_IA] = 127, TDRUM->p[P_IMIX] = 127;   /* FUZZ, full drive */
+        song.g[G_DRSTY] = 3, TDRUM->p[P_DIST] = 127;    /* (1.7) the DRIVE, T, full */
         transport_req = 1;
         render(1400);
         b = rms(0, 1400u * CTL);
         printf("  drums: rms dry %.0f, FUZZ %.0f\n", a, b);
-        check(a > 100 && fabs(b - a) > 0.05 * a && TDRUM->ins_run && ins[NPART].type == 4u && ins[NPART + 2u].w,
-              "the drum track's INSERT (FUZZ): the kick changed, left / right / sends through it");
+        check(a > 100 && fabs(b - a) > 0.05 * a && drum_wd_on,
+              "the drum track's DST (1.7: the synth's DRIVE, T): the kick changed");
+        song.g[G_DRSTY] = 0, TDRUM->p[P_DIST] = 0;
         transport_req = 2;
         render(4);
     }

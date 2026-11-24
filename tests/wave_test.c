@@ -6,7 +6,6 @@
  *   presets   every WAVE preset through its ADSR at notes 48 and 72: bounded, audible, no DC
  *   sweep     every table and analog shape swept by POS (the SHP modulation), 2 s each
  *   REV       a backwards oscillator swells in (quiet first, loud at the end of DEC), stops at its peak
- *   TRANSNT   ATTCK +15 lifts the first 20 ms, -16 fades them in; SUSTN -16 takes the tail down
  *   DRIVE     every style, PUNSH, TONE: bounded, no DC left, louder with more drive
  *   extremes  every field at its ends, three oscillators on, notes 0 .. 127: under ANALOG's own ceiling (~95000)
  *   level     each preset against ANALOG's trimmed presets: prints WAVE_TRIM; with it, within 3 dB of ANALOG's median
@@ -367,29 +366,6 @@ int main(int argc, char **argv)
         memset(c, 0, sizeof c);
         play(t, &ENG_WAVE, 60, 2.0, 2.0, 0, 0, 0, 0, c, 10);
         CHECK(c[0] > c[5] * 10, "forwards: the same sound decays");
-    }
-    /* 7. TRANSNT */
-    {
-        stats_t s0, s1, s2, s3;
-        arena_own[0] = 0;
-        load(t, &ENG_WAVE, 0);
-        t->p[P_ATK] = 0, t->p[P_SUS] = 127;
-        build(t);
-        s0 = play(t, &ENG_WAVE, 60, 0.5, 0.5, 0, 0, 0, 0, 0, 0);
-        wv_set(t->p, WV_TATK, 15);
-        s1 = play(t, &ENG_WAVE, 60, 0.5, 0.5, 0, 0, 0, 0, 0, 0);
-        wv_set(t->p, WV_TATK, -16);
-        s2 = play(t, &ENG_WAVE, 60, 0.5, 0.5, 0, 0, 0, 0, 0, 0);
-        wv_set(t->p, WV_TATK, 0);
-        wv_set(t->p, WV_TSUS, -16);
-        s3 = play(t, &ENG_WAVE, 60, 0.5, 0.5, 0, 0, 0, 0, 0, 0);
-        printf("TRANSNT: first 20 ms %.1f dB, ATTCK +15 %.1f, ATTCK -16 %.1f; whole note %.1f, SUSTN -16 %.1f\n",
-               db(s0.first20), db(s1.first20), db(s2.first20), db(s0.rms), db(s3.rms));
-        CHECK(db(s1.first20) > db(s0.first20) + 6, "ATTCK +15: the attack louder");
-        CHECK(db(s2.first20) < db(s0.first20) - 3, "ATTCK -16: the attack faded in");
-        CHECK(db(s3.rms) < db(s0.rms) - 10, "SUSTN -16: the body down");
-        CHECK(s1.peak < 190000, "ATTCK +15 peak %d", s1.peak);
-        wv_set(t->p, WV_TSUS, 0);
     }
     /* 8. DRIVE: every style, PUNSH, TONE */
     {

@@ -138,7 +138,7 @@ def promo(screens, out):
             + at(70, 366, "sub", "for the M-VAVE FM-1", "font-size:36px")
             + at(70, 470, "line", "3 oscillators · 16 waves", "font-size:30px;color:var(--blue)")
             + at(70, 518, "line", "wavetables + reverse", "font-size:30px;color:var(--green)")
-            + at(70, 566, "line", "drive · transient · phaser", "font-size:30px;color:var(--yellow)")
+            + at(70, 566, "line", "drive · phaser · filter", "font-size:30px;color:var(--yellow)")
             + at(70, 614, "line", "chorus · delay · reverb", "font-size:30px;color:var(--orange)")
             + at(70, 728, "small", "free · open source · installs from the browser", "font-size:20px")
             + at(70, 780, "line", URL, "font-size:40px;text-transform:none;letter-spacing:-.01em")
@@ -149,7 +149,7 @@ def promo(screens, out):
             ("3 osc", "sin tri saw sqr", "noise + 10 tables", "synth-osc2-saw", "blue", "hold env"),
             ("wavetable", "basic pwm vocal", "digi fold fm chip", "synth-osc3-vocal", "green", "presets: 16 sounds"),
             ("reverse", "play an oscillator", "backwards", "synth-rev-swell", "yellow", "rev swell"),
-            ("fx", "drive a-e-n-t-p", "transient phaser", "synth-drive", "orange", "+ chorus dly rev"))):
+            ("fx", "drive a-e-n-t-p", "phaser filter", "synth-drive", "orange", "+ chorus dly rev"))):
         x = 40 + i * 390
         cards += (f'<div class="card" style="left:{x}px;top:150px;width:360px;height:710px;border-top:8px solid var(--{c})"></div>'
                   + at(x + 22, 186, "big", title, f"font-size:52px;color:var(--{c})")

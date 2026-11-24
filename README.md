@@ -1,13 +1,35 @@
 > ## BONBLOOP
-> **This tree is BONBLOOP 1.3.1**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
+> **This tree is BONBLOOP 1.7**: SLOOP 2.8.5 exactly as below, plus a **SYNTH MODE** — hold **ENV** for ~0.7 s and the
 > selected track becomes a **3-oscillator synth** (new engine **WAVE**: per oscillator SIN / TRI / SAW / SQR / NOISE or one
 > of 10 wavetables, POS, level, tuning, **REV**erse, its own full **envelope** (no voice envelope in synth mode) and
 > its own **LFO**; a filter; an **FX chain you build**
-> from a Decapitator-style DRIVE, a transient shaper, phaser, DJ filter, chorus, delay and reverb, all off at first;
+> from a Decapitator-style DRIVE, phaser, DJ filter, a **4-band EQ with its curve on screen**, chorus, delay and reverb,
+> all off at first;
 > REC + SAVE held clears the synth; 16 sounds) on screens of its own that stay until you hold ENV again. Also new: chord
-> **voicings** (SEL 2 → VOIC: inversions, drop 2 / 3, spread, +bass) and delay **1/2, 1/2T, FREE ms with FIX**.
+> **voicings** (SEL 2 → VOIC: inversions, drop 2 / 3, spread, +bass), a drum **REPEAT** (tap ARP on the drum track), every
+> triplet on the arp's RATE and the delay's TIME, and a delay **MODE SYNC / MS**. Synth mode starts on a plain sine.
+> 1.6: one **FX chain per project** for tracks 1-3, each track its own amounts and **dry/wet MIX** per effect, and
+> **copy / paste** of a pattern between tracks (SAVE > TOOLS).
+> 1.7: new FX pages outside the synth: the track's **MIXER** (DST MOD DLY REV, all in parallel), a master **COMP**
+> (glue) and **EQ**, then DIST, MOD (chorus / flanger / phaser), DELAY, REVERB, FILTER, SLICER. In the synth:
+> **FX MIX** (one knob per effect of the chain), **OSC MIX**, and SAVE opens **PRESET** to save the sound.
+> And a look of its own: the **Pixelify Sans** pixel font, the **PERI** palette (Pantone Very Peri on black) as the default,
+> and a knob or a fader on every page.
 > Everything else is SLOOP. **Install from the browser: [bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** (Chrome or Edge,
 > the FM-1 on USB). Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.
+>
+> **Identity: `FM-1_962`** (BONBLOOP's own, every version; up to 1.7 it shared SLOOP's `FM-1_900`). The update
+> loader is Felucca's: an interrupted update resumes, and any other FM-1 firmware installs over BONBLOOP again.
+>
+> **Your projects.** BONBLOOP opens the projects, user presets, samples and settings of SLOOP (and of the Felucca
+> family that SLOOP reads) as they are. Its synth extras (the oscillators' envelopes and LFOs, the FX chain, the EQ, the
+> new FX settings) are kept in a side record next to each project: SLOOP opens a BONBLOOP project but without them (a
+> track on the WAVE engine falls back to that track's default sound there). Other firmwares may not read the FM-1's
+> saves at all, or overwrite them: **back up first** (the web editor's backup), whichever way you switch.
+>
+> Sounds: the built-in samples are CC0 (VSCO-2 CE and VCSL by Versilian Studios, the Sonic Pi samples); the free
+> user-slot pack in `assets/hiphop-pack` adds Wurlitzer EP200 samples by Greg Sullivan under CC BY 3.0
+> (`assets/hiphop-pack/CREDITS.txt`). Everything else is made in code.
 
 <p align="center"><img src="assets/logo/sloop-logo.png" alt="SLOOP" width="420"></p>
 

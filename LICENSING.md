@@ -45,7 +45,8 @@ assets, is entirely governed by the GPL.
 | What | Licence | Where |
 | --- | --- | --- |
 | Instrument and drum samples (Versilian Studios VSCO-2 CE, VCSL; Sonic Pi: SCRCH) | CC0 1.0 | `assets/samples-cc0/`, provenance in `ATTRIBUTION.txt` there |
-| Terminus font 8x16: the FM-1's screen (Terminus Bold, ter-u16b, SLOOP 2.6), and the web editor's font (the regular ter-u16n; `tools/gen_webfont.py` makes it a TrueType font inlined in `web/editor.html`) | SIL OFL 1.1 | `assets/fonts/ter-u16b.bdf`, `assets/fonts/ter-u16n.bdf`, `assets/fonts/Terminus-LICENSE.txt` |
+| Pixelify Sans by The Pixelify Sans Project Authors (<https://github.com/eifetx/Pixelify-Sans>): the FM-1's screen since BONBLOOP 1.7 (11 px, its own pixel grid, 1 bit a pixel, `tools/gen_font.py`) | SIL OFL 1.1 | `assets/fonts/PixelifySans-Variable.ttf`, `assets/fonts/PixelifySans-OFL.txt` |
+| Terminus font 8x16: the FM-1's screen up to BONBLOOP 1.6 (Terminus Bold, ter-u16b, SLOOP 2.6), the promo images, and the web editor's font (the regular ter-u16n; `tools/gen_webfont.py` makes it a TrueType font inlined in `web/editor.html`) | SIL OFL 1.1 | `assets/fonts/ter-u16b.bdf`, `assets/fonts/ter-u16n.bdf`, `assets/fonts/Terminus-LICENSE.txt` |
 | Fukiai icon font (Hügelton Instruments), web editor only | MIT | `web/fukiai.ttf`, `web/FUKIAI-LICENSE.txt` |
 | CrispyZebra by Leo Kuroshita (<https://github.com/hugelton/CrispyZebra>): the PHASE engine's waveforms are a C port of its oscillator | GPL-3.0 | `firmware/src/eng_phase.c` |
 | klattsch by Tony Gies (<https://github.com/tgies/klattsch>): design reference for the VOICE (formant) engine; no code copied. Formant data from Klatt (1980) / Hillenbrand et al. (1995) | MIT (klattsch) | credit only |

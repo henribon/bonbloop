@@ -448,6 +448,13 @@ static uint32_t grid_at(uint32_t div, uint32_t sw, uint32_t *into, uint32_t *len
     m = DIV_BEATS[(div - NDIV_SHORT) % 3u];              /* whole beats: the step from the beat count */
     return grid_swing(clk_beat / m, (clk_beat % m) * BEAT_U + clk_pos, BEAT_U * m, sw, into, len);
 }
+/* (BONBLOOP 1.4) the clock on a grid of steps of num / den beats (the arp's RATE: 1/2, 1/2T, 1/4T ...): den steps
+ * every num beats, from the beat count */
+static uint32_t grid_nv(uint32_t num, uint32_t den, uint32_t sw, uint32_t *into, uint32_t *len)
+{
+    uint32_t u = BEAT_U * num / den, x = (clk_beat % num) * BEAT_U + clk_pos;
+    return grid_swing(clk_beat / num * den + x / u, x % u, u, sw, into, len);
+}
 /* swing is for the straight grids inside a beat: off on the triplet grids (on 8T the odd steps would
  * change from one beat to the next, as on most machines) and on steps of whole beats */
 static uint32_t swings(uint32_t div) { return div < 4u; }
@@ -514,7 +521,7 @@ static uint32_t rec_target(const track_t *t, uint32_t *later)
  * It goes into the nearest step as ever, and how far off the grid it was becomes that step's nudge (1/64 of a step:
  * at 120 BPM in 1/16, about 2 ms), when the step held nothing before: a step has one nudge, so a chord's later
  * notes and a second drum sound on a step take the first one's. The arp's notes and the rolls stay on their grid. */
-static uint8_t rec_quant_off;
+static uint8_t rec_quant_off = 1;          /* (BONBLOOP 1.4.2: real time unless the REC screen says QUANT ON) */
 static void rec_micro_set(track_t *t, uint32_t idx, int was_empty)
 {
     if (rec_quant_off && was_empty && idx < NSTEP)
@@ -934,6 +941,8 @@ UI_SMALL static void rec_note(track_t *t, uint32_t note, uint32_t vel, uint32_t 
 
 /* live recording into the drum track: lane, level, ratchet */
 static uint8_t roll_rec;                         /* (2.7) a roll's hit is being recorded (roll_hit) */
+static uint8_t trip_msg;                /* (1.4.2) for the UI: a roll's hit could not keep its time on the drum grid */
+static int8_t roll_m;                   /* (1.4.2) the roll hit being recorded: its time from its step, 1/64 of a step */
 static void rec_hit(track_t *t, uint32_t lane, uint32_t lvl, uint32_t rat)
 {
     uint32_t later, abs = rec_target(t, &later), idx = abs % trk_len(t);
@@ -942,6 +951,11 @@ static void rec_hit(track_t *t, uint32_t lane, uint32_t lvl, uint32_t rat)
     dstep_set(&t->dstep[idx], lane, lvl, rat);
     if (!roll_rec)                                  /* (a roll's hits stay on its grid) */
         rec_micro_set(t, idx, was_empty);
+    else if (was_empty)                             /* (BONBLOOP 1.4.2: a roll's hit at its own time, a triplet too:
+                                                     * the step held nothing, its nudge is the hit's) */
+        t->micro[idx] = roll_m;
+    else if (roll_m - t->micro[idx] > 2 || t->micro[idx] - roll_m > 2)
+        trip_msg = 1;                               /* (a step with other hits keeps its nudge: the hit on its grid) */
     t->seq_active = 1;
     if (later) {
         if (t->rskip_abs != abs)
@@ -1736,7 +1750,7 @@ static int arp_step(track_t *t)
  * each note it plays is recorded (what you hear) */
 static void arp_tick(track_t *t, uint32_t adv)
 {
-    uint32_t div = (uint32_t)t->p[P_ARATE] % NDIV_SHORT, u = div_units(div), into, slen, abs = 0, fire = 0;
+    uint32_t div = ARP_NV[(uint32_t)t->p[P_ARATE] % 10u], u = dly_units(div), into, slen, abs = 0, fire = 0;
     if (t->arp_note) {
         if (t->arp_off <= adv) {
             arp_end(t);
@@ -1751,7 +1765,7 @@ static void arp_tick(track_t *t, uint32_t adv)
         return;
     }
     if (song.playing) {
-        abs = grid_at(div, swings(div) ? swing_units(t->p[P_ASWING], u) : 0u, &into, &slen);
+        abs = grid_nv(NOTE_V[div][0], NOTE_V[div][1], swings(div) ? swing_units(t->p[P_ASWING], u) : 0u, &into, &slen);
         if (t->arp_new) {
             t->arp_new = 0;
             t->arp_abs = into * 4u >= slen * 3u ? abs : abs - 1u;   /* the last quarter: the grid plays it */
@@ -1996,10 +2010,13 @@ static void drum_input(uint32_t lane, uint32_t lvl, uint32_t rat, int rec)
 }
 
 /* -------------------------------------------------------------- roll --- */
-/* ARP + key: note repeat. The key plays at G_ROLL (1/8, 1/16, 1/32, 32T, 1/64) on the transport's grid
+/* ARP + key: note repeat. The key plays at G_ROLL (1/8, 1/16, 1/32, 32T, 1/64; BONBLOOP 1.4: 1/4, 1/8T, 1/16T) on the
+ * transport's grid
  * (stopped: from the press) until it or ARP is up. Recorded, a roll faster than the track's steps
  * becomes ratchets (1/32 on 1/16 steps: x2, 32T: x3, 1/64: x4). */
-static const uint8_t ROLL_DEN[5] = {2, 4, 8, 12, 16};
+static const uint8_t ROLL_NV[10][2] = {{1, 2}, {1, 4}, {1, 8}, {1, 12}, {1, 16}, {1, 1}, {1, 3}, {1, 6}, {2, 3}, {4, 3}};   /* beats
+                                         * = [0] / [1]: 1/8 .. 1/64, (1.4) 1/4 1/8T 1/16T, (1.4.1) 1/4T 1/2T */
+static uint8_t rep_on;                  /* (BONBLOOP 1.4) the drum track's REPEAT (ARP tapped): its keys roll, ARP up */
 #define NROLL 4u
 static struct {
     uint8_t on, key, trk, note, lvl;    /* note: the synth note, or the lane */
@@ -2007,7 +2024,9 @@ static struct {
     uint32_t off;                       /* synth: units to its note-off, 0 = not sounding */
     uint32_t rec_abs;                   /* the step its last recorded hit went into */
 } roll[NROLL];
-static uint32_t roll_den(void) { return ROLL_DEN[(uint32_t)clamp(song.g[G_ROLL], 0, 4)]; }
+static const uint8_t *roll_nv(void) { return ROLL_NV[(uint32_t)clamp(song.g[G_ROLL], 0, 9)]; }
+static uint32_t roll_u(void) { return BEAT_U * roll_nv()[0] / roll_nv()[1]; }
+static uint32_t roll_grid(uint32_t *into, uint32_t *slen) { return grid_nv(roll_nv()[0], roll_nv()[1], 0, into, slen); }
 /* the lanes / notes a roll plays live on track t: the pattern does not play them meanwhile (no flam
  * with what was recorded, nor with what this roll is recording) */
 static uint32_t roll_lanes(const track_t *t)
@@ -2030,13 +2049,20 @@ static int roll_has(const track_t *t, uint32_t note)
 static void roll_hit(uint32_t r)
 {
     track_t *t = &trk[roll[r].trk % NTRK];
-    uint32_t u = BEAT_U / roll_den(), su = div_units((uint32_t)t->p[P_SDIV]);
-    uint32_t hits = su / u, rat = hits > 4u ? 3u : hits > 1u ? hits - 1u : 0u;
+    uint32_t u = roll_u(), su = div_units(trk_div(t)), hits = su / u, rat = hits > 4u ? 3u : hits > 1u ? hits - 1u : 0u;
     uint32_t armed = ((song.rec >> trk_index(t)) & 1u) && song.playing, later, abs = 0, rec = 0;
     if (armed) {                                     /* one recorded hit a step: the ratchet does the rest */
+        uint32_t into, slen, at = trk_grid(t, &into, &slen);
         abs = rec_target(t, &later);
         rec = abs != roll[r].rec_abs;
+        if (!rec && su % u)
+            trip_msg = 1;                            /* (1.4.2: a second hit in one step, 1/16T on 1/16: not kept) */
         roll[r].rec_abs = abs;
+        {   /* (BONBLOOP 1.4.2) where the hit falls, from the step it goes into (the clock's time, no key latency):
+             * the step's nudge on the drums (rec_hit), so 1/2T 1/4T 1/8T keep their time on 1/16 */
+            int32_t m = (int32_t)((into * 64u + slen / 2u) / slen) - (int32_t)(abs - at) * 64;
+            roll_m = (int8_t)(m < MICRO_MIN || m > MICRO_MAX ? 0 : m);
+        }
     }
     if (is_drum(t)) {
         roll_rec = 1;
@@ -2059,7 +2085,7 @@ static void roll_hit(uint32_t r)
 
 static void roll_start(uint32_t k, track_t *t, uint32_t note, uint32_t lvl)
 {
-    uint32_t r, den = roll_den(), into, slen, abs;
+    uint32_t r, into, slen, abs;
     for (r = 0; r < NROLL && roll[r].on; r++)
         ;
     if (r == NROLL)
@@ -2072,7 +2098,7 @@ static void roll_start(uint32_t k, track_t *t, uint32_t note, uint32_t lvl)
     roll[r].off = 0;
     roll[r].rec_abs = SEQ_NONE;
     if (song.playing) {
-        abs = grid_den(den, 0, &into, &slen);
+        abs = roll_grid(&into, &slen);
         roll[r].last = abs;
         if (into * 4u >= slen * 3u)
             return;                                  /* the grid is just ahead: it starts there */
@@ -2095,7 +2121,7 @@ static void roll_end(uint32_t r)
 
 static void roll_block(uint32_t adv)
 {
-    uint32_t r, den = roll_den(), u = BEAT_U / den, into, slen;
+    uint32_t r, u = roll_u(), into, slen;
     for (r = 0; r < NROLL; r++) {
         if (!roll[r].on)
             continue;
@@ -2109,7 +2135,7 @@ static void roll_block(uint32_t adv)
             }
         }
         if (song.playing) {
-            uint32_t abs = grid_den(den, 0, &into, &slen);
+            uint32_t abs = roll_grid(&into, &slen);
             if (abs != roll[r].last) {
                 roll[r].last = abs;
                 roll_hit(r);
@@ -2281,7 +2307,7 @@ static void key_down(uint32_t k)
         uint32_t lane = lane_of_key(k), lvl = key_lvl();
         kb_nt[k][0] = (uint8_t)lane;
         kb_n[k] = 1;
-        if (layer == LY_ROLL) {
+        if (layer == LY_ROLL || (rep_on && layer == LY_PLAY)) {   /* (1.4: REPEAT on, ARP up) */
             kb_kind[k] = KS_ROLL;
             roll_start(k, t, lane, lvl);
             return;
@@ -2426,7 +2452,8 @@ static void keyboard_block(void)
     audition_block();
     /* (2.7: MUTE mode stays when EDIT is let go, until a black key again: the mutes at hand, live; 2.6 went back to
      * erasing) */
-    if (!(layer_buttons() & ly_bit[LY_ROLL]))         /* ARP up (and not locked): the rolls end (the keys stay silent) */
+    if (!(layer_buttons() & ly_bit[LY_ROLL]) && !rep_on)   /* ARP up (and not locked, no REPEAT): the rolls end (the
+                                                         * keys stay silent) */
         for (r = 0; r < NROLL; r++)
             if (roll[r].on && roll[r].key < 27u)        /* (2.7: not the LIVE page's, key 0x80 + note: its pad ends them) */
                 roll_end(r);

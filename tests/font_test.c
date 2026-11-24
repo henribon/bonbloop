@@ -1,14 +1,12 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The screen font (gfx.c cv_text, tools/gen_font.py). SLOOP 2.6: Terminus Bold, in capitals only, stored at 1 bit a
- * pixel (5376 bytes instead of 21504). Checked: every character 32..255 draws exactly the BDF's pixels of its capital
- * (assets/fonts/ter-u16b.bdf, read here); every glyph of FONT_S (1x, Latin-1) and FONT_L (2x) in several colours, at
- * several offsets (clipped at every edge of the canvas, and with a graph y offset), hashed, and the same through the
- * 4-bit format (anti-aliased fonts); the advance and bitmap widths (text_w: the layout of 2.5, unchanged); the data
- * size. Exit status: the number of failed checks. */
+/* The screen font (gfx.c cv_text, tools/gen_font.py). BONBLOOP 1.7: Pixelify Sans (assets/fonts/PixelifySans-
+ * Variable.ttf, SIL OFL 1.1), a pixel font at its own grid (11 px, capitals 7 px) in Terminus' 16-pixel cell (baseline
+ * on row 12), capitals only, every pixel on or off (bits = 1); FONT_L is FONT_S at 2x; FONT_T the names and units, in
+ * an 11-pixel cell. Checked: the format (cell, range, the 2x font on S's bitmaps); every glyph drawn has ink inside its
+ * cell and nothing outside its bitmap; lower case shows as capitals in the same place; the figures are one width; the
+ * U with umlaut is its own glyph (127), not '?'; the 5-letter labels fit a column's 41 pixels; one lit level (no
+ * blur); the capitals 7 pixels tall, on the baseline; the data size. Exit status: the failed checks. */
 #include <stdint.h>
-#define FONT_S_HASH 0x1c34aa9cu         /* Terminus Bold, capitals (2.6) */
-#define FONT_L_HASH 0x730ceccbu
-#define FONT_W_HASH 0x6840d800u         /* the widths of 2.5 (the regular font's): the same */
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -17,6 +15,7 @@ static void lcd_blit(uint32_t x, uint32_t y, uint32_t w, uint32_t h, const uint1
 #define __attribute__(x)         /* (as tests/hostsim.c: gfx.c puts its canvas in the pool section, which clang on
                                  * macOS refuses for a host build; sloop-lab, 11/10/2026) */
 #include "../firmware/src/gfx.c"
+static uint32_t st_crc32(const void *p, uint32_t n) { (void)p; (void)n; return 0; }   /* (storage.c's: not here) */
 static int bad;
 static void check(int ok, const char *what) { printf("font: %-70s %s\n", what, ok ? "ok" : "FAIL"); bad += !ok; }
 static uint32_t hash_cv(uint32_t h)
@@ -26,103 +25,125 @@ static uint32_t hash_cv(uint32_t h)
         h = (h ^ cv_px[i]) * 16777619u;
     return h;
 }
-static uint32_t render_all(const felucca_font_t *f, uint32_t ch_hi)
+/* one character drawn at (8, 4) on a 40 x 40 black canvas in white: its lit pixels, and whether all of them lie in
+ * x 8 - pad .. 8 - pad + bw - 1 and in the cell's rows */
+static uint32_t ink(const felucca_font_t *f, uint32_t c, int *inside)
 {
-    static const uint16_t COL[4] = {0xFFFFu, 0x07E0u, 0xF81Fu, 0x39E7u};
-    static const int32_t XY[6][3] = {{0, 0, 0}, {5, 3, 0}, {-3, 0, 0}, {50, -5, 0}, {52, 30, 0}, {10, 4, -9}};
-    uint32_t h = 0x811C9DC5u, c, k, i;
-    char s[2] = {0, 0};
-    for (c = f->first; c <= ch_hi; c++)
-        for (k = 0; k < 4u; k++)
-            for (i = 0; i < 6u; i++) {
-                cv_begin(64, 48, 0);
-                cv_oy = XY[i][2];
-                s[0] = (char)c;
-                cv_text(XY[i][0], XY[i][1], f, s, COL[k]);
-                cv_oy = 0;
-                h = hash_cv(h);
+    char s[2] = {(char)c, 0};
+    uint32_t gi = glyph(f, c), x, y, n = 0;
+    int32_t x0 = 8 - (int32_t)f->pad, x1 = x0 + (int32_t)f->bw[gi];
+    cv_begin(40, 40, 0);
+    cv_text(8, 4, f, s, 0xFFFFu);
+    *inside = 1;
+    for (y = 0; y < 40u; y++)
+        for (x = 0; x < 40u; x++)
+            if (cv_px[y * 40u + x]) {
+                n++;
+                if ((int32_t)x < x0 || (int32_t)x >= x1 || y < 4u || y >= 4u + f->h)
+                    *inside = 0;
             }
-    cv_begin(240, 40, 0);                                   /* a line of text, as the pages draw it */
-    cv_text(2, 2, &FONT_S, "SLOOP 2.5 HUGELTON BPM 96 -12.5 dB", 0xFFFFu);
-    cv_text(2, 18, &FONT_S, "\xdc\xe9\xb0\xb1 kick snare", 0x07E0u);
-    return hash_cv(h);
+    return n;
 }
-/* the BDF's bitmaps, 16 rows of 8 pixels a character */
-static uint8_t bdf[256][16], bdf_has[256];
-static int bdf_read(const char *path)
-{
-    FILE *f = fopen(path, "r");
-    char ln[128];
-    int enc = -1, row = -1;
-    if (!f) return 0;
-    while (fgets(ln, sizeof ln, f)) {
-        unsigned v;
-        if (!strncmp(ln, "ENCODING ", 9)) enc = atoi(ln + 9), row = -1;
-        else if (!strncmp(ln, "BITMAP", 6)) row = 0;
-        else if (!strncmp(ln, "ENDCHAR", 7)) { if (enc >= 0 && enc < 256 && row == 16) bdf_has[enc] = 1; row = -1; }
-        else if (row >= 0 && row < 16 && enc >= 0 && enc < 256 && sscanf(ln, "%x", &v) == 1) bdf[enc][row++] = (uint8_t)v;
-    }
-    fclose(f);
-    return 1;
-}
-static uint32_t capital(uint32_t c) { return (c >= 'a' && c <= 'z') || (c >= 0xE0u && c <= 0xFEu && c != 0xF7u) ? c - 32u : c; }
 
-int main(int argc, char **argv)
+int main(void)
 {
-    uint32_t hs = render_all(&FONT_S, 255u), hl = render_all(&FONT_L, 95u), wsum = 0, c;
-    for (c = 0; c < 224u; c++) wsum = wsum * 31u + FONT_S.adv[c] * 7u + FONT_S.bw[c];
-    for (c = 0; c < 64u; c++) wsum = wsum * 31u + FONT_L.adv[c] * 7u + FONT_L.bw[c];
-    if (argc > 1) {
-        printf("%08x %08x %08x %u\n", hs, hl, wsum, (unsigned)sizeof FONT_S_DATA);
-        return 0;
+    uint32_t c, bare = 0, out = 0, levels = 0, i;
+    int inside;
+    check(FONT_S.h == 16u && FONT_S.first == 32u && FONT_S.last == 127u && FONT_S.bits == 1u,
+          "FONT_S: Pixelify Sans in the 16-pixel cell, 32..127, 1 bit a pixel");
+    check(FONT_L.data == FONT_S.data && FONT_L.sh == 1u && FONT_L.h == 32u && FONT_L.bits == 1u,
+          "FONT_L: FONT_S's bitmaps drawn at 2x (no copy)");
+    for (c = 33; c < 127u; c++) {                     /* every character but the space: ink, inside its box */
+        if ((c >= 'a' && c <= 'z') || c == '{' || c == '}')
+            continue;
+        if (!ink(&FONT_S, c, &inside))
+            bare++;
+        out += !inside;
     }
-    {   /* every character: the BDF's pixels of its capital, nothing else in its 12 x 16 box */
-        uint32_t c, x, y, wrong = 0, n = 0;
-        char s[2] = {0, 0};
-        int got = bdf_read("assets/fonts/ter-u16b.bdf");
-        for (c = 32; got && c < 256u; c++) {
-            uint32_t k = capital(c);
-            if (c >= 127u && c < 160u) continue;            /* (C1 controls: '?') */
-            if (!bdf_has[k]) k = '?';
-            cv_begin(12, 16, 0);
-            s[0] = (char)c;
-            cv_text(FONT_PAD, 0, &FONT_S, s, 0xFFFFu);
-            for (y = 0; y < 16u; y++)
-                for (x = 0; x < 12u; x++) {
-                    int on = x >= FONT_PAD && x < FONT_PAD + 8u && ((bdf[k][y] >> (7u - (x - FONT_PAD))) & 1u);
-                    wrong += (cv_px[y * 12u + x] != 0) != on;
-                }
-            n++;
+    check(!bare && !out, "every character drawn: some ink, all of it inside its bitmap and the cell");
+    {
+        uint32_t a, b;
+        ink(&FONT_S, 0xDCu, &inside);
+        a = hash_cv(1u);
+        ink(&FONT_S, '?', &inside);
+        b = hash_cv(1u);
+        check(a != b && glyph(&FONT_S, 0xDCu) == 127u - 32u && glyph(&FONT_S, 0xFCu) == 127u - 32u,
+              "the U with umlaut (HUGELTON) is its own glyph, not '?' (upper and lower case)");
+    }
+    {
+        cv_begin(120, 20, 0);
+        cv_text(2, 2, &FONT_S, "kick 12", 0xFFFFu);
+        c = hash_cv(1u);
+        cv_begin(120, 20, 0);
+        cv_text(2, 2, &FONT_S, "KICK 12", 0xFFFFu);
+        check(c == hash_cv(1u) && text_w(&FONT_S, "kick") == text_w(&FONT_S, "KICK"),
+              "lower case shows as capitals, in the same place");
+    }
+    for (c = '1'; c <= '9'; c++)
+        if (FONT_S.adv[c - 32u] != FONT_S.adv[0])
+            break;
+    for (c = '1'; c <= '9' && FONT_S.adv[c - 32u] == FONT_S.adv['0' - 32u]; c++)
+        ;
+    check(c > '9', "the figures all one width (a value does not wobble as it turns)");
+    {
+        static const char *const W[] = {"PUNSH", "DTUNE", "SLOT1", "RANGE", "SYNTH", "SWING", "DEPTH", "RATIO"};
+        int32_t widest = 0;
+        for (i = 0; i < sizeof W / sizeof W[0]; i++)
+            widest = text_w(&FONT_S, W[i]) > widest ? text_w(&FONT_S, W[i]) : widest;
+        check(widest <= 41, "the 5-letter labels fit a column's 41 pixels");
+    }
+    {   /* a pixel font: an O on black, in white, has one lit level (no half-lit edge) */
+        uint16_t seen[4] = {0, 0, 0, 0};
+        uint32_t n = 0;
+        cv_begin(40, 40, 0);
+        cv_text(8, 4, &FONT_S, "O", 0xFFFFu);
+        for (i = 0; i < 1600u; i++) {
+            uint16_t v = cv_px[i], k;
+            if (!v)
+                continue;
+            for (k = 0; k < n && seen[k] != v; k++)
+                ;
+            if (k == n && n < 4u)
+                seen[n++] = v;
         }
-        check(got && n == 191u && wrong == 0, "every character 32..255: the Terminus Bold pixels of its capital (ter-u16b.bdf)");
-        cv_begin(240, 16, 0); cv_text(0, 0, &FONT_S, "kick snare h\xfcgelton", 0xFFFFu); x = hash_cv(1u);
-        cv_begin(240, 16, 0); cv_text(0, 0, &FONT_S, "KICK SNARE H\xdcGELTON", 0xFFFFu);
-        check(x == hash_cv(1u) && text_w(&FONT_S, "kick") == text_w(&FONT_S, "KICK"), "lower case shows as capitals, in the same place");
+        levels = n;
+        check(levels == 1u, "one lit level: every pixel on or off, sharp");
     }
-    check(hs == FONT_S_HASH, "FONT_S: every glyph, 4 colours, 6 places (clipped)");
-    check(hl == FONT_L_HASH, "FONT_L (2x): every glyph, 4 colours, 6 places (clipped): S's bitmaps at 2x");
-    check(wsum == FONT_W_HASH, "advance and bitmap widths unchanged (the layout)");
-    {   /* the 4-bit path (anti-aliased fonts) still draws: FONT_S unpacked to 2 pixels a byte, the same pixels */
-        static uint8_t d4[21504];
-        static uint16_t off4[224];
-        felucca_font_t s4 = FONT_S, l4 = FONT_L;
-        uint32_t g, n = 0, y, xx;
-        for (g = 0; g < 224u; g++) {
-            uint32_t w = FONT_S.bw[g], bpr = (w + 1u) / 2u;
-            off4[g] = (uint16_t)n;
-            for (y = 0; y < FONT_S.h; y++)
-                for (xx = 0; xx < w; xx++) {
-                    uint32_t i = y * w + xx, on = (FONT_S_DATA[FONT_S_OFF[g] + i / 8u] >> (7u - i % 8u)) & 1u;
-                    if (on)
-                        d4[n + y * bpr + xx / 2u] |= (uint8_t)(xx & 1u ? 15u : 15u << 4);
+    {   /* the capitals 7 pixels tall, standing on row 12 (the baseline, as Terminus and Inter Tight before) */
+        uint32_t top = 99, bot = 0, y, x;
+        cv_begin(40, 40, 0);
+        cv_text(8, 4, &FONT_S, "H", 0xFFFFu);
+        for (y = 0; y < 40u; y++)
+            for (x = 0; x < 40u; x++)
+                if (cv_px[y * 40u + x]) {
+                    top = y < top ? y : top;
+                    bot = y > bot ? y : bot;
                 }
-            n += FONT_S.h * bpr;
-        }
-        s4.data = l4.data = d4; s4.off = l4.off = off4; s4.bits = l4.bits = 0;
-        check(n == 21504u && render_all(&s4, 255u) == FONT_S_HASH && render_all(&l4, 95u) == FONT_L_HASH,
-              "the 4-bit format (anti-aliased fonts) still draws the same pixels");
+        check(bot - top + 1u == 7u && bot == 4u + 11u, "the capitals 7 pixels tall, on the baseline (row 12)");
     }
-    check(sizeof FONT_S_DATA == 5376u && FONT_S.bits == 1u, "the Terminus bitmaps at 1 bit a pixel: 5376 bytes (21504 at 4 bits)");
+    check(sizeof FONT_S_DATA <= 1536u, "the bitmaps in 1.5 KB at most (Terminus took 5376 bytes)");
+    /* (1.7) FONT_T: the names over the values and the units beside them, the same letters a pixel apart */
+    check(FONT_T.h == 11u && FONT_T.first == 32u && FONT_T.last == 127u && FONT_T.bits == 1u && FONT_T.sh == 0u &&
+          FONT_T.data != FONT_S.data, "FONT_T: its own bitmaps, the 11-pixel cell, 32..127, 1 bit a pixel");
+    for (c = 33, bare = out = 0; c < 127u; c++) {
+        if ((c >= 'a' && c <= 'z') || c == '{' || c == '}')
+            continue;
+        if (!ink(&FONT_T, c, &inside))
+            bare++;
+        out += !inside;
+    }
+    check(!bare && !out, "FONT_T: every character drawn, all of it inside its bitmap and the cell");
+    {
+        static const char *const N[] = {"PUNSH", "DTUNE", "SLOT1", "RANGE", "PHASR", "DELAY", "RELEASE", "THRESH"};
+        int32_t widest = 0, spaced = 1;
+        for (i = 0; i < sizeof N / sizeof N[0]; i++) {
+            if (i < 6u)                              /* (the column names; RELEASE, THRESH: the COMP's, given room) */
+                widest = text_w(&FONT_T, N[i]) > widest ? text_w(&FONT_T, N[i]) : widest;
+            spaced &= text_w(&FONT_T, N[i]) == text_w(&FONT_S, N[i]) + (int32_t)strlen(N[i]);   /* (a pixel apart) */
+        }
+        check(widest <= 41 && spaced, "FONT_T: the letters a pixel further apart, a column's names in its 41 pixels");
+    }
+    check(sizeof FONT_T_DATA <= 1024u, "FONT_T: the bitmaps in 1 KB at most");
     printf("%s\n", bad ? "FONT TEST FAILED" : "font test passed");
     return bad;
 }

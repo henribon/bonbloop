@@ -37,7 +37,8 @@ UI_SMALL static uint32_t cur_btn(void)                      /* the button of the
     if (!ui.home && cur_page()->scope == SC_DRUM)
         return B_SEQ;
     if (on_syn_page())                                      /* BONBLOOP: the button of the synth page's group */
-        return SYN_BTN[syn_group_at(ui.page) & 3u];
+        return ui.page >= page_first(FAM_SYN) + SYN_GRP[4] ? B_SAVE : SYN_BTN[syn_group_at(ui.page) & 3u];   /* (1.7:
+                                                         * PRESET, SAVE's) */
     return FAM_BTN[cur_fam()];
 }
 
@@ -225,6 +226,8 @@ UI_SMALL static void ui_leds(void)
     }
     led_put(nl, panel.btn[ui.layer != LY_PLAY ? LAYER_BTN[ui.layer] : cur_btn()],
             ly_lock == LY_PLAY || ((fm1_ms / 300u) & 1u) != 0u || (fm1_in.buttons & ly_bit[ly_lock % LY_COUNT]) != 0u);   /* locked: blinks */
+    if (rep_on && is_drum(TSEL))
+        led_put(nl, panel.btn[B_ARP], 1);               /* (1.4) REPEAT */
     led_put(nl, panel.btn[B_PLAY], play_led() || (song.playing && !song.rec && ft_on) ||
                                       (ci_on && ci_u % BEAT_U < BEAT_U / 4u));   /* (the count-in's beats) */
     led_put(nl, panel.btn[B_REC], song.rec != 0u || ft_on || (rec_wait && ((fm1_ms / 125u) & 1u)) ||
@@ -489,18 +492,64 @@ UI_SMALL static void project_new(void)
             i != G_BEND && i != G_FXCH && i != G_DRMAP && i != G_RMCH && i != G_CLKOUT && i != G_FXFADE)                                                                     /* (the
                                                                  * FM-1's settings: GLO > MIDI 2.6) */
             song.g[i] = GP[i].def;
+    synx[NPART].w[4] = EQ_W4, synx[NPART].w[5] = 0;     /* (BONBLOOP 1.7) FX > EQ, the master's: flat */
     song.solo = 0;
     song.octave = 0;
     sync_reload = 1;
     ui.force = 1;
 }
 
+/* (BONBLOOP 1.6) SAVE > TOOLS COPY / TOOLS 2 PASTE: a track's pattern (its steps, nudges, fill conditions, locks and
+ * LEN, DIV, SWING, GATE) into another, a synth track's into a synth track, the drums' into the drums (undo: EDIT + OCT-).
+ * A lock is pasted only onto the same engine (it holds a value of that sound) */
+static struct {
+    uint8_t kind, eng;                                    /* 0 nothing yet, 1 a synth track's, 2 the drums' */
+    step_t step[NSTEP];
+    int8_t micro[NSTEP];
+    uint8_t fill[NSTEP / 4u];
+    plock_t lock[NLOCK];
+    int16_t pat[4];
+} clip;
+UI_SMALL static void pat_clip(int paste)
+{
+    track_t *t = TSEL;
+    uint32_t kind = is_drum(t) ? 2u : 1u, i;
+    char b[2] = {(char)('1' + song.sel), 0};
+    if (!paste) {
+        clip.kind = (uint8_t)kind;
+        clip.eng = t->eng_req;
+        memcpy(clip.step, t->step, sizeof clip.step);
+        memcpy(clip.micro, t->micro, sizeof clip.micro);
+        memcpy(clip.fill, t->fill, sizeof clip.fill);
+        memcpy(clip.lock, t->lock, sizeof clip.lock);
+        for (i = 0; i < 4u; i++)
+            clip.pat[i] = t->p[P_SLEN + i];
+        ui_say("COPIED TRACK ", b);
+        return;
+    }
+    if (clip.kind != kind) {
+        ui_message(clip.kind ? "DRUMS / SYNTH: NO" : "COPY A PATTERN FIRST");
+        return;
+    }
+    undo_mark(t, (undo_sess += 4u) | 3u);
+    fm1_irq_off();
+    memcpy(t->step, clip.step, sizeof t->step);
+    memcpy(t->micro, clip.micro, sizeof t->micro);
+    memcpy(t->fill, clip.fill, sizeof t->fill);
+    for (i = 0; i < NLOCK; i++)
+        t->lock[i] = clip.eng == t->eng_req ? clip.lock[i] : (plock_t){LOCK_FREE, 0, 0};
+    for (i = 0; i < 4u; i++)
+        t->p[P_SLEN + i] = clip.pat[i];
+    t->seq_active = 1;
+    fm1_irq_on();
+    ui_say("PASTED TO TRACK ", b);
+}
 UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
 {
     int16_t *vp;
     const page_t *pg = cur_page();
     const param_desc_t *d;
-    uint32_t id = pg->id[slot];
+    uint32_t id = page_id(pg, slot);                      /* (BONBLOOP 1.7: FX MIX's, the drums' MIXER) */
     int32_t v;
     int glob = pg->scope == SC_GLOBAL;
     if (is_drum(TSEL) && !page_for_drum(pg))
@@ -560,20 +609,39 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     d = page_desc(pg, slot, &vp);
     if (!d || !vp || d->max == d->min)
         return;
-    v = d->names == ESYNC_NAMES || d->names == N_IBITS || d->names == N_IRATE ? names_turn(d, *vp, steps)   /* (a name a detent) */
-                                    : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
+    {
+        uint32_t no;
+        const uint8_t *o = note_order(d, &no);
+        v = d->names == ESYNC_NAMES || d->names == N_IBITS || d->names == N_IRATE ? names_turn(d, *vp, steps)   /* (a name a
+                                                                                                            * detent) */
+            : o ? order_turn(o, no, *vp, steps)         /* (1.4: the note values in order) */
+                : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
+    }
     *vp = (int16_t)v;
-    if (wv_commit(TSEL, vp))                              /* BONBLOOP: a field of WAVE's packed words (no lock, no learn) */
+    if (wv_commit(glob ? &trk[NPART] : TSEL, vp))         /* BONBLOOP: a field of WAVE's packed words (no lock, no learn;
+                                                         * 1.7: on FX > EQ the master's) */
         return;
     if (id >= VG0 && id < VG0 + VG_N)                     /* (1.2) a global on a synth page: as on its own page */
         id = VG_MAP[id - VG0], glob = 1;
+    if (glob && id == G_DFIX) {                           /* (1.4) the delay's MODE: MS from the note value playing (its
+                                                         * time kept), SYNC back to the note value it had */
+        static uint8_t div = 1;
+        if (v && song.g[G_DTIME] != (int16_t)DLY_FREE) {
+            div = (uint8_t)song.g[G_DTIME];
+            song.g[G_DMS] = (int16_t)clamp((int32_t)(dly_samples(div) * 10u / 441u), GP[G_DMS].min, GP[G_DMS].max);
+            song.g[G_DTIME] = (int16_t)DLY_FREE;
+        } else if (!v && song.g[G_DTIME] == (int16_t)DLY_FREE) {
+            song.g[G_DTIME] = div;
+        }
+        return;
+    }
     if (!glob && p_lockable(id))
         ui.lock_par = (uint8_t)id;                        /* the SEQ layer's lock parameter: the last one touched */
     if (!glob)
         ml_knob(TSEL, id);                                /* MIDI LEARN: this parameter (2.6) */
     if (!v)
         return;
-    if (glob && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ) &&
+    if (glob && (id == G_LOAD || id == G_SAVE || id == G_CLRSEQ || id == G_INITSND || id == G_NEWPRJ || id == G_PPASTE) &&
         ui.arm != id) {                                   /* one detent arms, a second one within ~1.5 s acts */
         *vp = 0;
         ui.arm = (uint8_t)id;
@@ -585,17 +653,11 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
     if (!glob)
         return;
     switch (id) {                                         /* GO buttons: act, then back to 0 */
-    case G_DFIX: {                                        /* (BONBLOOP 1.2) the delay's time, kept: FREE at its ms */
-        char b[8];
+    case G_PCOPY:                                         /* (BONBLOOP 1.6) the selected track's pattern, kept */
+    case G_PPASTE:
         *vp = 0;
-        if (song.g[G_DTIME] != DLY_FREE)
-            song.g[G_DMS] = (int16_t)clamp((int32_t)(dly_samples((uint32_t)song.g[G_DTIME]) * 10u / 441u),
-                                           GP[G_DMS].min, GP[G_DMS].max);
-        song.g[G_DTIME] = DLY_FREE;
-        fmt_int(b, song.g[G_DMS]);
-        ui_say("DELAY FIXED MS ", b);
+        pat_clip(id == G_PPASTE);
         break;
-    }
     case G_LOAD:
         *vp = 0;
         project_load((uint32_t)song.g[G_SLOT] - 1u);
@@ -795,8 +857,23 @@ UI_SMALL static uint32_t btn_hold(uint32_t *t0, uint32_t label, uint32_t now, in
 /* a layer button tapped (pressed and let go, nothing touched): its pages, as before the layers */
 UI_SMALL static void layer_tap(uint32_t layer)
 {
-    if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL,
-                                                       * GLO and SAVE tapped open nothing (held, their layers as ever) */
+    if (layer == LY_ROLL && is_drum(TSEL)) {            /* (BONBLOOP 1.4) ARP on the drum track: REPEAT on / off (ARP
+                                                         * lit): the keys held roll at ARP + KNOB 1's rate */
+        rep_on ^= 1u;
+        ui_say(rep_on ? "REPEAT " : "REPEAT OFF", rep_on ? N_ROLL[clamp(song.g[G_ROLL], 0, 9)] : "");
+        return;
+    }
+    if (syn_mode && layer == LY_SONG) {                 /* (BONBLOOP 1.7) SAVE in the SYNTH MODE: its PRESET page (the user
+                                                         * presets: SLOT LOAD ERASE SAVE) */
+        ui.page = (uint8_t)(page_first(FAM_SYN) + SYN_GRP[4]);
+        ui.fam_last[FAM_SYN] = ui.page;
+        ui.home = 0;
+        ui.force = 1;
+        page_entered();
+        return;
+    }
+    if (syn_mode && layer != LY_FX && layer != LY_ERASE) {   /* BONBLOOP 1.1: the SYNTH MODE keeps the screen: ARP, SEQ, SEL
+                                                       * and GLO tapped open nothing (held, their layers as ever) */
         ui_message("HOLD ENV: SYNTH OFF");
         return;
     }
@@ -1146,6 +1223,13 @@ UI_SMALL static void remote_poll(void)
 /* BONBLOOP: ENV held 0.7 s: the SYNTH MODE on, or off again (ui.c syn_mode). On: the selected track (track 1 when the
  * drums are selected) plays WAVE, its first sound unless it plays WAVE already; the wavetable page opens. Off: the ENV
  * page, as SLOOP (the sound stays: PRESETS gives the others back) */
+/* (1.4) the synth as it starts: SINE (OSC 1 a sine, the others off, no effect, no LFO; the track's filter open) */
+UI_SMALL static void syn_sine(void)
+{
+    set_engine(ENGI_WAVE);
+    apply_preset(WAVE_SINE);
+    TSEL->p[P_TFLT] = 0;
+}
 UI_SMALL static void syn_toggle(void)
 {
     if (syn_mode) {
@@ -1158,10 +1242,8 @@ UI_SMALL static void syn_toggle(void)
     }
     if (is_drum(TSEL))
         track_select(0);
-    if (TSEL->eng_req % NENGINES != ENGI_WAVE) {
-        set_engine(ENGI_WAVE);                          /* (its sound: every effect off, 1.2) */
-        TSEL->p[P_TFLT] = 0;
-    }
+    if (TSEL->eng_req % NENGINES != ENGI_WAVE)
+        syn_sine();                                     /* (1.4: a sine; a track already WAVE keeps its sound) */
     syn_mode = 1;
     syn_splash = 50;
     syn_route(FAM_EDIT);
@@ -1170,8 +1252,7 @@ UI_SMALL static void syn_toggle(void)
 /* (1.2) REC + SAVE held in the SYNTH MODE: the selected track's synth as it starts, its notes kept */
 UI_SMALL static void syn_clear(void)
 {
-    set_engine(ENGI_WAVE);                              /* (its first sound, every effect off, the chain empty) */
-    TSEL->p[P_TFLT] = 0;
+    syn_sine();                                         /* (1.4: the sine, every effect off, the chain empty) */
     syn_home();                                         /* (OSC 1) */
     ui_message("SYNTH CLEARED");
 }
@@ -1193,6 +1274,10 @@ UI_SMALL static void syn_presets(int32_t s)
 UI_SMALL static void ui_input(void)
 {
     static uint32_t env_t0;                             /* (BONBLOOP) ENV's press time: held, the SYNTH MODE */
+    if (trip_msg) {                                     /* (1.4.2) a roll's hit that could not keep its time (seq.c) */
+        ui_message("TRIPLETS: DIV 16T");
+        trip_msg = 0;
+    }
     uint32_t pressed = fm1_input_edges(0), notes = fm1_input_note_edges(), now = fm1_ticks(), id, b, k;
     uint32_t home = btn_hold(&ui.home_t0, B_HOME, now, 1);
     uint32_t envh = btn_hold(&env_t0, B_ENV, now, !ui.menu);

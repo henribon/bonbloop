@@ -421,11 +421,27 @@ int main(int argc, char **argv)
     /* ---- ARP layer: a roll, rate knob */
     press(B_ARP); frames(10);
     encs[panel.enc[EN_K1]] = 1; frame();
-    check(song.g[G_ROLL] == 2, "ARP + KNOB 1: the roll rate (1/32)");
+    check(song.g[G_ROLL] == 7, "ARP + KNOB 1: the roll rate, after 1/16: 1/16T (BONBLOOP 1.4: in musical order)");
+    encs[panel.enc[EN_K1]] = 1; frame();
+    check(song.g[G_ROLL] == 2, "ARP + KNOB 1 again: 1/32");
     fm1_in.notes = 1u << 7; frames(3); check(roll[0].on, "ARP + a key: it rolls");
     ppm("layer-roll");
     fm1_in.notes = 0; frame(); check(!roll[0].on, "key up: the roll ends");
     release(B_ARP);
+    {   /* ---- (BONBLOOP 1.4) REPEAT: ARP tapped on the drum track */
+        uint32_t was = song.sel;
+        song.sel = TRK_DRUM; frame();
+        rep_on = 0;                                     /* (an ARP tap on the drums above turned it on) */
+        tap(B_ARP); frames(2);
+        check(rep_on == 1, "drum track: ARP tapped: REPEAT on");
+        fm1_in.notes = 1u << 7; frames(3); check(roll[0].on, "REPEAT: a key held rolls, ARP up");
+        fm1_in.notes = 0; frame(); check(!roll[0].on, "REPEAT: key up, it stops");
+        tap(B_ARP); frames(2);
+        check(!rep_on, "ARP tapped again: REPEAT off");
+        fm1_in.notes = 1u << 7; frames(3); check(!roll[0].on, "REPEAT off: a key plays once, no roll");
+        fm1_in.notes = 0; frame();
+        song.sel = (uint8_t)was; frame();
+    }
 
     /* ---- SEL: the key of the song; GLO: mute, solo, tap */
     song.sel = 0; go_home(); frame();
@@ -666,13 +682,19 @@ int main(int argc, char **argv)
         check((lights_word() >> 9 & 3u) == 3u, "REC screen: MODE and START saved with the settings");
         encs[panel.enc[EN_K4]] = -1; frame();         /* (2.7) KNOB 4: QUANT off */
         {
-            int ok = rec_quant_off == 1u && (lights_word() >> 31 & 1u);
+            int ok = rec_quant_off == 1u && !(lights_word() >> 31 & 1u);   /* (BONBLOOP 1.4.2: bit 31 = QUANT ON) */
             ui.force = 1; frame(); ppm("live-rec-quant");
             lights_from_word(lights_word());
             ok &= rec_quant_off == 1u;
             encs[panel.enc[EN_K4]] = 1; frame();
-            ok &= rec_quant_off == 0u && !(lights_word() >> 31 & 1u);
-            check(ok, "REC screen (2.7): KNOB 4 -> QUANT off / on, saved with the settings (bit 31)");
+            ok &= rec_quant_off == 0u && (lights_word() >> 31 & 1u);
+            {
+                uint32_t keep = lights_word();
+                lights_from_word(keep & ~(1u << 31));
+                ok &= rec_quant_off == 1u;              /* (a word of before, bit 31 clear: real time) */
+                lights_from_word(keep);
+            }
+            check(ok, "REC screen (2.7): KNOB 4 -> QUANT off / on, saved (bit 31 = ON); 1.4.2: off unless saved ON");
         }
         ci_on = 1; ci_beat = 1; ui.force = 1; frame(); ppm("live-rec-countin");
         encs[panel.enc[EN_K1]] = -1; frame();
@@ -1208,21 +1230,39 @@ int main(int argc, char **argv)
         check(!strcmp(PT(), "LFO 2"), "SELECT left: the page before");
         SEL(-1);
         check(!strcmp(PT(), "LFO"), "SELECT left: LFO");
-        tap(B_FX); SEL(1);
-        check(!strcmp(PT(), "FILTER"), "SELECT on FX: next page, the track FILTER");
+        tap(B_FX);
+        check(!strcmp(PT(), "MIXER") && !strcmp(TP[P_CHOR].label, "MOD"), "BONBLOOP 1.7: FX opens the track's MIXER (DST MOD DLY REV)");
+        SEL(1);
+        check(!strcmp(PT(), "COMP") && cur_page()->graph == GR_COMP, "SELECT on FX: next page, COMP (the master's, its meter)");
+        {   /* 1.7: the COMP view: a note in, the meter up; THRS down, a reduction shown */
+            int16_t thr0 = song.g[G_KTHR];
+            fm1_in.notes |= 1u << 12;
+            frames(20);
+            check(km_px[0] > 20u && km_px[1] > 20u && !km_px[2], "1.7: COMP page: the input's meter up (left, right), off: no reduction");
+            song.g[G_KTHR] = -36;
+            frames(20);
+            ui.force = 1; frame(); ppm("page-comp");
+            check(km_px[2] > 0u, "1.7: COMP page: THRS -36 dB: the reduction shown");
+            fm1_in.notes &= ~(1u << 12);
+            song.g[G_KTHR] = thr0;
+            frames(80);
+            check(km_px[0] < 10u, "1.7: COMP page: the meter falls back");
+        }
+        SEL(7);
+        check(!strcmp(PT(), "FILTER"), "SELECT on FX: EQ 1, EQ 2, DIST, MOD, DELAY, REVERB, then the track FILTER");
         TSEL->p[P_TFLT] = -32; ui.force = 1; frames(2); ppm("page-filter");
         check(!strcmp(ui.big_l[0], "FILT") && !strcmp(ui.big_v[0], "LP50") && !ui.big_l[1][0],
               "FILTER page: its one value drawn large (LP50 %)");
-        {   /* the big value in the graph strip: white pixels in the middle of the screen */
+        {   /* (BONBLOOP 1.7) the one value as a big knob in the middle of the graph strip: its ring lit */
             uint32_t x, y, lit = 0;
-            for (y = Y_GRAPH + 30; y < Y_GRAPH + 90; y++)
-                for (x = 40; x < 200; x++)
+            for (y = Y_GRAPH + 10; y < Y_GRAPH + 84; y++)
+                for (x = 80; x < 160; x++)
                     lit += screen[y * 240u + x] != 0;
-            check(lit > 300u, "FILTER page: the graph strip shows it");
+            check(lit > 300u, "FILTER page: the graph strip shows it, a big knob (1.7)");
         }
         TSEL->p[P_TFLT] = 0;
         SEL(9);
-        check(!strcmp(PT(), "REV/CHO"), "SELECT on FX: on to the last page, REV/CHO");
+        check(!strcmp(PT(), "SLICER"), "SELECT on FX: on to the last page, the SLICER (BONBLOOP 1.7)");
         tap(B_EDIT); SEL(-9);
         check(!strcmp(PT(), "EDIT 1"), "SELECT on EDIT: back to the first page");
         SEL(9);
@@ -1676,8 +1716,8 @@ int main(int argc, char **argv)
         check(er_mute == 0u, "2.7: a black key again: back to erasing, also after EDIT is let go");
         drum_mute = 0;
         TDRUM->dstep[0] = (dstep_t){0};
-        WALK(FAM_FX, "INSERT", ins_d);
-        check(ins_d, "the drum track: the INSERT page in FX");
+        WALK(FAM_FX, "MIXER", ins_d);
+        check(ins_d, "the drum track: the MIXER page in FX (BONBLOOP 1.7)");
         go_home(); frames(16);
 
         song.sel = 0; set_engine_of(&trk[0], 0); trk[0].engine = trk[0].eng_req; go_home(); frame();

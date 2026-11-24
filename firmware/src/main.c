@@ -169,6 +169,7 @@ UI_SMALL static void felucca_init(void)
     uint32_t i;
     for (i = 0; i < G_COUNT; i++)
         song.g[i] = GP[i].def;
+    synx[NPART].w[4] = EQ_W4;                 /* (BONBLOOP 1.7) FX > EQ, the master's: flat */
     fm6_init();                               /* every part's FM6 patch: the init voice */
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
