@@ -1253,12 +1253,12 @@ int main(int argc, char **argv)
         TSEL->p[P_TFLT] = -32; ui.force = 1; frames(2); ppm("page-filter");
         check(!strcmp(ui.big_l[0], "FILT") && !strcmp(ui.big_v[0], "LP50") && !ui.big_l[1][0],
               "FILTER page: its one value drawn large (LP50 %)");
-        {   /* the big value in the graph strip: white pixels in the middle of the screen */
+        {   /* (BONBLOOP 1.7) the one value as a big knob in the middle of the graph strip: its ring lit */
             uint32_t x, y, lit = 0;
-            for (y = Y_GRAPH + 30; y < Y_GRAPH + 90; y++)
-                for (x = 40; x < 200; x++)
+            for (y = Y_GRAPH + 10; y < Y_GRAPH + 84; y++)
+                for (x = 80; x < 160; x++)
                     lit += screen[y * 240u + x] != 0;
-            check(lit > 300u, "FILTER page: the graph strip shows it");
+            check(lit > 300u, "FILTER page: the graph strip shows it, a big knob (1.7)");
         }
         TSEL->p[P_TFLT] = 0;
         SEL(9);

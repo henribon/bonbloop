@@ -23,7 +23,8 @@ typedef struct {               /* proportional, see tools/gen_font.py */
     const uint16_t *off;       /* byte offset of each glyph */
     const uint8_t *data;
     uint8_t bits;              /* SLOOP 2.6: 1 = 1 bit a pixel (a pixel font: glyph rows one after the other, high
-                                * bit first, each glyph from a whole byte); 0 = 2 pixels a byte, alpha 0..15 */
+                                * bit first, each glyph from a whole byte); 0 = 2 pixels a byte, alpha 0..15;
+                                * BONBLOOP 1.7: 2 = 4 pixels a byte (leftmost in the top bits), alpha 0..3 */
 } felucca_font_t;
 #include "felucca_font.h"
 
@@ -48,9 +49,12 @@ static const palette_t PALETTES[] = {
     {"AMBER", {RGB(60, 26, 0), RGB(110, 50, 0), RGB(170, 82, 0), RGB(225, 120, 8), RGB(255, 166, 40)}},
     {"CYAN", {RGB(0, 30, 50), RGB(0, 62, 96), RGB(16, 112, 160), RGB(56, 172, 222), RGB(140, 222, 255)}},
     {"RED", {RGB(52, 8, 8), RGB(100, 18, 14), RGB(170, 36, 26), RGB(226, 64, 48), RGB(255, 112, 92)}},
-    {"MONO", {RGB(40, 40, 40), RGB(80, 80, 80), RGB(130, 130, 130), RGB(186, 186, 186), RGB(226, 226, 226)}},
+    {"PERI", {RGB(38, 39, 74), RGB(75, 76, 128), RGB(102, 103, 171), RGB(156, 157, 216), RGB(217, 218, 244)}},
+    /* (BONBLOOP 1.7: PERI, Pantone 17-3938 Very Peri #6667AB on black, where MONO was: the default; its tracks, tiles
+     * and dials in Very Peri too, palette_set) */
 };
 #define NPALETTES (sizeof(PALETTES) / sizeof(PALETTES[0]))
+#define PAL_PERI 4u                              /* (BONBLOOP 1.7) the default */
 static uint16_t pal[5];
 #define C_LINE pal[0]                /* 1 rules, separators */
 #define C_DIM pal[1]                 /* 2 inactive, empty steps, units */
@@ -177,6 +181,11 @@ static void palette_set(uint32_t i)              /* built-in palette i, or the t
         TE_MID[k] = cu ? rgb565_scale(theme.trk[k], 2u, 3u) : TE_MID_DEF[k];
         TE_DIM[k] = cu ? rgb565_scale(theme.trk[k], 1u, 3u) : TE_DIM_DEF[k];
     }
+    if (!cu && i % NPALETTES == PAL_PERI) {           /* (BONBLOOP 1.7) one colour: values light, fills Very Peri */
+        static const uint16_t G[4] = {RGB(20, 21, 42), RGB(38, 39, 74), RGB(102, 103, 171), RGB(196, 197, 236)};
+        for (k = 0; k < 4u; k++)
+            TE_COL[k] = RGB(217, 218, 244), TE_MID[k] = RGB(156, 157, 216), TE_DIM[k] = RGB(102, 103, 171), te_g[k] = G[k];
+    }
 }
 
 static inline uint16_t swap16(uint32_t c) { return (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8)); }
@@ -256,7 +265,9 @@ static uint32_t glyph(const felucca_font_t *f, uint32_t ch)
 {
     if ((ch >= 'a' && ch <= 'z') || (ch >= 0xE0u && ch <= 0xFEu && ch != 0xF7u))
         ch -= 32u;
-    if (ch < f->first || ch > f->last || (ch >= 127u && ch < 160u))
+    if (ch == 0xDCu && f->last == 127u)               /* (BONBLOOP 1.7: Inter Tight keeps the U with umlaut at 127) */
+        ch = 127u;
+    else if (ch < f->first || ch > f->last || (ch >= 127u && ch < 160u) || ch == '{' || ch == '}')
         ch = '?';
     return ch - f->first;
 }
@@ -280,6 +291,17 @@ static int32_t cv_text(int32_t x, int32_t y, const felucca_font_t *f, const char
                     uint32_t i = (gy >> f->sh) * sw + (gx >> f->sh);
                     if ((gd[i >> 3] >> (7u - (i & 7u))) & 1u)
                         cv_pset(x - f->pad + (int32_t)gx, y + (int32_t)gy, ramp[15]);
+                }
+            x += f->adv[gi];
+            continue;
+        }
+        if (f->bits == 2u) {                           /* (BONBLOOP 1.7) 4 levels: alpha 0, 5, 10, 15 */
+            bpr = ((w >> f->sh) + 3u) / 4u;
+            for (gy = 0; gy < f->h; gy++)
+                for (gx = 0; gx < w; gx++) {
+                    uint32_t sx = gx >> f->sh, v = (gd[(gy >> f->sh) * bpr + sx / 4u] >> (6u - 2u * (sx & 3u))) & 3u;
+                    if (v)
+                        cv_pset(x - f->pad + (int32_t)gx, y + (int32_t)gy, ramp[v * 5u]);
                 }
             x += f->adv[gi];
             continue;

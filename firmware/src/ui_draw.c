@@ -142,7 +142,7 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
     int32_t x, gw = 52, fx;
     if (icon == ICON_AUTO)
         icon = icon_for_label(label);
-    fit(l, label, &FONT_S, 54 - LABEL_X);
+    fit(l, label, &FONT_S, 55 - LABEL_X);                 /* (1.7: the column's whole width, x 4..58) */
     fit(v, val, &FONT_S, is_eng_name(val) ? 56 : 40);   /* engine names whole */
     fit(u, unit, &FONT_S, 54 - text_w(&FONT_S, v) - 3);
     str_cpy(key, l, 8);                                 /* cache key: texts + colour + gauge */
@@ -882,9 +882,10 @@ UI_SMALL static void graph_scope(uint16_t c)
 }
 
 /* (BONBLOOP 1.7) FX > COMP as a DAW's compressor: RATIO, ATTACK, RELEASE down the left, each in its knob's colour; on
- * the right the THRESH meter, 0 dB at the top to -48 dB (2 px a dB): the gain reduction from the top (orange), the
- * master's left and right as they come in (green, yellow from -12 dB, red from -3), the threshold a line and a pointer
- * in KNOB 1's colour, its value beside it. The meter falls 0.5 dB a frame (comp_meter, each frame: graph_signature) */
+ * the right the THRESH meter, 0 dB at the top to -48 dB (2 px a dB): the gain reduction from the top, the master's
+ * left and right as they come in (brighter from -3 dB), the threshold a line and a pointer, its value beside it (1.7:
+ * the palette's tones, knobs on the left). The meter falls 0.5 dB a frame (comp_meter, each frame: graph_signature) */
+UI_SMALL static int32_t knob_ratio(uint32_t c);      /* (1.7: below, with graph_big) */
 #define KM_Y 20                                       /* the meter's 0 dB */
 static uint8_t km_px[3];                              /* left, right (up from -48 dB), the reduction (down from 0 dB) */
 UI_SMALL static uint32_t comp_meter(uint32_t h)
@@ -905,27 +906,28 @@ UI_SMALL static void graph_comp(void)
 {
     static const char *const L[3] = {"RATIO", "ATTACK", "RELEASE"};
     int32_t i, x, thr = song.g[G_KTHR], yt = KM_Y + clamp(-thr, 0, 48) * 2, y;
-    for (i = 1; i < 4; i++) {                         /* KNOB 2 .. 4 */
+    for (i = 1; i < 4; i++) {                         /* KNOB 2 .. 4: a knob each (1.7), its name and value beside */
         int32_t y0 = 2 + (i - 1) * 41;
-        cv_text(6, y0, &FONT_S, L[i - 1], TE_COL[i]);
-        cv_rect(6, y0 + 17, 112, 21, TE_G1);
-        x = cv_text(12, y0 + 19, &FONT_S, ui.big_v[i], ui.big_c[i] == C_WHITE ? C_WHITE : C_HI);
-        cv_text(x + 3, y0 + 19, &FONT_S, ui.big_u[i], C_GRAY);
+        int hot = ui.big_c[i] == C_WHITE;
+        te_dial(20, y0 + 19, 15, knob_ratio((uint32_t)i), hot ? C_WHITE : C_GRAY, C_LINE);
+        cv_text(44, y0 + 2, &FONT_S, L[i - 1], C_GRAY);
+        x = cv_text(44, y0 + 19, &FONT_S, ui.big_v[i], hot ? C_WHITE : C_HI);
+        cv_text(x + 3, y0 + 19, &FONT_S, ui.big_u[i], C_DIM);
     }
-    cv_text(136, 0, &FONT_S, "THRESH", TE_COL[0]);
+    cv_text(136, 0, &FONT_S, "THRESH", C_GRAY);
     for (i = 0; i <= 4; i++)                          /* 0, -12, -24, -36, -48 dB */
         cv_rect(132, KM_Y + i * 24, 6, 1, TE_G2);
     cv_rect(142, KM_Y, 8, 96, C_LINE);                /* the reduction, from the top */
-    cv_rect(142, KM_Y, 8, km_px[2], TE_COL[3]);
+    cv_rect(142, KM_Y, 8, km_px[2], C_HI);
     for (i = 0; i < 2; i++) {                         /* left, right: green, yellow from -12 dB, red from -3 */
         int32_t bx = 156 + i * 10, top = KM_Y + 96 - km_px[i];
         cv_rect(bx, KM_Y, 8, 96, C_LINE);
         for (y = top; y < KM_Y + 96; y++)
-            cv_rect(bx, y, 8, 1, y < KM_Y + 6 ? TE_RED : y < KM_Y + 24 ? TE_COL[2] : TE_COL[1]);
+            cv_rect(bx, y, 8, 1, y < KM_Y + 6 ? C_HI : C_GRAY);   /* (1.7: one colour, brighter over -3 dB) */
     }
-    cv_rect(140, yt, 37, 1, thr ? C_WHITE : C_DIM);   /* the threshold, its pointer */
+    cv_rect(140, yt, 37, 1, thr ? C_HI : C_DIM);      /* the threshold, its pointer */
     for (i = 0; i < 7; i++)
-        cv_rect(178 + i, yt - i, 1, 2 * i + 1, thr ? TE_COL[0] : C_DIM);
+        cv_rect(178 + i, yt - i, 1, 2 * i + 1, thr ? C_HI : C_DIM);
     y = clamp(yt - 8, KM_Y - 2, 84);
     if (thr) {
         x = cv_text(188, y, &FONT_S, ui.big_v[0], ui.big_c[0] == C_WHITE ? C_WHITE : C_HI);
@@ -937,35 +939,42 @@ UI_SMALL static void graph_comp(void)
         char b[8];
         b[0] = '-';
         fmt_int(b + 1, km_px[2] / 2u);
-        x = cv_text(188, 102, &FONT_S, b, TE_COL[3]);
+        x = cv_text(188, 102, &FONT_S, b, C_AMB);
         cv_text(x + 1, 102, &FONT_S, "dB", C_GRAY);
     }
 }
 
-/* SLOOP 2.4: a page without a graph (EDIT, VOICE, the DEST pages, GLOBAL, MASTER, SYSTEM...): its values
- * large in the empty space, 2 x 2 as the knobs (KNOB 1 2 / KNOB 3 4), the one turned in white; one value
- * alone (FILTER) across the width. The columns (draw_columns, drawn first) fill ui.big_* */
+/* (BONBLOOP 1.7) a knob's dial for value c of the page: where its value sits in its range (0..1000; -1: no value) */
+UI_SMALL static int32_t knob_ratio(uint32_t c)
+{
+    int16_t *vp;
+    const param_desc_t *d = page_desc(cur_page(), c, &vp);
+    if (!d || !vp || d->max <= d->min)
+        return -1;
+    return (clamp(*vp, d->min, d->max) - d->min) * 1000 / (d->max - d->min);
+}
+/* a page without a graph of its own (EDIT, VOICE, the DEST pages, GLOBAL, DELAY, DIST, MOD ...; SLOOP 2.4: its values
+ * large): BONBLOOP 1.7, a knob under each column, its value and name below; one value alone (FILTER), one big knob in
+ * the middle. The one turned in white. The columns (draw_columns, drawn first) fill ui.big_* */
 UI_SMALL static void graph_big(void)
 {
     uint32_t c, n = 0;
     for (c = 0; c < 4u; c++)
         n += ui.big_l[c][0] != 0;
-    if (n > 1u) {
-        cv_rect(119, 6, 1, 112, C_LINE);
-        cv_rect(6, 62, 228, 1, C_LINE);
-    }
     for (c = 0; c < 4u; c++) {
-        int32_t x0 = c & 1u ? 126 : 6, y0 = c & 2u ? 64 : 2, x;
+        int32_t cx = n == 1u ? 120 : 30 + 60 * (int32_t)c, r = n == 1u ? 32 : 21, cy = n == 1u ? 46 : 38, w, x;
+        int hot = ui.big_c[c] == C_WHITE;
+        char v[12];
         if (!ui.big_l[c][0])
             continue;
-        if (n == 1u) {                                  /* one value: in the middle */
-            x0 = (240 - text_w(&FONT_L, ui.big_v[c]) - (ui.big_u[c][0] ? text_w(&FONT_S, ui.big_u[c]) + 4 : 0)) / 2;
-            y0 = 30;
-        }
-        cv_text(x0, y0 + 2, &FONT_S, ui.big_l[c], TE_COL[c & 3u]);
-        x = cv_text(x0, y0 + 20, &FONT_L, ui.big_v[c], ui.big_c[c] == C_DIM ? C_DIM : ui.big_c[c] == C_WHITE ? C_WHITE : C_HI);
-        if (ui.big_u[c][0])
-            cv_text(x + 4, y0 + 34, &FONT_S, ui.big_u[c], C_GRAY);
+        te_dial(cx, cy, r, knob_ratio(c), hot ? C_WHITE : C_GRAY, C_LINE);
+        fit(v, ui.big_v[c], &FONT_S, n == 1u ? 180 : 56);
+        w = text_w(&FONT_S, v) + (ui.big_u[c][0] ? text_w(&FONT_S, ui.big_u[c]) + 3 : 0);
+        x = cv_text(cx - w / 2, cy + r + 7, &FONT_S, v, hot ? C_WHITE : C_HI);
+        if (ui.big_u[c][0] && n == 1u)
+            cv_text(x + 3, cy + r + 7, &FONT_S, ui.big_u[c], C_DIM);
+        w = text_w(&FONT_S, ui.big_l[c]);
+        cv_text(cx - w / 2, cy + r + 25, &FONT_S, ui.big_l[c], C_GRAY);
     }
 }
 
