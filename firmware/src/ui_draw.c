@@ -985,12 +985,44 @@ UI_SMALL static void graph_windows(uint32_t n)
             cv_text(x + 3, y0 + 36, &FONT_T, ui.big_u[c], C_DIM);   /* (on the value's baseline) */
     }
 }
+/* (BONBLOOP 1.8) knobs only for sound: a page of ENV, LFO, EDIT or the synth (not an effect's) whose every value is a
+ * continuous sound parameter (a level, a time, a rate, a cutoff, a depth, semitones, an amount with its unit). A page
+ * with anything to choose or set (a type, a slot, a mode, an engine, BPM, MIDI, the arp, the scale, the pattern,
+ * GLOBAL ...): the screen in four windows, as before the knobs (the user's call) */
+UI_SMALL static int knob_value(const page_t *pg, uint32_t c)
+{
+    int16_t *vp;
+    const param_desc_t *d = page_desc(pg, c, &vp);
+    if (!d || !vp || d->max <= d->min || d->names)
+        return 0;
+    switch (d->fmt) {
+    case F_PCT: case F_BIPCT: case F_TIME: case F_LFOHZ: case F_CUTOFF: case F_DB: case F_SEMI:
+        return 1;
+    case F_INT:
+        return d->unit != 0;                          /* (cents, dB, ms: an amount; a bare number is a setting) */
+    default:
+        return 0;
+    }
+}
+UI_SMALL static int knob_page(const page_t *pg)
+{
+    uint32_t c, k = 0;
+    if ((pg->fam != FAM_ENV && pg->fam != FAM_LFO && pg->fam != FAM_EDIT && pg->fam != FAM_SYN) || fx_windows(pg))
+        return 0;
+    for (c = 0; c < 4u; c++)
+        if (ui.big_l[c][0]) {
+            if (!knob_value(pg, c))
+                return 0;
+            k++;
+        }
+    return k != 0u;
+}
 UI_SMALL static void graph_big(void)
 {
     uint32_t c, n = 0;
     for (c = 0; c < 4u; c++)
         n += ui.big_l[c][0] != 0;
-    if (fx_windows(cur_page())) {
+    if (!knob_page(cur_page())) {
         graph_windows(n);
         return;
     }

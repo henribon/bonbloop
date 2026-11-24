@@ -16,7 +16,8 @@
 > And a look of its own: the **Pixelify Sans** pixel font, the **PERI** palette (Pantone Very Peri on black) as the default,
 > and a knob or a fader on every page.
 > 1.8: a **CLIP** page for the drums' clipper (DRIVE, CEIL, SHAPE SOFT / HARD / FOLD, OUT); what is on or selected
-> (MUTE, SOLO, FILL, the selected track) in violet; the effect pages back to value windows.
+> (MUTE, SOLO, FILL, the selected track) in violet; knobs only where every value is a continuous sound parameter, the
+> effect pages and every page to choose or set something back to the screen in four value windows.
 > Everything else is SLOOP. **Install from the browser: [bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** (Chrome or Edge,
 > the FM-1 on USB). Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.
 >

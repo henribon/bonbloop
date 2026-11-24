@@ -11,8 +11,10 @@ Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`
 **Versão 1.8** — uma página **CLIP** para o clipper da bateria (FX → CLIP, com a bateria selecionada): **DRIVE**,
 **CEIL** (o teto, 0 a −12 dB), **SHAPE** (SOFT, HARD, FOLD) e **OUT** (−12 a +6 dB). Na paleta PERI, o que está
 **ligado ou selecionado** fica **violeta** `#8B5CF6`: MUTE, SOLO, FILL e BAR na camada MIX (GLO segurado), e a track
-selecionada na tela TRACKS. As páginas de **efeito** voltam às **janelinhas** de valor (2 × 2, o nome pequeno e o valor
-grande), sem knobs; as outras páginas continuam com knobs.
+selecionada na tela TRACKS. **Knobs só para som**: ficam só nas páginas em que todo valor é um parâmetro de som
+contínuo (um nível, um tempo, um corte, uma profundidade: LFO DEST, os parâmetros dos motores...). As páginas de
+**efeito** e as de **escolher ou ajustar** algo (FX CHAIN, GLOBAL, SYSTEM, MIDI, MASTER, TEXTURE, ARP, PATTERN, um
+TYPE, um WAVE...) voltam à tela **dividida em quatro** (o nome pequeno e o valor grande), como antes dos knobs.
 
 **Versão 1.7** — **páginas FX novas** fora do modo synth: o **MIXER** da track (DST · MOD · DLY · REV, tudo em
 paralelo), um **COMP** (glue) e um **EQ** de 4 bandas no master, os ajustes de DIST, MOD (chorus / flanger / phaser),
@@ -139,8 +141,9 @@ As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abai
 - **Paleta PERI** (o novo padrão, no lugar da MONO): **Very Peri** `#6667AB` e preto. Rótulos e preenchimentos em
   Very Peri, valores em lilás claro `#D9DAF4`, linhas em roxo bem escuro; o que você gira fica branco. GREEN,
   AMBER, CYAN e RED continuam em MENU → COLOR (e o tema do editor web).
-- **Knob ou fader em toda tela**: as páginas que só mostravam números (EDIT, VOICE, DEST, GLOBAL, DELAY, DIST, MOD,
-  DRIVE, FILTER...) mostram uma **fileira de knobs**, um embaixo de cada coluna, com o valor e o nome; uma página de
+- **Knob ou fader onde é som** (1.8: só lá): as páginas de parâmetros de som contínuos mostram uma **fileira de
+  knobs**, um embaixo de cada coluna, com o valor e o nome; as de escolha, de ajuste e de efeito, a tela dividida em
+  quatro de antes; uma página de
   um valor só, **um knob grande**. Os mixers (FX → MIXER, OSC MIX, FX MIX) são **faders**. As telas com desenho
   próprio (envelope, LFO, curva do EQ, wavetable, passos) continuam com ele.
 - **Verde puxado pro roxo** `#3BA488` na paleta PERI: o arco aceso dos knobs, a barrinha embaixo das colunas e o
@@ -462,7 +465,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.8: 577.192 de 581.564 bytes de flash (4,3 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
+Tamanho do 1.8: 577.384 de 581.564 bytes de flash (4,1 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).
