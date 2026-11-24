@@ -766,7 +766,7 @@ static void wave_drive(track_t *t, int32_t *b, uint32_t n, int32_t d)
 static const int16_t EQ_A[31] = {1727, 1830, 1938, 2053, 2175, 2303, 2440, 2584, 2738, 2900, 3072, 3254, 3446, 3651, 3867,
                                  4096, 4339, 4596, 4868, 5157, 5462, 5786, 6129, 6492, 6876, 7284, 7715, 8173, 8657, 9170,
                                  9713};   /* A, Q12, -15 .. +15 dB */
-static int32_t eq_s[NPART + 2][4][2];           /* (the parts', the master's left and right) */
+static int32_t eq_s[NPART + 2][4][2];           /* (the parts', the drums' left and right) */
 static void eq_bands(uint32_t part, int32_t (*st)[2], int32_t *b, uint32_t n)
 {
     uint32_t k, i;
@@ -805,8 +805,9 @@ static void eq_run(track_t *t, int32_t *b, uint32_t n)
     if (part < NPART)
         eq_bands(part, eq_s[part], b, n);
 }
-/* (1.7) FX > EQ: the master's, at half its scale (the mix is louder than a part); flat: nothing runs */
-static void eq_master(int32_t *l, int32_t *r, uint32_t n)
+/* FX > EQ on the drum track (1.9; 1.7's master EQ, synx[NPART]): left and right at half their scale (the drums are
+ * louder than a part); flat: nothing runs */
+static void eq_drums(int32_t *l, int32_t *r, uint32_t n)
 {
     uint32_t i;
     if (!(synx[NPART].w[5] & 0xFFFFFu))               /* (the four GAINs at 0 dB: their bits 0) */

@@ -201,8 +201,7 @@ static const int8_t EQ_SHELF[65] = {127, 127, 127, 127, 127, 127, 127, 127, 127,
                                     25, 19, 13, 10, 7, 5, 3, 2, 1, 1, 1};   /* (the rest 0) */
 UI_SMALL static void graph_eq(const track_t *t, uint16_t c)
 {
-    uint32_t part = cur_page()->scope == SC_GLOBAL ? NPART : (uint32_t)(t - trk) % NPART, b;   /* (1.7: FX > EQ, the
-                                                         * master's) */
+    uint32_t part = (uint32_t)(t - trk) % NTRK, b;    /* (1.9: FX > EQ, the track's; the drums' synx[NPART]) */
     uint32_t mine = cur_page()->id[0] == VX0 + SX_EF3 ? 1u : 0u;
     int32_t x, py = 0, f[4], g[4];
     static const uint8_t GRID_F[3] = {24, 71, 118};    /* 100 Hz, 1 kHz, 10 kHz */

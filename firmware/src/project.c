@@ -41,7 +41,7 @@
                                                 * so the format and its size do not change */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
-_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DROUT + 1u,
+_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_KEYS + 1u,
                "G_FXFADE (2.7.2) is the last global of SLOOP, a setting of the FM-1; then BONBLOOP's (bbx_t: G_DMS)");
 #define PROJ_NC6 ((uint32_t)P_ITYPE)           /* format 6: the parameters kept in 16 bits, P_LEVEL .. P_VLEAD (as 5), */
 #define PROJ_NX6 ((uint32_t)(P_E0 - P_ITYPE))  /* the 2.6 ones in a byte (0..127), then P_E0 .. P_E7 */
@@ -1205,6 +1205,7 @@ UI_SMALL static uint32_t settings_restore(const void *raw, uint32_t n)
 #endif
     lights_from_word(p.lights);
     song.g[G_SYNC] = (int16_t)lights_sync;
+    song.g[G_KEYS] = (int16_t)lights_keys;             /* (BONBLOOP 1.9) SEL 2 > KEYS */
     song.g[G_MIDI] = (int16_t)lights_mout;
     song.g[G_ROUTE] = (int16_t)lights_min;
     palette_set(settings.palette);
@@ -1315,6 +1316,12 @@ UI_SMALL static void sections_flush(void)                        /* main loop */
             ui_message("NO SONG");
         }
         srec_done = 0;
+    }
+    if ((uint32_t)song.g[G_KEYS] != lights_keys) {      /* (BONBLOOP 1.9) SEL 2 > KEYS: MENU > LIGHTS > KEYS */
+        lights_keys = (uint8_t)clamp(song.g[G_KEYS], 0, KEYS_N - 1);
+        if (lights_keys && !lights_lvl)
+            lights_lvl = LIGHTS_LOW;                    /* (keys lit need a level: the lowest, as the menu) */
+        settings_later = 1;
     }
     if ((uint32_t)song.g[G_SYNC] != lights_sync) {      /* GLO > SYSTEM > SYNC: kept with the settings */
         lights_sync = (uint8_t)song.g[G_SYNC];

@@ -641,25 +641,51 @@ int main(int argc, char **argv)
         check(l[0] == 12345 && r[CTL - 1] == 12345 && kmp.g == 4096, "1.7: COMP THRS 0 dB: off, the mix bit for bit");
         song.g[G_KATK] = GP[G_KATK].def, song.g[G_KREL] = GP[G_KREL].def, song.g[G_KRAT] = GP[G_KRAT].def;
     }
-    {   /* 1.7: FX > EQ, the master's: flat nothing; LOW -15 dB under a 60 Hz sine: it drops */
+    {   /* 1.9: FX > EQ is each track's own. The drums' (synx[NPART], 1.7's master EQ): flat nothing; LOW -15 dB under a
+         * 60 Hz sine: it drops. A part's on any engine (eq_run) the same. The FX > EQ page edits the selected track's */
         static int32_t l[CTL], r[CTL];
-        int32_t k, j, pk = 0;
+        const page_t *eq = 0;
+        const param_desc_t *d1, *d2;
+        int16_t *vp;
+        int32_t k, j, pk = 0, pp = 0, v1, v2;
         uint32_t ph = 0;
         for (j = 0; j < CTL; j++)
             l[j] = r[j] = 777;
-        eq_master(l, r, CTL);
-        check(l[0] == 777 && r[CTL - 1] == 777, "1.7: the master's EQ flat: the mix bit for bit");
+        eq_drums(l, r, CTL);
+        check(l[0] == 777 && r[CTL - 1] == 777, "1.9: the drums' EQ flat: them bit for bit");
         sx_set(NPART, SX_EF1, 24), sx_set(NPART, SX_EG1, -15);
+        sx_set(1, SX_EF1, 24), sx_set(1, SX_EG1, -15);
         for (k = 0; k < 300; k++) {
             for (j = 0; j < CTL; j++, ph += 5843626u)       /* (60 Hz) */
                 l[j] = r[j] = osc_sine(ph);
-            eq_master(l, r, CTL);
+            eq_drums(l, r, CTL);
             for (j = 0; k > 200 && j < CTL; j++)
                 pk = l[j] > pk ? l[j] : pk;
+            for (j = 0; j < CTL; j++)
+                l[j] = osc_sine(ph - (uint32_t)(CTL - j) * 5843626u);
+            eq_run(&trk[1], l, CTL);
+            for (j = 0; k > 200 && j < CTL; j++)
+                pp = l[j] > pp ? l[j] : pp;
         }
-        snprintf(b, sizeof b, "1.7: the master's EQ, LOW -15 dB: a 60 Hz sine of 32767 out at %d", pk);
-        check(pk > 3000 && pk < 9000, b);
-        sx_set(NPART, SX_EG1, 0);
+        snprintf(b, sizeof b, "1.9: FX > EQ LOW -15 dB, a 60 Hz sine of 32767: the drums' out at %d, track 2's at %d", pk, pp);
+        check(pk > 3000 && pk < 9000 && pp > 3000 && pp < 9000, b);
+        for (i = 0; i < NPAGES; i++)
+            if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "EQ 1"))
+                eq = &PAGES[i];
+        sx_set(1, SX_EG1, -7), sx_set(NPART, SX_EG1, 5);
+        track_select(1);
+        frames(1);
+        d1 = eq ? page_desc(eq, 1, &vp) : 0;
+        v1 = d1 && vp ? *vp : 99;
+        track_select(TRK_DRUM);
+        frames(1);
+        d2 = eq ? page_desc(eq, 1, &vp) : 0;
+        v2 = d2 && vp ? *vp : 99;
+        track_select(0);
+        frames(1);
+        check(eq && eq->scope == SC_TRACK && v1 == -7 && v2 == 5,
+              "1.9: FX > EQ 1's GAIN: track 2's own on track 2, the drums' own on the drum track");
+        sx_set(1, SX_EG1, 0), sx_set(NPART, SX_EG1, 0);
     }
     {   /* 1.7: FX > MIXER on the drum track: DST and MOD its own, DLY and REV the drums' sends (GLO > DRUMS) */
         const page_t *mx = 0;

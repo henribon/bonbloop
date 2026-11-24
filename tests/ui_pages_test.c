@@ -1093,11 +1093,44 @@ int main(int argc, char **argv)
             nbits++;
         check(lights_keys == KEYS_WHITE && nbits == 16u && !(lights_keys_mask() & (1u << 1)),
               "KEYS: WHITE KEYS (16 of 27, F#3 dark)");
-        encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame(); encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame();
-        check(lights_keys == KEYS_ALL && lights_keys_mask() == 0x7FFFFFFu, "KEYS: ALL KEYS (every one of the 27 keys), and it stops there");
+        encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame();
+        check(lights_keys == KEYS_ALL && lights_keys_mask() == 0x7FFFFFFu, "KEYS: ALL KEYS (every one of the 27 keys)");
         ui.force = 1; frame(); ppm("page-menu-keys-all");
+        encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame(); encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame();
+        check(lights_keys == KEYS_SCALE && song.g[G_KEYS] == KEYS_SCALE,
+              "KEYS: (1.9) SCALE, and it stops there; SEL 2 > KEYS shows the same");
+        {   /* (BONBLOOP 1.9) SCALE: track 1 in D major: its notes lit (16 of the 27 keys, F3 dark, F#3 lit), the Ds (D4,
+             * D5) brighter; TRN +2: the keys that play a D are the Cs; the drum track: none. SEL 2's fourth knob is KEYS */
+            int16_t r0 = trk[0].p[P_ROOT], s0 = trk[0].p[P_SCALE], q0 = trk[0].p[P_QUANT], c0 = trk[0].p[P_CHORD];
+            int16_t t0 = trk[0].p[P_TRANS];
+            uint32_t sel0 = song.sel, roots, i2;
+            const page_t *s2 = 0;
+            int16_t *vp;
+            song.sel = 0;
+            trk[0].p[P_ROOT] = 2, trk[0].p[P_SCALE] = 1, trk[0].p[P_QUANT] = 0, trk[0].p[P_CHORD] = 0, trk[0].p[P_TRANS] = 0;
+            for (m = lights_keys_mask(), nbits = 0; m; m &= m - 1u)
+                nbits++;
+            roots = scale_light(1);
+            check(nbits == 16u && !(lights_keys_mask() & 1u) && (lights_keys_mask() & 2u) && roots == (1u << 9 | 1u << 21),
+                  "KEYS SCALE: D major lit (16 keys, F3 dark, F#3 lit), D4 and D5 brighter");
+            trk[0].p[P_TRANS] = 2;
+            check(scale_light(1) == (1u << 7 | 1u << 19), "KEYS SCALE: TRN +2: the Cs play the D, they are the roots lit");
+            frame();
+            check(fm1_led_bg_ns == 500u, "KEYS SCALE: shown at the LIGHTS level (LOW)");
+            song.sel = TRK_DRUM;
+            check(!lights_keys_mask() && !scale_light(1), "KEYS SCALE: the drum track lights no scale");
+            for (i2 = 0; i2 < NPAGES; i2++)
+                if (!strcmp(PAGES[i2].title, "SEL 2"))
+                    s2 = &PAGES[i2];
+            song.sel = 0;
+            check(s2 && page_desc(s2, 3, &vp) == &GP[G_KEYS] && vp == &song.g[G_KEYS],
+                  "SEL 2: KNOB 4 is KEYS (the keys lit: MENU > LIGHTS > KEYS)");
+            trk[0].p[P_ROOT] = r0, trk[0].p[P_SCALE] = s0, trk[0].p[P_QUANT] = q0, trk[0].p[P_CHORD] = c0;
+            trk[0].p[P_TRANS] = t0;
+            song.sel = sel0;
+        }
         tap(B_OCTUP);
-        check(lights_keys == KEYS_OFF, "KEYS: OCT+ from ALL KEYS steps round to OFF");
+        check(lights_keys == KEYS_OFF && song.g[G_KEYS] == KEYS_OFF, "KEYS: OCT+ from SCALE steps round to OFF");
         lights_keys = KEYS_ALL;
         check(lights_word() >> 4 & 15u, "KEYS: ALL KEYS kept in the settings word");
         lights_from_word(lights_word());

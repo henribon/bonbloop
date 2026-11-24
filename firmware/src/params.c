@@ -34,6 +34,7 @@ static const char *const N_XTYPE[] = {"SOFT", "HARD", "FOLD", "FUZZ", "CRUSH"}; 
 static const char *const N_MTYPE[] = {"CHOR", "FLANG", "PHASR"};                         /* .. FX > MOD */
 static const char *const N_KRAT[] = {"2:1", "4:1", "10:1"};                              /* .. FX > COMP */
 static const char *const N_CSHP[] = {"SOFT", "HARD", "FOLD"};                            /* (1.8) FX > CLIP's SHAPE */
+static const char *const N_KEYS[] = {"OFF", "C", "WHITE", "ALL", "SCALE"};                /* (1.9) SEL 2 > KEYS (panel.c) */
 static const char *const N_KATK[] = {"0.1ms", "0.3ms", "1ms", "3ms", "10ms", "30ms"};
 static const char *const N_KREL[] = {"0.1s", "0.2s", "0.4s", "0.6s", "0.8s", "1.2s"};
 /* CRUSH: BITS 1..16 and RATE (the held sample's rate) over the range in 16 even parts (0-terminated) */
@@ -243,6 +244,7 @@ static const param_desc_t GP[G_COUNT] = {
     [G_DRCEIL] = {"CEIL", F_INT, -12, 0, 0, 0, "dB"},   /* (1.8) FX > CLIP on the drums: where it rounds (fx.c drum_fx) */
     [G_DRSHP] = PE("SHAPE", N_CSHP, 0),
     [G_DROUT] = {"OUT", F_INT, -12, 6, 0, 0, "dB"},
+    [G_KEYS] = PE("KEYS", N_KEYS, 0),            /* (1.9) SEL 2 > KEYS: MENU > LIGHTS > KEYS (a setting of the FM-1) */
     [G_DFIX] = PE("MODE", N_DMODE, 0),            /* (1.4) the delay's MODE: SYNC (TIME a note value) or MS (TIME in ms,
                                                    * from the note value playing): G_DTIME == DLY_FREE (page_desc) */
 };
@@ -465,9 +467,10 @@ typedef struct {
 
 /* (BONBLOOP 1.2) the globals the synth pages show beside the track's values: page ids VG0 + VG_* */
 enum { VG_CRATE, VG_CDEPTH, VG_DTIME, VG_DFDBK, VG_DCOLOR, VG_DMIX, VG_DFIX, VG_RSIZE, VG_RDAMP, VG_DMS, VG_CMIX, VG_RMIX,
-       VG_DRCLIP, VG_DRREV, VG_N };   /* (1.7: the drums' CLIP and REV on FX > MIXER: page_id) */
+       VG_DRCLIP, VG_DRREV, VG_KEYS, VG_N };   /* (1.7: the drums' CLIP and REV on FX > MIXER: page_id; 1.9:
+                                                    * SEL 2 > KEYS) */
 static const uint8_t VG_MAP[VG_N] = {G_CRATE, G_CDEPTH, G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX, G_DFIX, G_RSIZE, G_RDAMP, G_DMS,
-                                     G_CMIX, G_RMIX, G_DRCLIP, G_DRREV};
+                                     G_CMIX, G_RMIX, G_DRCLIP, G_DRREV, G_KEYS};
 #define VG0 0xE4u                                     /* (1.6: after the synx ids, 0xC0 .. 0xE3) */
 #define VS0 (VG0 + VG_N)                              /* (1.7) the synth's FX MIX: VS0 + k, the amount of the chain's slot k */
 _Static_assert(VX0 + SX_N <= VG0 && VS0 + SX_NSLOT < 0xFFu, "the synth's page ids");
@@ -483,8 +486,9 @@ static const page_t PAGES[] = {
      * four effects' settings, the track's FILTER, its SLICER. No MIX here (the synth's pages have them) */
     {"MIXER", FAM_FX, SC_TRACK, GR_FX, {P_DIST, P_CHOR, P_DLY, P_REV}},   /* (drums: CLIP for DLY, REV GLO > DRUMS') */
     {"COMP", FAM_FX, SC_GLOBAL, GR_COMP, {G_KTHR, G_KRAT, G_KATK, G_KREL}},   /* (its meter: ui_draw.c graph_comp) */
-    {"EQ 1", FAM_FX, SC_GLOBAL, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* the master's */
-    {"EQ 2", FAM_FX, SC_GLOBAL, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},
+    {"EQ 1", FAM_FX, SC_TRACK, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* (1.9) the track's own
+                                                       * (synx: the synth's chain EQ too; the drums' synx[NPART]) */
+    {"EQ 2", FAM_FX, SC_TRACK, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},
     {"DIST", FAM_FX, SC_GLOBAL, GR_NONE, {G_XTYPE, G_XA, G_XB, G_XC}},
     {"CLIP", FAM_FX, SC_GLOBAL, GR_NONE, {G_DRCLIP, G_DRCEIL, G_DRSHP, G_DROUT}},   /* (1.8) the drums' clipper: on the
                                                        * drum track only (page_shown); its DRIVE is FX > MIXER's CLIP */
@@ -494,7 +498,8 @@ static const page_t PAGES[] = {
     {"FILTER", FAM_FX, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},   /* the track's filter (drum track too) */
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},   /* drum track too */
     {"SEL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_CHORD}},
-    {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, 0xFF}},   /* (2.4: the chords played) */
+    {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, VG0 + VG_KEYS}},   /* (2.4: the chords played;
+                                                       * 1.9: KEYS, the scale lit on the keys) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (2.6, Felucca 1.5): TYPE CUT
@@ -578,7 +583,8 @@ static int page_for_drum(const page_t *pg)
         return pg->graph != GR_BROWSE && pg->graph != GR_USER;
     return pg->scope != SC_ENGINE && (pg->scope != SC_TRACK || pg->fam == FAM_SEQ || pg->graph == GR_SLCR ||
                                       pg->graph == GR_INS || pg->id[0] == P_TFLT ||
-                                      (pg->graph == GR_FX && pg->fam == FAM_FX));   /* (BONBLOOP 1.7: FX > MIXER) */   /* (2.7.2: FX > FILTER too, the
+                                      ((pg->graph == GR_FX || pg->graph == GR_EQ) && pg->fam == FAM_FX));   /* (BONBLOOP
+                                                       * 1.7: FX > MIXER; 1.9: FX > EQ, the drums' own) */   /* (2.7.2: FX > FILTER too, the
                                                        * track's filter: the drums have it since 2.4, the page was
                                                        * greyed "DRUM TRACK") */
 }
@@ -666,13 +672,13 @@ static const param_desc_t *page_desc0(const page_t *pg, uint32_t slot, int16_t *
         return &GP[id];
     id = page_id(pg, slot);
     if (pg->scope == SC_GLOBAL) {
-        if (id >= VX0 && id < VX0 + SX_N)             /* (1.7) FX > EQ: the master's (eng_wave.c synx[NPART]) */
-            return wv_desc(&trk[NPART], id, valp);
         *valp = &song.g[id];
         if (id >= G_XA && id <= G_XC)                 /* (1.7) FX > DIST: A B C as its TYPE names them */
             return ins_desc(song.g[G_XTYPE] + 1, id - G_XA);
         return &GP[id];
     }
+    if (pg->graph == GR_EQ && pg->fam == FAM_FX)       /* (1.9) FX > EQ: the track's own, any engine (the drums' too) */
+        return wv_desc(TSEL, id, valp);
     if ((id >= VP0 && id < VG0) || (pg->scope == SC_ENGINE && wave_track(TSEL)))
         return wave_field(id, valp);
     *valp = &TSEL->p[id];

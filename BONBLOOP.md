@@ -8,6 +8,11 @@ cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, de
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
+**Versão 1.9** — **as teclas mostram a escala**: SEL → página SEL 2 → **KEYS** em **SCALE** e as teclas do FM-1 ficam
+acesas nas notas do tom e da escala da track selecionada, a tônica mais forte (ver *As teclas mostram a escala*).
+E o **EQ** (FX → EQ 1 / EQ 2) passa a ser **de cada track**: mexe só no canal selecionado (na 1.7 e na 1.8 era o EQ
+do master e mudava todos os instrumentos).
+
 **Versão 1.8** — uma página **CLIP** para o clipper da bateria (FX → CLIP, com a bateria selecionada): **DRIVE**,
 **CEIL** (o teto, 0 a −12 dB), **SHAPE** (SOFT, HARD, FOLD) e **OUT** (−12 a +6 dB). Na paleta PERI, o que está
 **ligado ou selecionado** fica **violeta** `#8B5CF6`: MUTE, SOLO, FILL e BAR na camada MIX (GLO segurado), e a track
@@ -332,7 +337,7 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
 | --- | --- | --- |
 | **MIXER** | DST · MOD · DLY · REV, em faders (na bateria: DST · MOD · **CLIP** · REV) | da track |
 | **COMP** | THRS (0 dB = desligado, até −40 dB) · RATIO (2:1, 4:1, 10:1) · ATK (0,1–30 ms) · REL (0,1–1,2 s) | do master |
-| **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | do master |
+| **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | da track (1.9) |
 | **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF); na bateria: STYLE · TONE · PUNSH | do projeto |
 | **CLIP** (1.8, só na bateria) | DRIVE · CEIL (0 a −12 dB) · SHAPE (SOFT, HARD, FOLD) · OUT (−12 a +6 dB) | do projeto |
 | **MOD** | TYPE (CHOR, FLANG, PHASR) · RATE · DEPTH · FDBK | do projeto |
@@ -351,7 +356,9 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
   de DAW: RATIO, ATTACK e RELEASE à esquerda; à direita o medidor de 0 a −48 dB com a entrada (esquerda e direita:
   verde, mais claro acima de −3 dB), a **redução de ganho** descendo do topo e o **THRESH** como uma linha com uma
   seta e o valor ao lado.
-- O **EQ** do master é o mesmo EQ de 4 bandas do synth, para a mistura inteira. Plano, não gasta nada.
+- O **EQ** (1.9) é **de cada track**, inclusive da bateria: o mesmo EQ de 4 bandas do modo synth (numa track do synth
+  é o mesmo EQ da cadeia; fora da cadeia ele toca depois dela). Plano, não gasta nada. (Na 1.7 e na 1.8 ele era do
+  master e mudava a mistura inteira; num projeto dessas versões, aquele EQ vira o da bateria.)
 - Na **bateria**: o **DST** é o DRIVE do modo synth (estilo Decapitator), em paralelo, com STYLE (A E N T P), TONE e
   PUNSH na página **DIST** (com a bateria selecionada); **MOD** é dela; no lugar do DLY fica o **CLIP**, um *soft clipper*
   (empurra a bateria num tanh e devolve metade do ganho: os golpes baixos um pouco mais fortes, os picos arredondados);
@@ -430,6 +437,29 @@ Com o **CHORD** ligado (SEL → página SEL 2), o antigo **VLEAD** virou **VOIC*
 
 Funciona nas teclas, nos passos e com os modificadores das teclas pretas.
 
+### As teclas mostram a escala (1.9)
+
+Na página **SEL 2** (SEL, depois SELECT), o 4º knob é **KEYS**: quais teclas ficam acesas. É o mesmo ajuste de
+MENU → LIGHTS → KEYS (mudar num muda no outro), agora com uma opção nova:
+
+| KEYS | Teclas acesas |
+| --- | --- |
+| OFF | nenhuma |
+| C | os Dós |
+| WHITE | as brancas |
+| ALL | todas |
+| **SCALE** | **as notas do tom e da escala da track selecionada** |
+
+- Em **SCALE**, as notas da escala ficam com luz fraca e a **tônica** (o ROOT) com luz média, para você se localizar;
+  as notas que você toca continuam acendendo forte por cima.
+- O tom e a escala são os da página **SEL** (ROOT, SCL) da track selecionada — escolha com SEL + uma tecla, que põe
+  todas as tracks no mesmo tom. Trocou de track, as luzes acompanham.
+- As luzes mostram o que **cada tecla toca agora**: com **TRN** (transposição), as teclas acesas andam junto; com
+  **QNT** em SNAP ou WHITE, acendem as teclas que caem na escala.
+- Na **bateria** nada acende (lá as teclas são sons).
+- Precisa de LIGHTS ligado (MENU → LIGHTS): ao escolher uma opção de KEYS com ele em OFF, ele vai para LOW.
+- É um ajuste do FM-1, não do projeto: fica como está ao abrir outro projeto.
+
 ---
 
 ## Compatibilidade
@@ -465,7 +495,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.8: 577.384 de 581.564 bytes de flash (4,1 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
+Tamanho do 1.9: 579.860 de 581.564 bytes de flash (1,7 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).
