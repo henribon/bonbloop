@@ -13,7 +13,7 @@
 > 1.7: new FX pages outside the synth: the track's **MIXER** (DST MOD DLY REV, all in parallel), a master **COMP**
 > (glue) and **EQ**, then DIST, MOD (chorus / flanger / phaser), DELAY, REVERB, FILTER, SLICER. In the synth:
 > **FX MIX** (one knob per effect of the chain), **OSC MIX**, and SAVE opens **PRESET** to save the sound.
-> And a look of its own: the **Inter Tight** font, the **PERI** palette (Pantone Very Peri on black) as the default,
+> And a look of its own: the **Pixelify Sans** pixel font, the **PERI** palette (Pantone Very Peri on black) as the default,
 > and a knob or a fader on every page.
 > Everything else is SLOOP. **Install from the browser: [bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** (Chrome or Edge,
 > the FM-1 on USB). Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.

@@ -142,9 +142,9 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
     int32_t x, gw = 52, fx;
     if (icon == ICON_AUTO)
         icon = icon_for_label(label);
-    fit(l, label, &FONT_S, 55 - LABEL_X);                 /* (1.7: the column's whole width, x 4..58) */
+    fit(l, label, &FONT_T, 55 - LABEL_X);                 /* (1.7: the small font, the column's whole width) */
     fit(v, val, &FONT_S, is_eng_name(val) ? 56 : 40);   /* engine names whole */
-    fit(u, unit, &FONT_S, 54 - text_w(&FONT_S, v) - 3);
+    fit(u, unit, &FONT_T, 54 - text_w(&FONT_S, v) - 2);
     str_cpy(key, l, 8);                                 /* cache key: texts + colour + gauge */
     str_cpy(key + str_len(key), "|", 2);
     str_cpy(key + str_len(key), v, 8);
@@ -174,14 +174,14 @@ UI_SMALL static void draw_column(uint32_t c, const char *label, const char *val,
     cv_begin(55, Y_SEP_END - Y_LABEL, C_BLACK);         /* x 4..58: the rule at 59 stays */
     if (FELUCCA_ICONS && icon != ICON_NONE && l[0])
         cv_icon(0, 1, icon, TE_COL[c & 3u]);            /* icon rows 1..10 = the label's cap height */
-    cv_text(l[0] ? LABEL_X : 0, 0, &FONT_S, l, C_GRAY);
+    cv_text(l[0] ? LABEL_X : 0, 2, &FONT_T, l, C_GRAY);   /* (1.7: names small, the value large: on the icon's line) */
     x = cv_text(0, Y_VALUE - Y_LABEL, &FONT_S, v, vc);
-    cv_text(x + 3, Y_VALUE - Y_LABEL, &FONT_S, u, C_DIM);
+    cv_text(x + 2, Y_VALUE - Y_LABEL + 4, &FONT_T, u, C_DIM);   /* (the unit small, on the value's baseline) */
     if (ratio >= 0) {                                   /* gauge: track, fill, 1 px end line */
         int32_t gy = Y_GAUGE - Y_LABEL;
         fx = ratio * gw / 1000;
         cv_rect(0, gy + 1, gw, 1, C_LINE);
-        cv_rect(0, gy, fx, 3, vc == C_DIM ? C_DIM : TE_DIM[c & 3u]);
+        cv_rect(0, gy, fx, 3, vc == C_DIM ? C_DIM : ARC_OF(c));
         cv_rect(fx, gy - 1, 1, 5, vc == C_DIM ? C_HI : vc);
     }
     cv_blit(c * 60u + 4u, Y_LABEL);
@@ -522,13 +522,13 @@ UI_SMALL static void graph_fx(const track_t *t, uint16_t c)
         for (k = 0; k <= 4u; k++)
             cv_rect(x - 14, 8 + (int32_t)k * 18, 6, 1, TE_G2);
         cv_rect(x - 2, 8, 4, 72, C_LINE);
-        cv_rect(x - 2, 80 - h, 4, h, TE_DIM[i]);
+        cv_rect(x - 2, 80 - h, 4, h, ARC_OF(i));
         cv_rect(x - 11, 76 - h, 22, 8, col);          /* the cap, a line across its middle */
         cv_rect(x - 9, 80 - h, 18, 1, C_BLACK);
         w = text_w(&FONT_S, ui.big_v[i]);
         cv_text(x - w / 2, 88, &FONT_S, ui.big_v[i], col == C_WHITE ? C_WHITE : C_HI);
-        w = text_w(&FONT_S, ui.big_l[i]);
-        cv_text(x - w / 2, 106, &FONT_S, ui.big_l[i], C_GRAY);
+        w = text_w(&FONT_T, ui.big_l[i]);
+        cv_text(x - w / 2, 108, &FONT_T, ui.big_l[i], C_GRAY);
     }
 }
 /* SLICER page: the pattern's 16 steps, a 'x' step a full bar; a '.' step: GATE a bar as high as
@@ -909,12 +909,12 @@ UI_SMALL static void graph_comp(void)
     for (i = 1; i < 4; i++) {                         /* KNOB 2 .. 4: a knob each (1.7), its name and value beside */
         int32_t y0 = 2 + (i - 1) * 41;
         int hot = ui.big_c[i] == C_WHITE;
-        te_dial(20, y0 + 19, 15, knob_ratio((uint32_t)i), hot ? C_WHITE : C_GRAY, C_LINE);
-        cv_text(44, y0 + 2, &FONT_S, L[i - 1], C_GRAY);
-        x = cv_text(44, y0 + 19, &FONT_S, ui.big_v[i], hot ? C_WHITE : C_HI);
-        cv_text(x + 3, y0 + 19, &FONT_S, ui.big_u[i], C_DIM);
+        te_dial(20, y0 + 19, 15, knob_ratio((uint32_t)i), hot ? C_WHITE : KNOB_LIT, C_LINE);
+        cv_text(44, y0 + 6, &FONT_T, L[i - 1], C_GRAY);
+        x = cv_text(44, y0 + 17, &FONT_S, ui.big_v[i], hot ? C_WHITE : C_HI);
+        cv_text(x + 2, y0 + 21, &FONT_T, ui.big_u[i], C_DIM);
     }
-    cv_text(136, 0, &FONT_S, "THRESH", C_GRAY);
+    cv_text(136, 5, &FONT_T, "THRESH", C_GRAY);
     for (i = 0; i <= 4; i++)                          /* 0, -12, -24, -36, -48 dB */
         cv_rect(132, KM_Y + i * 24, 6, 1, TE_G2);
     cv_rect(142, KM_Y, 8, 96, C_LINE);                /* the reduction, from the top */
@@ -923,7 +923,8 @@ UI_SMALL static void graph_comp(void)
         int32_t bx = 156 + i * 10, top = KM_Y + 96 - km_px[i];
         cv_rect(bx, KM_Y, 8, 96, C_LINE);
         for (y = top; y < KM_Y + 96; y++)
-            cv_rect(bx, y, 8, 1, y < KM_Y + 6 ? C_HI : C_GRAY);   /* (1.7: one colour, brighter over -3 dB) */
+            cv_rect(bx, y, 8, 1, y < KM_Y + 6 ? RGB(150, 240, 190) : RGB(30, 204, 112));   /* (1.7: green, lighter
+                                                         * over -3 dB) */
     }
     cv_rect(140, yt, 37, 1, thr ? C_HI : C_DIM);      /* the threshold, its pointer */
     for (i = 0; i < 7; i++)
@@ -931,7 +932,7 @@ UI_SMALL static void graph_comp(void)
     y = clamp(yt - 8, KM_Y - 2, 84);
     if (thr) {
         x = cv_text(188, y, &FONT_S, ui.big_v[0], ui.big_c[0] == C_WHITE ? C_WHITE : C_HI);
-        cv_text(x + 1, y, &FONT_S, "dB", C_GRAY);
+        cv_text(x + 2, y + 4, &FONT_T, "DB", C_GRAY);
     } else {
         cv_text(188, y, &FONT_S, "OFF", C_DIM);
     }
@@ -940,7 +941,7 @@ UI_SMALL static void graph_comp(void)
         b[0] = '-';
         fmt_int(b + 1, km_px[2] / 2u);
         x = cv_text(188, 102, &FONT_S, b, C_AMB);
-        cv_text(x + 1, 102, &FONT_S, "dB", C_GRAY);
+        cv_text(x + 2, 106, &FONT_T, "DB", C_GRAY);
     }
 }
 
@@ -967,14 +968,14 @@ UI_SMALL static void graph_big(void)
         char v[12];
         if (!ui.big_l[c][0])
             continue;
-        te_dial(cx, cy, r, knob_ratio(c), hot ? C_WHITE : C_GRAY, C_LINE);
+        te_dial(cx, cy, r, knob_ratio(c), hot ? C_WHITE : KNOB_LIT, C_LINE);
         fit(v, ui.big_v[c], &FONT_S, n == 1u ? 180 : 56);
-        w = text_w(&FONT_S, v) + (ui.big_u[c][0] ? text_w(&FONT_S, ui.big_u[c]) + 3 : 0);
+        w = text_w(&FONT_S, v) + (ui.big_u[c][0] && n == 1u ? text_w(&FONT_T, ui.big_u[c]) + 2 : 0);
         x = cv_text(cx - w / 2, cy + r + 7, &FONT_S, v, hot ? C_WHITE : C_HI);
         if (ui.big_u[c][0] && n == 1u)
-            cv_text(x + 3, cy + r + 7, &FONT_S, ui.big_u[c], C_DIM);
-        w = text_w(&FONT_S, ui.big_l[c]);
-        cv_text(cx - w / 2, cy + r + 25, &FONT_S, ui.big_l[c], C_GRAY);
+            cv_text(x + 2, cy + r + 11, &FONT_T, ui.big_u[c], C_DIM);
+        w = text_w(&FONT_T, ui.big_l[c]);
+        cv_text(cx - w / 2, cy + r + 27, &FONT_T, ui.big_l[c], C_GRAY);   /* (the name small, under) */
     }
 }
 

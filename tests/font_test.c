@@ -1,10 +1,11 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
-/* The screen font (gfx.c cv_text, tools/gen_font.py). BONBLOOP 1.7: Inter Tight (assets/fonts/InterTight-Variable.ttf,
- * SIL OFL 1.1), weight 500 at 12 px in Terminus' 16-pixel cell (baseline on row 12), capitals only, anti-aliased at 2
- * bits a pixel (bits = 2); FONT_L is FONT_S at 2x. Checked: the format (cell, range, the 2x font on S's bitmaps); every
- * glyph drawn has ink inside its cell and nothing outside its bitmap; lower case shows as capitals in the same place;
- * the figures are one width; the U with umlaut is its own glyph (127), not '?'; the 5-letter labels fit a column's
- * 41 pixels as Terminus' 40 did; the 2-bit path gives the 4 levels; the data size. Exit status: the failed checks. */
+/* The screen font (gfx.c cv_text, tools/gen_font.py). BONBLOOP 1.7: Pixelify Sans (assets/fonts/PixelifySans-
+ * Variable.ttf, SIL OFL 1.1), a pixel font at its own grid (11 px, capitals 7 px) in Terminus' 16-pixel cell (baseline
+ * on row 12), capitals only, every pixel on or off (bits = 1); FONT_L is FONT_S at 2x; FONT_T the names and units, in
+ * an 11-pixel cell. Checked: the format (cell, range, the 2x font on S's bitmaps); every glyph drawn has ink inside its
+ * cell and nothing outside its bitmap; lower case shows as capitals in the same place; the figures are one width; the
+ * U with umlaut is its own glyph (127), not '?'; the 5-letter labels fit a column's 41 pixels; one lit level (no
+ * blur); the capitals 7 pixels tall, on the baseline; the data size. Exit status: the failed checks. */
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -48,9 +49,9 @@ int main(void)
 {
     uint32_t c, bare = 0, out = 0, levels = 0, i;
     int inside;
-    check(FONT_S.h == 16u && FONT_S.first == 32u && FONT_S.last == 127u && FONT_S.bits == 2u,
-          "FONT_S: Inter Tight in the 16-pixel cell, 32..127, 2 bits a pixel");
-    check(FONT_L.data == FONT_S.data && FONT_L.sh == 1u && FONT_L.h == 32u && FONT_L.bits == 2u,
+    check(FONT_S.h == 16u && FONT_S.first == 32u && FONT_S.last == 127u && FONT_S.bits == 1u,
+          "FONT_S: Pixelify Sans in the 16-pixel cell, 32..127, 1 bit a pixel");
+    check(FONT_L.data == FONT_S.data && FONT_L.sh == 1u && FONT_L.h == 32u && FONT_L.bits == 1u,
           "FONT_L: FONT_S's bitmaps drawn at 2x (no copy)");
     for (c = 33; c < 127u; c++) {                     /* every character but the space: ink, inside its box */
         if ((c >= 'a' && c <= 'z') || c == '{' || c == '}')
@@ -91,7 +92,7 @@ int main(void)
             widest = text_w(&FONT_S, W[i]) > widest ? text_w(&FONT_S, W[i]) : widest;
         check(widest <= 41, "the 5-letter labels fit a column's 41 pixels");
     }
-    {   /* the 2-bit path: an O's antialiased edge on black, in white, shows the levels 5, 10 and 15 of 15 */
+    {   /* a pixel font: an O on black, in white, has one lit level (no half-lit edge) */
         uint16_t seen[4] = {0, 0, 0, 0};
         uint32_t n = 0;
         cv_begin(40, 40, 0);
@@ -106,9 +107,43 @@ int main(void)
                 seen[n++] = v;
         }
         levels = n;
-        check(levels == 3u, "the 2-bit path: three lit levels beside black");
+        check(levels == 1u, "one lit level: every pixel on or off, sharp");
     }
-    check(sizeof FONT_S_DATA <= 3200u, "the bitmaps in 3.2 KB at most (Terminus took 5376 bytes)");
+    {   /* the capitals 7 pixels tall, standing on row 12 (the baseline, as Terminus and Inter Tight before) */
+        uint32_t top = 99, bot = 0, y, x;
+        cv_begin(40, 40, 0);
+        cv_text(8, 4, &FONT_S, "H", 0xFFFFu);
+        for (y = 0; y < 40u; y++)
+            for (x = 0; x < 40u; x++)
+                if (cv_px[y * 40u + x]) {
+                    top = y < top ? y : top;
+                    bot = y > bot ? y : bot;
+                }
+        check(bot - top + 1u == 7u && bot == 4u + 11u, "the capitals 7 pixels tall, on the baseline (row 12)");
+    }
+    check(sizeof FONT_S_DATA <= 1536u, "the bitmaps in 1.5 KB at most (Terminus took 5376 bytes)");
+    /* (1.7) FONT_T: the names over the values and the units beside them, the same letters a pixel apart */
+    check(FONT_T.h == 11u && FONT_T.first == 32u && FONT_T.last == 127u && FONT_T.bits == 1u && FONT_T.sh == 0u &&
+          FONT_T.data != FONT_S.data, "FONT_T: its own bitmaps, the 11-pixel cell, 32..127, 1 bit a pixel");
+    for (c = 33, bare = out = 0; c < 127u; c++) {
+        if ((c >= 'a' && c <= 'z') || c == '{' || c == '}')
+            continue;
+        if (!ink(&FONT_T, c, &inside))
+            bare++;
+        out += !inside;
+    }
+    check(!bare && !out, "FONT_T: every character drawn, all of it inside its bitmap and the cell");
+    {
+        static const char *const N[] = {"PUNSH", "DTUNE", "SLOT1", "RANGE", "PHASR", "DELAY", "RELEASE", "THRESH"};
+        int32_t widest = 0, spaced = 1;
+        for (i = 0; i < sizeof N / sizeof N[0]; i++) {
+            if (i < 6u)                              /* (the column names; RELEASE, THRESH: the COMP's, given room) */
+                widest = text_w(&FONT_T, N[i]) > widest ? text_w(&FONT_T, N[i]) : widest;
+            spaced &= text_w(&FONT_T, N[i]) == text_w(&FONT_S, N[i]) + (int32_t)strlen(N[i]);   /* (a pixel apart) */
+        }
+        check(widest <= 41 && spaced, "FONT_T: the letters a pixel further apart, a column's names in its 41 pixels");
+    }
+    check(sizeof FONT_T_DATA <= 1024u, "FONT_T: the bitmaps in 1 KB at most");
     printf("%s\n", bad ? "FONT TEST FAILED" : "font test passed");
     return bad;
 }

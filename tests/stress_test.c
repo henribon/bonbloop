@@ -28,7 +28,7 @@ static double st_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t
 
 /* ---- font ---- */
 static uint8_t big_data[96 * 32 * 32 / 2 + 64];   /* the old FONT_L: S enlarged and stored (reference only; 1.7: all
-                                                 * 96 glyphs of Inter Tight, up to 32 px wide at 2x) */
+                                                 * 96 glyphs, up to 32 px wide at 2x) */
 static uint16_t big_off[96];
 static felucca_font_t FONT_L2X;
 
@@ -45,7 +45,7 @@ static void font_ref_build(void)
                 if (FONT_S.bits == 1u) {                  /* (2.6: S at 1 bit a pixel) */
                     uint32_t i = (y / 2u) * ws + sx;
                     v = (s[i >> 3] >> (7u - (i & 7u))) & 1u ? 15u : 0u;
-                } else if (FONT_S.bits == 2u) {           /* (BONBLOOP 1.7: Inter Tight at 2 bits a pixel) */
+                } else if (FONT_S.bits == 2u) {           /* (BONBLOOP 1.7: 2 bits a pixel, the first look) */
                     v = ((s[(y / 2u) * ((ws + 3u) / 4u) + sx / 4u] >> (6u - 2u * (sx & 3u))) & 3u) * 5u;
                 } else {
                     v = s[(y / 2u) * bs + sx / 2u];

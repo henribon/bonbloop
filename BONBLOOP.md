@@ -16,7 +16,7 @@ som; OSC MIX e FX MIX desenhados como **faders** de mixer. O **COMP** tem a tela
 ATTACK, RELEASE à esquerda; à direita o medidor com o THRESH e a redução de ganho). A **bateria** ganhou o DRIVE do
 synth (estilo Decapitator) no DST e um **soft clipper** (CLIP) no lugar do DLY. O CLICK ON agora se chama **PL+REC**.
 Correção: girar um GAIN do EQ ou um MIX passando por 1–6 ligava e desligava efeitos (desde a 1.5).
-E uma **cara nova**: a fonte **Inter Tight** (a do bonbap.com.br) e a paleta **PERI** (Pantone 17-3938 Very Peri sobre
+E uma **cara nova**: a fonte pixel **Pixelify Sans** e a paleta **PERI** (Pantone 17-3938 Very Peri sobre
 preto), com **knobs** em toda página que só mostrava números (ver *A cara nova*).
 
 **1.6** — a **FX CHAIN é do projeto** (uma só, para os sons do synth), com os **MIX** de cada efeito; **MIX** também
@@ -125,9 +125,11 @@ As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abai
 
 ### A cara nova (1.7)
 
-- **Fonte**: **Inter Tight** (SIL OFL 1.1, a fonte do bonbap.com.br), peso 500, 12 px, em maiúsculas, suavizada (4
-  tons), no mesmo espaço da Terminus de antes: nada mudou de lugar. Os números têm todos a mesma largura (um valor
-  não "dança" enquanto o knob gira). Ocupa menos flash que a Terminus (2,9 KB contra 5,4 KB).
+- **Fonte**: **Pixelify Sans** (SIL OFL 1.1), uma fonte pixel, na grade dela mesma: 11 px, maiúsculas de 7 px, cada
+  pixel aceso ou apagado (nítida, sem borrão), no mesmo espaço da Terminus de antes: nada mudou de lugar. O texto
+  grande é ela em dobro (maiúsculas de 14 px), limpo. Os números têm todos a mesma largura (um valor não "dança"
+  enquanto o knob gira). Ocupa bem menos flash que a Terminus (1,9 KB contra 5,4 KB). (A primeira versão da 1.7
+  usava a Inter Tight suavizada: sem *hinting*, borrava nesse tamanho.)
 - **Paleta PERI** (o novo padrão, no lugar da MONO): **Very Peri** `#6667AB` e preto. Rótulos e preenchimentos em
   Very Peri, valores em lilás claro `#D9DAF4`, linhas em roxo bem escuro; o que você gira fica branco. GREEN,
   AMBER, CYAN e RED continuam em MENU → COLOR (e o tema do editor web).
@@ -135,7 +137,10 @@ As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abai
   DRIVE, FILTER...) mostram uma **fileira de knobs**, um embaixo de cada coluna, com o valor e o nome; uma página de
   um valor só, **um knob grande**. Os mixers (FX → MIXER, OSC MIX, FX MIX) são **faders**. As telas com desenho
   próprio (envelope, LFO, curva do EQ, wavetable, passos) continuam com ele.
-- **COMP**: RATIO, ATTACK e RELEASE como knobs; o medidor nas cores da paleta.
+- **Verde puxado pro roxo** `#3BA488` na paleta PERI: o arco aceso dos knobs, a barrinha embaixo das colunas e o
+  nível dos faders.
+- **Nomes e valores**: os nomes (e as unidades) num espaço menor, os valores em destaque; a cor separa um do outro.
+- **COMP**: RATIO, ATTACK e RELEASE como knobs; o medidor L/R **verde** (mais claro acima de −3 dB).
 - **Boot**: BON em lilás claro, BLOOP em Very Peri.
 
 ### A tela
@@ -444,7 +449,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.7: 578.200 de 581.564 bytes de flash (3,3 KB livres: a Inter Tight ocupa menos que a Terminus); RAM 60.076
+Tamanho do 1.7: 577.772 de 581.564 bytes de flash (3,7 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).

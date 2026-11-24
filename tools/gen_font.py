@@ -7,11 +7,13 @@
 Terminus Bold 8x16 (BDF, SIL OFL 1.1). TTF fonts also work through render()
 (anti-aliased, tabular figures via the OpenType `tnum` feature).
 
-BONBLOOP 1.7: the screen's font is Inter Tight (assets/fonts/InterTight-Variable.ttf, SIL OFL 1.1, the type of
-bonbap.com.br), weight 500 at 12 px (as wide as Terminus: the 5-letter labels fit their columns), in Terminus' 16-pixel cell with the baseline on its row 12 (no layout moves),
-capitals only (gfx.c glyph folds lower case: its slots are empty, 0 bytes), the figures all one width (values do
-not wobble), anti-aliased at 2 bits a pixel (4 levels: on the LCD as good as 16, half the
-flash), bits = 2. Glyph 127 is the U with umlaut (HUGELTON; gfx.c glyph maps 0xDC there). L is S at 2x, as ever.
+BONBLOOP 1.7: the screen's font is Pixelify Sans (assets/fonts/PixelifySans-Variable.ttf, SIL OFL 1.1), a pixel
+font: on the LCD at its own grid, 11 px to the em (capitals 7 px), every pixel on or off (1 bit a pixel, bits = 1), in
+Terminus' 16-pixel cell with the baseline on its row 12 (no layout moves); T (the names and units) the same letters
+in an 11-pixel cell (baseline on row 8) with a pixel between them; L is S at 2x, as ever (a pixel font enlarged stays
+sharp). Capitals only (gfx.c glyph folds lower case: its slots are empty, 0 bytes), the figures all one width (values
+do not wobble). Glyph 127 is the U with umlaut (HUGELTON; gfx.c glyph maps 0xDC there). (The first 1.7 look had
+Inter Tight anti-aliased at 2 bits: blurred at this size, it has no hinting; the render_inter path stays.)
 
 Glyph format: per glyph an advance width, a bitmap width and an offset; the
 bitmap starts FONT_PAD pixels left of the pen position (room for side
@@ -31,21 +33,60 @@ FONTS = Path(__file__).resolve().parents[1] / "assets" / "fonts"
 # anti-aliasing at their design size and enlarged by an integer factor
 # SLOOP 2.6: Terminus Bold (the same 8 x 16 cell and advances as the regular one: no layout moves), drawn in
 # capitals only (gfx.c glyph); the regular ter-u16n.bdf stays for the web editor's font (gen_webfont.py)
-SIZES = [("S", "InterTight-Variable.ttf", 12, 1, False, 32, 127),   # (BONBLOOP 1.7) 127: U with umlaut
-         ("L", "InterTight-Variable.ttf", 12, 2, False, 32, 127)]   # S at 2x (its bitmaps, drawn at 2x)
+SIZES = [("S", "PixelifySans-Variable.ttf", 11, 1, True, 32, 127),   # (BONBLOOP 1.7) 127: U with umlaut
+         ("L", "PixelifySans-Variable.ttf", 11, 2, True, 32, 127),   # S at 2x (its bitmaps, drawn at 2x)
+         ("T", "PixelifySans-Variable.ttf", 11, 1, True, 32, 127)]   # (1.7) the names and units
 PAD = 1
-INTER = {"wght": 500, "track": 0, "cell": 16, "base": 12}         # (BONBLOOP 1.7) see above
+INTER = {"S": {"wght": 500, "track": 0, "cell": 16, "base": 12},   # (BONBLOOP 1.7) see above; T: the names over
+         "L": {"wght": 500, "track": 0, "cell": 16, "base": 12},   # the values and the units beside them, smaller and
+         "T": {"wght": 600, "track": 1, "cell": 11, "base": 8}}    # spaced out (the values keep S)
+PIXELIFY = {"S": {"track": 0, "cell": 16, "base": 12},              # (BONBLOOP 1.7) Pixelify Sans: see above
+            "L": {"track": 0, "cell": 16, "base": 12},
+            "T": {"track": 1, "cell": 11, "base": 8}}
+OS = 16                                                              # its render: OS x OS screen px a font pixel
 
 
-def render_inter(path, px, scale, first, last):
+def render_pixelify(path, px, scale, first, last, name):
+    """(BONBLOOP 1.7) a pixel font that is not exactly on a grid (Pixelify Sans: strokes 101 units, gaps 80, the
+    pixel ~91): drawn OS times larger, the pen and the baseline on whole font pixels, and each font pixel is on when
+    the centre of its OS x OS cell is inked; so 0 or 15, never between. Advances: the design's, rounded to pixels"""
+    o = PIXELIFY[name]
+    big = ImageFont.truetype(str(path), px * OS)
+    h, base, track = o["cell"], o["base"], o["track"]
+
+    def adv_of(ch):
+        return round(big.getlength(ch) / OS)
+    fig = max(adv_of(d) for d in "0123456789")
+    out = []
+    for c in range(first, last + 1):
+        ch = "Ü" if c == 127 else chr(c)
+        if "a" <= ch <= "z" or ch in "{}":                 # never drawn (folded, unused): nothing stored
+            out.append((0, 0, []))
+            continue
+        w = adv_of(ch)
+        adv = (fig if ch.isdigit() else w) + track
+        if ch == " ":
+            adv = max(3, w) + track
+        x0 = PAD + ((fig - w) // 2 if ch.isdigit() else 0)
+        bw = max(adv, x0 - PAD + -(-big.getbbox(ch, anchor="ls")[2] // OS)) + 2 * PAD
+        img = Image.new("L", (bw * OS, h * OS), 0)
+        ImageDraw.Draw(img).text((x0 * OS, base * OS), ch, font=big, fill=255, anchor="ls")
+        p = img.load()
+        px_ = [15 if p[x * OS + OS // 2, y * OS + OS // 2] > 127 else 0 for y in range(h) for x in range(bw)]
+        out.append((adv * scale, bw * scale, upscale(px_, bw, h, scale)))
+    return h * scale, out
+
+
+def render_inter(path, px, scale, first, last, name):
     """(BONBLOOP 1.7) Inter Tight in a Terminus cell: the baseline on row `base`, capitals only (the lower case slots
     empty), the figures one width, `track` pixels between letters; alpha 0..15 (packed at 2 bits by main)"""
     font = ImageFont.truetype(str(path), px)
-    font.set_variation_by_axes([INTER["wght"]])
+    o = INTER[name]
+    font.set_variation_by_axes([o["wght"]])
     big = ImageFont.truetype(str(path), px * 10)         # the design widths (FreeType hints the advances at px)
-    big.set_variation_by_axes([INTER["wght"]])
+    big.set_variation_by_axes([o["wght"]])
     asc, _ = font.getmetrics()
-    h, base, track = INTER["cell"], INTER["base"], INTER["track"]
+    h, base, track = o["cell"], o["base"], o["track"]
     fig = max(round(big.getlength(d) / 10) for d in "0123456789")
     out = []
     for c in range(first, last + 1):
@@ -138,11 +179,13 @@ def render_bdf(path, scale, first, last):
     return ch * scale, out
 
 
-def render(ttf, px, scale, pixel, first, last):
+def render(ttf, px, scale, pixel, first, last, name="S"):
     if ttf.endswith(".bdf"):
         return render_bdf(FONTS / ttf, scale, first, last)
     if ttf.startswith("InterTight"):
-        return render_inter(FONTS / ttf, px, scale, first, last)
+        return render_inter(FONTS / ttf, px, scale, first, last, name)
+    if ttf.startswith("PixelifySans"):
+        return render_pixelify(FONTS / ttf, px, scale, first, last, name)
     font = ImageFont.truetype(str(FONTS / ttf), px)
     feats = None if pixel else ["tnum"]
     asc, desc = font.getmetrics()
@@ -166,7 +209,7 @@ def main(out):
              "#pragma once", "#include <stdint.h>", f"#define FONT_PAD {PAD}  /* x scale for L, see below */", ""]
     base = None                                        # (name, first, h, glyphs) of the 1x font
     for name, ttf, px, scale, pixel, first, last in SIZES:
-        h, glyphs = render(ttf, px, scale, pixel, first, last)
+        h, glyphs = render(ttf, px, scale, pixel, first, last, name)
         if scale > 1 and base is not None:
             # SLOOP 2.4: a pixel font at 2x is the 1x font's own bitmaps, enlarged while drawing (gfx.c
             # cv_text): no second copy in flash (24 KB). Same glyphs, same pixels: checked here.

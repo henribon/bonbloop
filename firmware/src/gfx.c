@@ -37,6 +37,11 @@ static int32_t cv_oy;            /* y offset for graph drawing */
 static uint16_t pal_bg;                  /* SLOOP 2.7: the background, black unless a theme says (palette_set) */
 #define C_BLACK pal_bg                   /* the background (and dark text on a light tile) */
 static uint16_t pal_hi = 0xFFFFu;        /* the accent: white unless a theme says (palette_set) */
+static uint16_t pal_arc;                 /* (BONBLOOP 1.7) a knob's lit arc, a gauge, a fader's level: PERI's #3BA488 (a
+                                          * green toward Very Peri), else the palette's own (C_GRAY, TE_DIM) */
+static uint8_t pal_peri;                 /* .. the PERI palette is on */
+#define ARC_OF(k) (pal_peri ? pal_arc : TE_DIM[(k) & 3u])   /* a gauge, a fader: PERI's green, else the track's */
+#define KNOB_LIT (pal_peri ? pal_arc : C_GRAY)              /* a knob's lit arc */
 #define C_WHITE pal_hi               /* accent only: what is being touched / where we are */
 /* The screen is five steps of one colour, darkest to brightest, plus white.
  * Palettes are picked in the HOME-hold menu (COLOR). */
@@ -181,7 +186,9 @@ static void palette_set(uint32_t i)              /* built-in palette i, or the t
         TE_MID[k] = cu ? rgb565_scale(theme.trk[k], 2u, 3u) : TE_MID_DEF[k];
         TE_DIM[k] = cu ? rgb565_scale(theme.trk[k], 1u, 3u) : TE_DIM_DEF[k];
     }
-    if (!cu && i % NPALETTES == PAL_PERI) {           /* (BONBLOOP 1.7) one colour: values light, fills Very Peri */
+    pal_peri = (uint8_t)(!cu && i % NPALETTES == PAL_PERI);
+    pal_arc = RGB(59, 164, 136);
+    if (pal_peri) {                                   /* (BONBLOOP 1.7) one colour: values light, fills Very Peri */
         static const uint16_t G[4] = {RGB(20, 21, 42), RGB(38, 39, 74), RGB(102, 103, 171), RGB(196, 197, 236)};
         for (k = 0; k < 4u; k++)
             TE_COL[k] = RGB(217, 218, 244), TE_MID[k] = RGB(156, 157, 216), TE_DIM[k] = RGB(102, 103, 171), te_g[k] = G[k];
@@ -265,7 +272,7 @@ static uint32_t glyph(const felucca_font_t *f, uint32_t ch)
 {
     if ((ch >= 'a' && ch <= 'z') || (ch >= 0xE0u && ch <= 0xFEu && ch != 0xF7u))
         ch -= 32u;
-    if (ch == 0xDCu && f->last == 127u)               /* (BONBLOOP 1.7: Inter Tight keeps the U with umlaut at 127) */
+    if (ch == 0xDCu && f->last == 127u)               /* (BONBLOOP 1.7: the U with umlaut is glyph 127) */
         ch = 127u;
     else if (ch < f->first || ch > f->last || (ch >= 127u && ch < 160u) || ch == '{' || ch == '}')
         ch = '?';

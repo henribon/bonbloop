@@ -121,7 +121,7 @@ UI_SMALL static void te_dials(int32_t y0, const char *const lab[4], const char *
         int32_t cx = 30 + 60 * (int32_t)k;
         if (!lab[k][0])
             continue;
-        te_dial(cx, 12, 11, ratio[k], TE_COL[k], TE_DIM[k]);
+        te_dial(cx, 12, 11, ratio[k], pal_peri ? pal_arc : TE_COL[k], pal_peri ? C_LINE : TE_DIM[k]);   /* (1.7) */
         te_text_c(cx, 24, lab[k], TE_G3);
     }
     cv_blit(0, (uint32_t)y0);
