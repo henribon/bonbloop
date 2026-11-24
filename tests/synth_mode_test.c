@@ -780,12 +780,37 @@ int main(int argc, char **argv)
         }
         track_select(0);
         frames(2);
-        {
+        {   /* 1.9: FX > CLIP on an instrument track: shown, its own (synx), not the drums'; DRIVE 0 nothing; DRIVE 63
+             * HARD CEIL -6: cut at -6 dB as the drums'; kept when the track's sound changes (sx_default) */
             const page_t *cp = 0;
+            const param_desc_t *d0;
+            static int32_t bk[CTL];
+            int16_t *vp;
+            int32_t j, same = 1, cut, og = 268435456 / (4096 + 4096 + 126 * 128);
             for (i = 0; i < NPAGES; i++)
                 if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "CLIP"))
                     cp = &PAGES[i];
-            check(cp && !page_shown(cp), "1.8: FX > CLIP not on a synth track (the drums' only)");
+            sx_set(0, SX_CLD, 0);
+            d0 = cp ? page_desc(cp, 0, &vp) : 0;
+            check(cp && page_shown(cp) && d0 && str_eq(d0->label, "DRIVE") && vp == &wv_tmp && d0->max == 63 &&
+                  page_desc(cp, 2, &vp) && str_eq(page_desc(cp, 2, &vp)->label, "SHAPE"),
+                  "1.9: FX > CLIP on track 1: its own DRIVE CEIL SHAPE OUT (not the drums')");
+            for (j = 0; j < CTL; j++)
+                bk[j] = 30000;
+            track_clip(&trk[0], bk, CTL);
+            for (j = 0; j < CTL; j++)
+                same &= bk[j] == 30000;
+            sx_set(0, SX_CLD, 63), sx_set(0, SX_CLS, 1), sx_set(0, SX_CLC, -6);
+            for (j = 0; j < CTL; j++)
+                bk[j] = 60000;
+            track_clip(&trk[0], bk, CTL);
+            cut = bk[CTL - 1];
+            sx_default(&trk[0]);
+            snprintf(b, sizeof b, "1.9: track 1's CLIP: DRIVE 0 dry; DRIVE 63 HARD -6 dB: 60000 -> %d; kept as the sound changes",
+                     cut);
+            check(same && cut == mulq15(16423, og) && sx_get(0, SX_CLD) == 63 && sx_get(0, SX_CLS) == 1 &&
+                  sx_get(0, SX_CLC) == -6 && song.g[G_DRCLIP] == 0, b);
+            sx_set(0, SX_CLD, 0), sx_set(0, SX_CLS, 0), sx_set(0, SX_CLC, 0);
         }
     }
     {   /* 1.7: the parallel DIST on SLOOP's engines; FX > MOD a flanger, a phaser: each its own sound, bounded */

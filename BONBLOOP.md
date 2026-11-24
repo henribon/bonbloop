@@ -11,7 +11,8 @@ Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`
 **Versão 1.9** — **as teclas mostram a escala**: SEL → página SEL 2 → **KEYS** em **SCALE** e as teclas do FM-1 ficam
 acesas nas notas do tom e da escala da track selecionada, a tônica mais forte (ver *As teclas mostram a escala*).
 E o **EQ** (FX → EQ 1 / EQ 2) passa a ser **de cada track**: mexe só no canal selecionado (na 1.7 e na 1.8 era o EQ
-do master e mudava todos os instrumentos).
+do master e mudava todos os instrumentos). E o **CLIP** (o *soft clipper*) agora existe em **todas as tracks**, não só na
+bateria: FX → CLIP com uma track de instrumento selecionada regula o clipper dela.
 
 **Versão 1.8** — uma página **CLIP** para o clipper da bateria (FX → CLIP, com a bateria selecionada): **DRIVE**,
 **CEIL** (o teto, 0 a −12 dB), **SHAPE** (SOFT, HARD, FOLD) e **OUT** (−12 a +6 dB). Na paleta PERI, o que está
@@ -339,7 +340,7 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
 | **COMP** | THRS (0 dB = desligado, até −40 dB) · RATIO (2:1, 4:1, 10:1) · ATK (0,1–30 ms) · REL (0,1–1,2 s) | do master |
 | **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | da track (1.9) |
 | **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF); na bateria: STYLE · TONE · PUNSH | do projeto |
-| **CLIP** (1.8, só na bateria) | DRIVE · CEIL (0 a −12 dB) · SHAPE (SOFT, HARD, FOLD) · OUT (−12 a +6 dB) | do projeto |
+| **CLIP** (1.8 na bateria; 1.9 em todas) | DRIVE · CEIL (0 a −12 dB) · SHAPE (SOFT, HARD, FOLD) · OUT (−12 a +6 dB) | da track |
 | **MOD** | TYPE (CHOR, FLANG, PHASR) · RATE · DEPTH · FDBK | do projeto |
 | **DELAY** | TIME · FDBK · COLR · MODE (SYNC / MS) | do projeto |
 | **REVERB** | SIZE · DAMP | do projeto |
@@ -363,8 +364,9 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
   PUNSH na página **DIST** (com a bateria selecionada); **MOD** é dela; no lugar do DLY fica o **CLIP**, um *soft clipper*
   (empurra a bateria num tanh e devolve metade do ganho: os golpes baixos um pouco mais fortes, os picos arredondados);
   **REV** é o envio da bateria (o mesmo de GLO → DRUMS). O envio de delay da bateria continua em GLO → DRUMS.
-- **CLIP** (1.8), a página do clipper da bateria (aparece no FX só com a bateria selecionada): **DRIVE** é o mesmo
-  CLIP do MIXER (0 desliga o clipper); **CEIL** baixa o teto onde ele arredonda (0 a −12 dB); **SHAPE** escolhe o
+- **CLIP** (1.8; 1.9 em todas as tracks), o clipper da track selecionada: na **bateria**, **DRIVE** é o mesmo
+  CLIP do MIXER (0 desliga o clipper); numa **track de instrumento** é o clipper dela, no fim da cadeia de efeitos
+  dela, antes do volume (fica com a track quando você troca de som; não vai nos presets de usuário); **CEIL** baixa o teto onde ele arredonda (0 a −12 dB); **SHAPE** escolhe o
   corte: **SOFT** (o tanh de sempre), **HARD** (corta reto no teto) ou **FOLD** (dobra de volta no teto: mais
   harmônicos, mais sujo); **OUT** ajusta o volume na saída (−12 a +6 dB), para comparar com e sem. Em CEIL 0 dB, SOFT e
   OUT 0 dB ele soa exatamente como o CLIP da 1.7. Fica salvo no projeto; um projeto da 1.7 abre com esses três nos
@@ -495,7 +497,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.9: 579.860 de 581.564 bytes de flash (1,7 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
+Tamanho do 1.9: 579.896 de 581.564 bytes de flash (1,6 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).

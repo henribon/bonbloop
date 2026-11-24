@@ -19,7 +19,8 @@
 > (MUTE, SOLO, FILL, the selected track) in violet; knobs only where every value is a continuous sound parameter, the
 > effect pages and every page to choose or set something back to the screen in four value windows.
 > 1.9: the keys show the scale: SEL 2 > KEYS (or MENU > LIGHTS > KEYS) SCALE lights the selected track's scale on the
-> keys, the root brighter. FX > EQ is each track's own (it was the master's).
+> keys, the root brighter. FX > EQ is each track's own (it was the master's), and FX > CLIP, the soft clipper, is on
+> every track (it was the drums' only).
 > Everything else is SLOOP. **Install from the browser: [bonbap.com.br/bonbloop](https://bonbap.com.br/bonbloop/)** (Chrome or Edge,
 > the FM-1 on USB). Guia completo em português: **[BONBLOOP.md](BONBLOOP.md)**.
 >

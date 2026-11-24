@@ -1283,8 +1283,8 @@ int main(int argc, char **argv)
             frames(80);
             check(km_px[0] < 10u, "1.7: COMP page: the meter falls back");
         }
-        SEL(7);
-        check(!strcmp(PT(), "FILTER"), "SELECT on FX: EQ 1, EQ 2, DIST, MOD, DELAY, REVERB, then the track FILTER");
+        SEL(8);
+        check(!strcmp(PT(), "FILTER"), "SELECT on FX: EQ 1, EQ 2, DIST, CLIP (1.9: every track), MOD, DELAY, REVERB, then the track FILTER");
         TSEL->p[P_TFLT] = -32; ui.force = 1; frames(2); ppm("page-filter");
         check(!strcmp(ui.big_l[0], "FILT") && !strcmp(ui.big_v[0], "LP50") && !ui.big_l[1][0],
               "FILTER page: its one value drawn large (LP50 %)");
