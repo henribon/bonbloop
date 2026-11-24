@@ -8,6 +8,14 @@ cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, de
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
+**Versão 1.8** — uma página **CLIP** para o clipper da bateria (FX → CLIP, com a bateria selecionada): **DRIVE**,
+**CEIL** (o teto, 0 a −12 dB), **SHAPE** (SOFT, HARD, FOLD) e **OUT** (−12 a +6 dB). Na paleta PERI, o que está
+**ligado ou selecionado** fica **violeta** `#8B5CF6`: MUTE, SOLO, FILL e BAR na camada MIX (GLO segurado), e a track
+selecionada na tela TRACKS. **Knobs só para som**: ficam só nas páginas em que todo valor é um parâmetro de som
+contínuo (um nível, um tempo, um corte, uma profundidade: LFO DEST, os parâmetros dos motores...). As páginas de
+**efeito** e as de **escolher ou ajustar** algo (FX CHAIN, GLOBAL, SYSTEM, MIDI, MASTER, TEXTURE, ARP, PATTERN, um
+TYPE, um WAVE...) voltam à tela **dividida em quatro** (o nome pequeno e o valor grande), como antes dos knobs.
+
 **Versão 1.7** — **páginas FX novas** fora do modo synth: o **MIXER** da track (DST · MOD · DLY · REV, tudo em
 paralelo), um **COMP** (glue) e um **EQ** de 4 bandas no master, os ajustes de DIST, MOD (chorus / flanger / phaser),
 DELAY e REVERB, o FILTER e, por último, o SLICER. No modo synth: **FX MIX** (um knob por efeito da cadeia, no lugar
@@ -133,8 +141,9 @@ As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abai
 - **Paleta PERI** (o novo padrão, no lugar da MONO): **Very Peri** `#6667AB` e preto. Rótulos e preenchimentos em
   Very Peri, valores em lilás claro `#D9DAF4`, linhas em roxo bem escuro; o que você gira fica branco. GREEN,
   AMBER, CYAN e RED continuam em MENU → COLOR (e o tema do editor web).
-- **Knob ou fader em toda tela**: as páginas que só mostravam números (EDIT, VOICE, DEST, GLOBAL, DELAY, DIST, MOD,
-  DRIVE, FILTER...) mostram uma **fileira de knobs**, um embaixo de cada coluna, com o valor e o nome; uma página de
+- **Knob ou fader onde é som** (1.8: só lá): as páginas de parâmetros de som contínuos mostram uma **fileira de
+  knobs**, um embaixo de cada coluna, com o valor e o nome; as de escolha, de ajuste e de efeito, a tela dividida em
+  quatro de antes; uma página de
   um valor só, **um knob grande**. Os mixers (FX → MIXER, OSC MIX, FX MIX) são **faders**. As telas com desenho
   próprio (envelope, LFO, curva do EQ, wavetable, passos) continuam com ele.
 - **Verde puxado pro roxo** `#3BA488` na paleta PERI: o arco aceso dos knobs, a barrinha embaixo das colunas e o
@@ -325,6 +334,7 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
 | **COMP** | THRS (0 dB = desligado, até −40 dB) · RATIO (2:1, 4:1, 10:1) · ATK (0,1–30 ms) · REL (0,1–1,2 s) | do master |
 | **EQ 1** / **EQ 2** | LOW · GAIN · MID1 · GAIN / MID2 · GAIN · HIGH · GAIN, com a curva | do master |
 | **DIST** | TYPE (SOFT, HARD, FOLD, FUZZ, CRUSH) · DRIVE · TONE · LEVEL (no CRUSH: BITS · RATE · LPF); na bateria: STYLE · TONE · PUNSH | do projeto |
+| **CLIP** (1.8, só na bateria) | DRIVE · CEIL (0 a −12 dB) · SHAPE (SOFT, HARD, FOLD) · OUT (−12 a +6 dB) | do projeto |
 | **MOD** | TYPE (CHOR, FLANG, PHASR) · RATE · DEPTH · FDBK | do projeto |
 | **DELAY** | TIME · FDBK · COLR · MODE (SYNC / MS) | do projeto |
 | **REVERB** | SIZE · DAMP | do projeto |
@@ -339,13 +349,19 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
 - O **COMP** é um *glue compressor* no master (depois dos efeitos, antes do volume): estéreo, com make-up automático
   (devolve metade do que o compressor tira em fundo de escala). Em THRS 0 dB não faz nada. A tela é a de um compressor
   de DAW: RATIO, ATTACK e RELEASE à esquerda; à direita o medidor de 0 a −48 dB com a entrada (esquerda e direita:
-  verde, amarelo a partir de −12 dB, vermelho a partir de −3), a **redução de ganho** descendo do topo (laranja) e o
-  **THRESH** como uma linha com a seta azul e o valor ao lado.
+  verde, mais claro acima de −3 dB), a **redução de ganho** descendo do topo e o **THRESH** como uma linha com uma
+  seta e o valor ao lado.
 - O **EQ** do master é o mesmo EQ de 4 bandas do synth, para a mistura inteira. Plano, não gasta nada.
 - Na **bateria**: o **DST** é o DRIVE do modo synth (estilo Decapitator), em paralelo, com STYLE (A E N T P), TONE e
   PUNSH na página **DIST** (com a bateria selecionada); **MOD** é dela; no lugar do DLY fica o **CLIP**, um *soft clipper*
   (empurra a bateria num tanh e devolve metade do ganho: os golpes baixos um pouco mais fortes, os picos arredondados);
   **REV** é o envio da bateria (o mesmo de GLO → DRUMS). O envio de delay da bateria continua em GLO → DRUMS.
+- **CLIP** (1.8), a página do clipper da bateria (aparece no FX só com a bateria selecionada): **DRIVE** é o mesmo
+  CLIP do MIXER (0 desliga o clipper); **CEIL** baixa o teto onde ele arredonda (0 a −12 dB); **SHAPE** escolhe o
+  corte: **SOFT** (o tanh de sempre), **HARD** (corta reto no teto) ou **FOLD** (dobra de volta no teto: mais
+  harmônicos, mais sujo); **OUT** ajusta o volume na saída (−12 a +6 dB), para comparar com e sem. Em CEIL 0 dB, SOFT e
+  OUT 0 dB ele soa exatamente como o CLIP da 1.7. Fica salvo no projeto; um projeto da 1.7 abre com esses três nos
+  padrões.
 - **Sem MIX nestas páginas:** os MIX (seco/molhado e retornos) ficam só no modo synth.
 - O antigo **INSERT** saiu destas páginas: as distorções dele são o DIST, e PHASR / FLANG / CHOR são o MOD. Ele continua
   existindo só como o PHASER da cadeia do synth. Num som antigo com INSERT, ele deixa de soar nas tracks do SLOOP; o
@@ -449,7 +465,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.7: 577.772 de 581.564 bytes de flash (3,7 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
+Tamanho do 1.8: 577.384 de 581.564 bytes de flash (4,1 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).

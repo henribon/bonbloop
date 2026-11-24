@@ -968,7 +968,26 @@ static void djf_process(int32_t *l, int32_t *r, uint32_t n)
 /* (BONBLOOP 1.7) the drums' DST: the synth's DRIVE (FX > DIST with the drum track selected: STYLE TONE PUNSH) on their
  * left and right, in parallel, DST its drive and how much of it is added; then CLIP, a soft clipper: the drive into tanh,
  * given back half way (x 2 / (1 + drive): the quiet hits a little louder, the peaks rounded). DST 0, CLIP 0: the drums
- * bit for bit. Their sends stay dry */
+ * bit for bit. Their sends stay dry.
+ * (1.8) FX > CLIP: DRIVE (CLIP, 0: off), CEIL where it rounds (0 .. -12 dB: the driven scaled to it and back), SHAPE
+ * SOFT (tanh) / HARD (cut at CEIL) / FOLD (folded back at CEIL: overtones), OUT after it (-12 .. +6 dB). CEIL 0 dB,
+ * SOFT, OUT 0 dB: 1.7's clipper, bit for bit */
+static const uint16_t CLIP_CEIL_Q15[13] = {32767, 29205, 26029, 23198, 20675, 18427, 16423, 14637, 13045, 11627, 10362,
+                                           9235, 8231};                    /* 0 .. -12 dB */
+static const uint16_t CLIP_OUT_Q12[19] = {1029, 1154, 1295, 1453, 1631, 1830, 2053, 2303, 2584, 2900, 3254, 3651, 4096,
+                                          4596, 5157, 5786, 6492, 7284, 8173};   /* -12 .. +6 dB */
+static int32_t clip_one(int32_t v, uint32_t shp, int32_t cl, int32_t kc)
+{
+    if (shp == 1u)                                     /* HARD */
+        return clamp(v, -cl, cl);
+    if (shp == 2u) {                                   /* FOLD: a triangle of period 4 x CEIL */
+        int32_t p = 4 * cl, t = (v + cl) % p;
+        t += t < 0 ? p : 0;
+        return t < 2 * cl ? t - cl : 3 * cl - t;
+    }
+    v = clamp(v, -2 * cl, 2 * cl);                     /* SOFT under a lower CEIL (tanh flat beyond 2 x CEIL) */
+    return (softclip((v * kc) >> 12) * cl) >> 15;
+}
 static int32_t drum_wd[2][3];
 static uint8_t drum_wd_on;
 static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
@@ -990,10 +1009,19 @@ static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
     }
     if (c) {
         int32_t g = 4096 + c * 128, og = 268435456 / (4096 + g);   /* 1x .. ~5x; Q15 */
-        for (i = 0; i < n; i++) {
-            l[i] = mulq15(softclip(MULQ12R(clamp(l[i], -262143, 262143), g, 2)), og);
-            r[i] = mulq15(softclip(MULQ12R(clamp(r[i], -262143, 262143), g, 2)), og);
-        }
+        uint32_t shp = (uint32_t)clamp(song.g[G_DRSHP], 0, 2);
+        int32_t cl = CLIP_CEIL_Q15[clamp(-song.g[G_DRCEIL], 0, 12)], kc = (int32_t)(134217728u / (uint32_t)cl);
+        og = (og * CLIP_OUT_Q12[clamp(song.g[G_DROUT], -12, 6) + 12]) >> 12;   /* (1.8) OUT; 0 dB: 1.7's og */
+        if (!shp && cl == 32767)                       /* 1.7's (CEIL 0 dB, SOFT) */
+            for (i = 0; i < n; i++) {
+                l[i] = mulq15(softclip(MULQ12R(clamp(l[i], -262143, 262143), g, 2)), og);
+                r[i] = mulq15(softclip(MULQ12R(clamp(r[i], -262143, 262143), g, 2)), og);
+            }
+        else
+            for (i = 0; i < n; i++) {
+                l[i] = mulq15(clip_one(MULQ12R(clamp(l[i], -262143, 262143), g, 2), shp, cl, kc), og);
+                r[i] = mulq15(clip_one(MULQ12R(clamp(r[i], -262143, 262143), g, 2), shp, cl, kc), og);
+            }
     }
 }
 /* the drum track with the metronome: drums_render, through the SLICER when it is on (slicer.c), then through its

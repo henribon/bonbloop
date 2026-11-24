@@ -42,6 +42,11 @@ static uint16_t pal_arc;                 /* (BONBLOOP 1.7) a knob's lit arc, a g
 static uint8_t pal_peri;                 /* .. the PERI palette is on */
 #define ARC_OF(k) (pal_peri ? pal_arc : TE_DIM[(k) & 3u])   /* a gauge, a fader: PERI's green, else the track's */
 #define KNOB_LIT (pal_peri ? pal_arc : C_GRAY)              /* a knob's lit arc */
+static uint16_t pal_on, pal_onbg;        /* (BONBLOOP 1.8) PERI: what is on or selected (a MUTE, a SOLO, a FILL, the
+                                          * selected track) violet #8B5CF6, white on it; the selected track's row on a
+                                          * dark violet. Other palettes: white, black on it, as before */
+#define C_ON (pal_peri ? pal_on : C_WHITE)
+#define C_ONFG (pal_peri ? C_WHITE : C_BLACK)
 #define C_WHITE pal_hi               /* accent only: what is being touched / where we are */
 /* The screen is five steps of one colour, darkest to brightest, plus white.
  * Palettes are picked in the HOME-hold menu (COLOR). */
@@ -188,6 +193,7 @@ static void palette_set(uint32_t i)              /* built-in palette i, or the t
     }
     pal_peri = (uint8_t)(!cu && i % NPALETTES == PAL_PERI);
     pal_arc = RGB(59, 164, 136);
+    pal_on = RGB(139, 92, 246), pal_onbg = RGB(30, 20, 58);
     if (pal_peri) {                                   /* (BONBLOOP 1.7) one colour: values light, fills Very Peri */
         static const uint16_t G[4] = {RGB(20, 21, 42), RGB(38, 39, 74), RGB(102, 103, 171), RGB(196, 197, 236)};
         for (k = 0; k < 4u; k++)

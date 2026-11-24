@@ -218,7 +218,7 @@ UI_SMALL static void te_header(const char *title, uint16_t tc, uint32_t *cache, 
             cv_text(bx + 4, 5, &FONT_S, sb, C_BLACK);
         }
         if (song.solo)
-            cv_text(236 - text_w(&FONT_S, "solo"), 22, &FONT_S, "solo", C_WHITE);
+            cv_text(236 - text_w(&FONT_S, "solo"), 22, &FONT_S, "solo", C_ON);
     }
     cv_rect(0, 39, 240, 1, TE_G1);
     cv_blit(0, 0);
@@ -258,11 +258,11 @@ UI_SMALL static void studio_tracks_draw(void)
         for (j = 0; j < len; j++) h = h * 31u + (uint32_t)trk_step_on(t, j);
         if (!ui.force && h == rows[i]) continue;
         rows[i] = h;
-        cv_begin(240, 36, C_BLACK);
-        cv_rect(2, 3, 26, 30, selected ? col : dim);   /* the track tile */
+        cv_begin(240, 36, selected && pal_peri ? pal_onbg : C_BLACK);   /* (1.8 PERI: the selected row dark violet, */
+        cv_rect(2, 3, 26, 30, selected ? (pal_peri ? pal_on : col) : dim);   /* its tile violet) the track tile */
         {
             char n[2] = {(char)('1' + i), 0};
-            cv_text(11, 10, &FONT_S, n, selected ? C_BLACK : col);
+            cv_text(11, 10, &FONT_S, n, selected ? C_ONFG : col);
         }
         cv_text(34, 1, &FONT_S, b, selected ? C_WHITE : TE_G4);
         if (34 + text_w(&FONT_S, b) + 6 + text_w(&FONT_S, e) < 196)
@@ -271,10 +271,10 @@ UI_SMALL static void studio_tracks_draw(void)
             cv_rect(200, 2, 36, 15, TE_RED);
             cv_text(206, 1, &FONT_S, "rec", C_WHITE);
         } else if (solo) {
-            cv_rect(200, 2, 36, 15, C_WHITE);
-            cv_text(202, 1, &FONT_S, "solo", C_BLACK);
+            cv_rect(200, 2, 36, 15, C_ON);
+            cv_text(202, 1, &FONT_S, "solo", C_ONFG);
         } else if (silent) {
-            cv_text(204, 1, &FONT_S, "mute", TE_G3);
+            cv_text(204, 1, &FONT_S, "mute", pal_peri ? pal_on : TE_G3);
         }
         for (j = 0; j < 16u; j++) {                    /* the 16 steps in view */
             uint32_t p = bank * 16u + j, on = 0;

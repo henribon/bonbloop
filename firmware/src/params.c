@@ -33,6 +33,7 @@ static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CR
 static const char *const N_XTYPE[] = {"SOFT", "HARD", "FOLD", "FUZZ", "CRUSH"};          /* (BONBLOOP 1.7) FX > DIST */
 static const char *const N_MTYPE[] = {"CHOR", "FLANG", "PHASR"};                         /* .. FX > MOD */
 static const char *const N_KRAT[] = {"2:1", "4:1", "10:1"};                              /* .. FX > COMP */
+static const char *const N_CSHP[] = {"SOFT", "HARD", "FOLD"};                            /* (1.8) FX > CLIP's SHAPE */
 static const char *const N_KATK[] = {"0.1ms", "0.3ms", "1ms", "3ms", "10ms", "30ms"};
 static const char *const N_KREL[] = {"0.1s", "0.2s", "0.4s", "0.6s", "0.8s", "1.2s"};
 /* CRUSH: BITS 1..16 and RATE (the held sample's rate) over the range in 16 even parts (0-terminated) */
@@ -239,6 +240,9 @@ static const param_desc_t GP[G_COUNT] = {
     [G_DRTONE] = PD("TONE", F_PCT, 0, 127, 64),
     [G_DRPUN] = PE("PUNSH", N_WOFFON, 0),
     [G_DRCLIP] = PD("CLIP", F_PCT, 0, 127, 0),    /* (1.7) the drums' soft clipper (FX > MIXER on the drums) */
+    [G_DRCEIL] = {"CEIL", F_INT, -12, 0, 0, 0, "dB"},   /* (1.8) FX > CLIP on the drums: where it rounds (fx.c drum_fx) */
+    [G_DRSHP] = PE("SHAPE", N_CSHP, 0),
+    [G_DROUT] = {"OUT", F_INT, -12, 6, 0, 0, "dB"},
     [G_DFIX] = PE("MODE", N_DMODE, 0),            /* (1.4) the delay's MODE: SYNC (TIME a note value) or MS (TIME in ms,
                                                    * from the note value playing): G_DTIME == DLY_FREE (page_desc) */
 };
@@ -482,6 +486,8 @@ static const page_t PAGES[] = {
     {"EQ 1", FAM_FX, SC_GLOBAL, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* the master's */
     {"EQ 2", FAM_FX, SC_GLOBAL, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},
     {"DIST", FAM_FX, SC_GLOBAL, GR_NONE, {G_XTYPE, G_XA, G_XB, G_XC}},
+    {"CLIP", FAM_FX, SC_GLOBAL, GR_NONE, {G_DRCLIP, G_DRCEIL, G_DRSHP, G_DROUT}},   /* (1.8) the drums' clipper: on the
+                                                       * drum track only (page_shown); its DRIVE is FX > MIXER's CLIP */
     {"MOD", FAM_FX, SC_GLOBAL, GR_NONE, {G_MTYPE, G_CRATE, G_CDEPTH, G_MFDBK}},
     {"DELAY", FAM_FX, SC_GLOBAL, GR_NONE, {G_DTIME, G_DFDBK, G_DCOLOR, G_DFIX}},
     {"REVERB", FAM_FX, SC_GLOBAL, GR_NONE, {G_RSIZE, G_RDAMP, 0xFF, 0xFF}},
@@ -595,6 +601,8 @@ static int page_shown(const page_t *pg)
 {
     if (pg->fam == FAM_SYN && syn_fx_of(pg))          /* (1.2) an effect's pages: while it is in the chain */
         return !is_drum(TSEL) && sx_chain_has((uint32_t)(TSEL - trk), syn_fx_of(pg));
+    if (pg->id[0] == G_DRCLIP)                          /* (1.8) FX > CLIP: the drums' */
+        return is_drum(TSEL);
     if (pg->id[0] == VS0 + 4u)                          /* (1.7) FX MIX 2: a fifth effect or more */
         return sx_get(0, SX_C5) || sx_get(0, SX_C6) || sx_get(0, SX_C7);
     return pg->id[0] != P_FTYPE || (!is_drum(TSEL) && TSEL->eng_req % NENGINES == 0u);
@@ -679,6 +687,12 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         m[slot & 3u] = *d;
         m[slot & 3u].label = N_FXID[(uint32_t)sx_get(0, SX_C1 + id - VS0) % FXI_N];
         return &m[slot & 3u];
+    }
+    if (d && id == G_DRCLIP) {                         /* (1.8) FX > CLIP: the amount is its DRIVE (CLIP on the MIXER) */
+        static param_desc_t c;
+        c = *d;
+        c.label = "DRIVE";
+        return &c;
     }
     return d;
 }

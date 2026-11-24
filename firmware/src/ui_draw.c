@@ -957,11 +957,75 @@ UI_SMALL static int32_t knob_ratio(uint32_t c)
 /* a page without a graph of its own (EDIT, VOICE, the DEST pages, GLOBAL, DELAY, DIST, MOD ...; SLOOP 2.4: its values
  * large): BONBLOOP 1.7, a knob under each column, its value and name below; one value alone (FILTER), one big knob in
  * the middle. The one turned in white. The columns (draw_columns, drawn first) fill ui.big_* */
+/* (BONBLOOP 1.8) an effect's page (FX > DIST MOD DELAY REVERB FILTER CLIP; the synth's DRIVE PHASER FILTER CHORUS
+ * DELAY REVERB): the value windows of before, 2 x 2 (one value: in the middle), the name small over the value large;
+ * no knobs there (the user's call: the windows read better for an effect). Every other value page keeps its knobs */
+UI_SMALL static int fx_windows(const page_t *pg)
+{
+    return !ui.home && pg->graph == GR_NONE && (pg->fam == FAM_FX || (pg->fam == FAM_SYN && syn_fx_of(pg)));
+}
+UI_SMALL static void graph_windows(uint32_t n)
+{
+    uint32_t c;
+    if (n > 1u) {
+        cv_rect(119, 6, 1, 112, C_LINE);
+        cv_rect(6, 62, 228, 1, C_LINE);
+    }
+    for (c = 0; c < 4u; c++) {
+        int32_t x0 = c & 1u ? 126 : 6, y0 = c & 2u ? 64 : 2, x;
+        if (!ui.big_l[c][0])
+            continue;
+        if (n == 1u) {                                  /* one value: in the middle */
+            x0 = (240 - text_w(&FONT_L, ui.big_v[c]) - (ui.big_u[c][0] ? text_w(&FONT_T, ui.big_u[c]) + 3 : 0)) / 2;
+            y0 = 30;
+        }
+        cv_text(x0, y0 + 6, &FONT_T, ui.big_l[c], C_GRAY);
+        x = cv_text(x0, y0 + 20, &FONT_L, ui.big_v[c], ui.big_c[c] == C_DIM ? C_DIM : ui.big_c[c] == C_WHITE ? C_WHITE : C_HI);
+        if (ui.big_u[c][0])
+            cv_text(x + 3, y0 + 36, &FONT_T, ui.big_u[c], C_DIM);   /* (on the value's baseline) */
+    }
+}
+/* (BONBLOOP 1.8) knobs only for sound: a page of ENV, LFO, EDIT or the synth (not an effect's) whose every value is a
+ * continuous sound parameter (a level, a time, a rate, a cutoff, a depth, semitones, an amount with its unit). A page
+ * with anything to choose or set (a type, a slot, a mode, an engine, BPM, MIDI, the arp, the scale, the pattern,
+ * GLOBAL ...): the screen in four windows, as before the knobs (the user's call) */
+UI_SMALL static int knob_value(const page_t *pg, uint32_t c)
+{
+    int16_t *vp;
+    const param_desc_t *d = page_desc(pg, c, &vp);
+    if (!d || !vp || d->max <= d->min || d->names)
+        return 0;
+    switch (d->fmt) {
+    case F_PCT: case F_BIPCT: case F_TIME: case F_LFOHZ: case F_CUTOFF: case F_DB: case F_SEMI:
+        return 1;
+    case F_INT:
+        return d->unit != 0;                          /* (cents, dB, ms: an amount; a bare number is a setting) */
+    default:
+        return 0;
+    }
+}
+UI_SMALL static int knob_page(const page_t *pg)
+{
+    uint32_t c, k = 0;
+    if ((pg->fam != FAM_ENV && pg->fam != FAM_LFO && pg->fam != FAM_EDIT && pg->fam != FAM_SYN) || fx_windows(pg))
+        return 0;
+    for (c = 0; c < 4u; c++)
+        if (ui.big_l[c][0]) {
+            if (!knob_value(pg, c))
+                return 0;
+            k++;
+        }
+    return k != 0u;
+}
 UI_SMALL static void graph_big(void)
 {
     uint32_t c, n = 0;
     for (c = 0; c < 4u; c++)
         n += ui.big_l[c][0] != 0;
+    if (!knob_page(cur_page())) {
+        graph_windows(n);
+        return;
+    }
     for (c = 0; c < 4u; c++) {
         int32_t cx = n == 1u ? 120 : 30 + 60 * (int32_t)c, r = n == 1u ? 32 : 21, cy = n == 1u ? 46 : 38, w, x;
         int hot = ui.big_c[c] == C_WHITE;

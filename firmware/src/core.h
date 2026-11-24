@@ -118,6 +118,8 @@ enum {                          /* global parameters */
                                        * project keeps them all (side record) */
     G_DRSTY, G_DRTONE, G_DRPUN,       /* .. the drums' DST, the synth's DRIVE: FX > DIST with the drum track selected */
     G_DRCLIP,                         /* .. the drums' soft clipper (FX > MIXER on the drum track, where DLY is) */
+    G_DRCEIL, G_DRSHP, G_DROUT,       /* BONBLOOP 1.8, FX > CLIP on the drum track: the clipper's ceiling (0 .. -12 dB),
+                                       * its shape (SOFT HARD FOLD), its output (-12 .. +6 dB); G_DRCLIP its DRIVE */
     G_COUNT
 };
 
