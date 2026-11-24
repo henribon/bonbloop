@@ -201,36 +201,40 @@ UI_SMALL static uint32_t keys_guide(void)
     return 1u << key_of_white(0) | 1u << key_of_white(4) | 1u << key_of_white(8) | 1u << key_of_white(12);
 }
 
-/* (BONBLOOP 1.9) KEYS SCALE: the keys whose note is in the selected track's scale, as each key plays it now (kb_pitch:
- * TRN, QNT SNAP or WHITE, the chords' white keys); root_only: those on its root. The drum track: none (its keys are
- * sounds). Shown at the LIGHTS level, the roots brighter (the landmarks' glow) */
-UI_SMALL static uint32_t scale_light(uint32_t root_only)
+/* (BONBLOOP 1.9.1) GLO > SCALE: the keys whose note, as each key plays it now on the selected track (kb_pitch: its TRN,
+ * QNT), is in the scale of the page (ROOT, SCALE; the SEL page's key is not touched: lights only); mark: the ones MARK
+ * names (the root, or the scale's 1st 3rd and 5th notes). LIGHT OFF, the drum track (its keys are sounds): none */
+UI_SMALL static uint32_t guide_keys(uint32_t mark)
 {
     const track_t *t = TSEL;
-    uint32_t k, m = 0, mask, root;
-    if (!lights_lvl || lights_keys != KEYS_SCALE || is_drum(t))
+    uint32_t k, m = 0, mask, root = (uint32_t)song.g[G_GROOT] % 12u, i, n;
+    if (!song.g[G_GLIGHT] || is_drum(t))
         return 0u;
-    mask = scale_mask(t), root = (uint32_t)t->p[P_ROOT] % 12u;
+    mask = SCALE_MASK[clamp(song.g[G_GSCL], 0, NSCALES - 1)];
+    if (mark) {                                          /* ROOT: degree 0; 1-3-5: the scale's 1st, 3rd and 5th notes */
+        uint32_t keep = 0;
+        for (i = 0, n = 0; i < 12u; i++)
+            if ((mask >> i) & 1u) {
+                if (!n || (song.g[G_GMARK] == 1 && (n == 2u || n == 4u)))
+                    keep |= 1u << i;
+                n++;
+            }
+        mask = song.g[G_GMARK] == 2 ? 0u : keep;
+    }
     for (k = 0; k < 27u; k++) {
-        uint32_t n = kb_pitch(t, k, 0), d;
-        if (n == KB_SILENT)
-            continue;
-        d = (n + 120u - root) % 12u;
-        if (((mask >> d) & 1u) && (!root_only || !d))
+        uint32_t p = kb_pitch(t, k, 0);
+        if (p != KB_SILENT && ((mask >> ((p + 120u - root) % 12u)) & 1u))
             m |= 1u << k;
     }
     return m;
 }
 
-/* the keys the backlight lights (menu KEYS): the Cs, every white key, every key, or (1.9) the scale; bit k = key k
- * (0 = F3) */
+/* the keys the backlight lights (menu KEYS): the Cs, every white key, or every key; bit k = key k (0 = F3) */
 UI_SMALL static uint32_t lights_keys_mask(void)
 {
     uint32_t k, m = 0;
     if (!lights_lvl || !lights_keys)
         return 0u;
-    if (lights_keys == KEYS_SCALE)
-        return scale_light(0);
     for (k = 0; k < 27u; k++) {
         uint32_t pc = (53u + k) % 12u;             /* key 0 = F3 (53) */
         if (lights_keys == KEYS_ALL || (lights_keys == KEYS_C ? pc == 0u : ((0xAB5u >> pc) & 1u) != 0u))   /* 0xAB5: C D E F G A B */
@@ -239,10 +243,24 @@ UI_SMALL static uint32_t lights_keys_mask(void)
     return m;
 }
 
+/* (1.9.1) GLO > SCALE on the keys' three lights, around the keys played: LOW the scale at the backlight's glow (glow),
+ * MID at the landmarks' (dim), MAX full (a key played in it goes dark, one out of it lights); MARK's one step brighter
+ * (at MAX: they blink off a quarter of the time) */
+UI_SMALL static void guide_layers(uint32_t played, uint32_t *full, uint32_t *dim, uint32_t *glow)
+{
+    uint32_t sc = guide_keys(0), mk = guide_keys(1), gl = (uint32_t)song.g[G_GLIGHT];
+    *full = played, *dim = *glow = 0u;
+    if (gl == 3u)
+        *full ^= ((fm1_ms / 250u) & 3u) ? sc : sc & ~mk;
+    else if (gl == 2u)
+        *dim = sc & ~mk, *full |= mk;
+    else if (gl == 1u)
+        *dim = mk, *glow = sc & ~mk;
+}
 UI_SMALL static void ui_leds(void)
 {
     uint8_t nl[FM1_NCOL] = {0}, dl[FM1_NCOL] = {0}, bl[FM1_NCOL] = {0};
-    uint32_t k, c, keys, guide, back;
+    uint32_t k, c, keys, guide, back, gscale, gmark;
     static uint8_t ready;
     if (!ready) {
         led_pos_init();
@@ -266,9 +284,9 @@ UI_SMALL static void ui_leds(void)
         led_put(nl, panel.btn[B_OCTDN], song.octave < 0);
         led_put(nl, panel.btn[B_OCTUP], song.octave > 0);
     }
-    keys = keys_lit();
-    guide = (keys_guide() | keys_notes_dim() | scale_light(1)) & ~keys;   /* (1.9: the scale's roots, brighter) */
-    back = lights_keys_mask() & ~keys & ~guide;
+    guide_layers(keys_lit(), &keys, &gscale, &gmark);
+    guide = (keys_guide() | keys_notes_dim() | gscale) & ~keys;
+    back = (lights_keys_mask() | gmark) & ~keys & ~guide;
     for (k = 0; k < 27u; k++) {
         led_put(nl, 14u + k, (int)((keys >> k) & 1u));
         led_put(dl, 14u + k, (int)((guide >> k) & 1u));
@@ -283,6 +301,8 @@ UI_SMALL static void ui_leds(void)
         fm1_led_bg[c] = (uint8_t)(bl[c] & ~nl[c]);
     }
     fm1_led_bg_ns = LIGHTS_NS[lights_lvl % LIGHTS_N];
+    if (song.g[G_GLIGHT] == 1 && fm1_led_bg_ns < LIGHTS_NS[LIGHTS_HIGH])
+        fm1_led_bg_ns = LIGHTS_NS[LIGHTS_HIGH];         /* (1.9.1) GLO > SCALE LOW: its glow, the LIGHTS level or not */
 }
 
 /* ---------------------------------------------------------- input --- */
@@ -513,7 +533,8 @@ UI_SMALL static void project_new(void)
     drum_mute = 0;                                      /* (2.6: the live mutes) */
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_DRCH && i != G_SYNC && i != G_MIDI && i != G_ROUTE && (i < G_CH1 || i > G_CHOTH) &&
-            i != G_BEND && i != G_FXCH && i != G_DRMAP && i != G_RMCH && i != G_CLKOUT && i != G_FXFADE && i != G_KEYS)                                                                     /* (the
+            i != G_BEND && i != G_FXCH && i != G_DRMAP && i != G_RMCH && i != G_CLKOUT && i != G_FXFADE &&
+            (i < G_GROOT || i > G_GMARK))                                          /* (1.9.1: GLO > SCALE) */                                                                     /* (the
                                                                  * FM-1's settings: GLO > MIDI 2.6) */
             song.g[i] = GP[i].def;
     synx[NPART].w[4] = EQ_W4, synx[NPART].w[5] = 0;     /* (BONBLOOP 1.7) FX > EQ, the master's: flat */
@@ -988,6 +1009,11 @@ UI_SMALL static int layers_input(uint32_t note_edges, uint32_t *pressed, uint32_
         uint32_t keep = 1u << panel.btn[B_PLAY] | 1u << panel.btn[B_REC] | 1u << panel.btn[B_OCTDN] | 1u << panel.btn[B_OCTUP];
         eat = *pressed & ~keep;
         if (eat) {
+            if (ly_lock == LY_ROLL && (eat & ly_bit[LY_ROLL]) && rep_on) {   /* (BONBLOOP 1.9.1) the REPEAT lock: ARP
+                                                         * again lets it go and stops the REPEAT */
+                rep_on = 0;
+                ui_say("REPEAT OFF", "");
+            }
             layer_unlock();
             if (eat & 1u << panel.btn[B_HOME])
                 home_eat = 1;
@@ -1002,6 +1028,15 @@ UI_SMALL static int layers_input(uint32_t note_edges, uint32_t *pressed, uint32_
         }
         if (d && note_edges)
             used[l] = 1;                                  /* a key while held: not a tap */
+        if (d && l == LY_ROLL && !used[l] && is_drum(TSEL) && ly_lock == LY_PLAY && now - t0[l] >= 700u &&
+            !ui.menu && !ui.confirm) {                    /* (BONBLOOP 1.9.1) ARP held alone on the drum track: the
+                                                         * REPEAT locked on, its layer open (KNOB 1 its rate while
+                                                         * the keys play; ARP again: off) */
+            rep_on = 1;
+            ly_lock = LY_ROLL;
+            used[l] = 1;
+            ui_say("REPEAT LOCK ", N_ROLL[clamp(song.g[G_ROLL], 0, 9)]);
+        }
         if (!d && down[l] && !used[l] && now - t0[l] < TAP_MS && !ui.menu && !ui.confirm)
             layer_tap(l);
         if (!d && down[l] && l == LY_SONG)

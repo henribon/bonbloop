@@ -33,7 +33,8 @@ static const char *const N_ITYPE[] = {"OFF", "SOFT", "HARD", "FOLD", "FUZZ", "CR
 static const char *const N_XTYPE[] = {"SOFT", "HARD", "FOLD", "FUZZ", "CRUSH"};          /* (BONBLOOP 1.7) FX > DIST */
 static const char *const N_MTYPE[] = {"CHOR", "FLANG", "PHASR"};                         /* .. FX > MOD */
 static const char *const N_KRAT[] = {"2:1", "4:1", "10:1"};                              /* .. FX > COMP */
-static const char *const N_KEYS[] = {"OFF", "C", "WHITE", "ALL", "SCALE"};                /* (1.9) SEL 2 > KEYS (panel.c) */
+static const char *const N_GLIGHT[] = {"OFF", "LOW", "MID", "MAX"};                      /* (1.9.1) GLO > SCALE */
+static const char *const N_GMARK[] = {"ROOT", "1-3-5", "OFF"};
 static const char *const N_KATK[] = {"0.1ms", "0.3ms", "1ms", "3ms", "10ms", "30ms"};
 static const char *const N_KREL[] = {"0.1s", "0.2s", "0.4s", "0.6s", "0.8s", "1.2s"};
 /* CRUSH: BITS 1..16 and RATE (the held sample's rate) over the range in 16 even parts (0-terminated) */
@@ -243,7 +244,10 @@ static const param_desc_t GP[G_COUNT] = {
     [G_DRCEIL] = {"CEIL", F_INT, -12, 0, 0, 0, "dB"},   /* (1.8) FX > CLIP on the drums: where it rounds (fx.c drum_fx) */
     [G_DRSHP] = PE("SHAPE", N_CLSHP, 0),        /* (eng_wave.c's names) */
     [G_DROUT] = {"OUT", F_INT, -12, 6, 0, 0, "dB"},
-    [G_KEYS] = PE("KEYS", N_KEYS, 0),            /* (1.9) SEL 2 > KEYS: MENU > LIGHTS > KEYS (a setting of the FM-1) */
+    [G_GROOT] = PD("ROOT", F_NOTE, 0, 11, 0),    /* (1.9.1) GLO > SCALE: the keys lit (settings of the FM-1) */
+    [G_GSCL] = PE("SCALE", N_SCALE, 1),
+    [G_GLIGHT] = PE("LIGHT", N_GLIGHT, 0),
+    [G_GMARK] = PE("MARK", N_GMARK, 0),
     [G_DFIX] = PE("MODE", N_DMODE, 0),            /* (1.4) the delay's MODE: SYNC (TIME a note value) or MS (TIME in ms,
                                                    * from the note value playing): G_DTIME == DLY_FREE (page_desc) */
 };
@@ -466,10 +470,9 @@ typedef struct {
 
 /* (BONBLOOP 1.2) the globals the synth pages show beside the track's values: page ids VG0 + VG_* */
 enum { VG_CRATE, VG_CDEPTH, VG_DTIME, VG_DFDBK, VG_DCOLOR, VG_DMIX, VG_DFIX, VG_RSIZE, VG_RDAMP, VG_DMS, VG_CMIX, VG_RMIX,
-       VG_DRCLIP, VG_DRREV, VG_KEYS, VG_N };   /* (1.7: the drums' CLIP and REV on FX > MIXER: page_id; 1.9:
-                                                    * SEL 2 > KEYS) */
+       VG_DRCLIP, VG_DRREV, VG_N };   /* (1.7: the drums' CLIP and REV on FX > MIXER: page_id) */
 static const uint8_t VG_MAP[VG_N] = {G_CRATE, G_CDEPTH, G_DTIME, G_DFDBK, G_DCOLOR, G_DMIX, G_DFIX, G_RSIZE, G_RDAMP, G_DMS,
-                                     G_CMIX, G_RMIX, G_DRCLIP, G_DRREV, G_KEYS};
+                                     G_CMIX, G_RMIX, G_DRCLIP, G_DRREV};
 #define VG0 0xE4u                                     /* (1.6: after the synx ids, 0xC0 .. 0xE3) */
 #define VS0 (VG0 + VG_N)                              /* (1.7) the synth's FX MIX: VS0 + k, the amount of the chain's slot k */
 _Static_assert(VX0 + SX_CLD <= VG0 && VS0 + SX_NSLOT < 0xFFu, "the synth's page ids (1.9: not SX_CL*, page_desc0)");
@@ -498,8 +501,7 @@ static const page_t PAGES[] = {
     {"FILTER", FAM_FX, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},   /* the track's filter (drum track too) */
     {"SLICER", FAM_FX, SC_TRACK, GR_SLCR, {P_SLCR, P_SLPAT, P_SLRATE, P_SLDEPTH}},   /* drum track too */
     {"SEL", FAM_SCL, SC_TRACK, GR_SCALE, {P_ROOT, P_SCALE, P_QUANT, P_CHORD}},
-    {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, VG0 + VG_KEYS}},   /* (2.4: the chords played;
-                                                       * 1.9: KEYS, the scale lit on the keys) */
+    {"SEL 2", FAM_SCL, SC_TRACK, GR_SCALE, {P_TRANS, P_STRUM, P_VLEAD, 0xFF}},   /* (2.4: the chords played) */
     {"EDIT 1", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E0, P_E1, P_E2, P_E3}},
     {"EDIT 2", FAM_EDIT, SC_ENGINE, GR_NONE, {P_E4, P_E5, P_E6, P_E7}},
     {"FILTER", FAM_EDIT, SC_TRACK, GR_NONE, {P_FTYPE, P_E4, P_E5, P_E7}},   /* ANALOG only (2.6, Felucca 1.5): TYPE CUT
@@ -507,6 +509,8 @@ static const page_t PAGES[] = {
     {"VOICE", FAM_EDIT, SC_TRACK, GR_NONE, {P_VOICE, P_GLIDE, P_GLMODE, P_PRIO}},
     {"VOICE 2", FAM_EDIT, SC_TRACK, GR_NONE, {P_ALLOC, P_DETUNE, P_PAN, P_MUTE}},
     {"GLOBAL", FAM_GLO, SC_GLOBAL, GR_NONE, {G_BPM, G_SWING, G_CLOCK, G_TUNE}},
+    {"SCALE", FAM_GLO, SC_GLOBAL, GR_NONE, {G_GROOT, G_GSCL, G_GLIGHT, G_GMARK}},   /* (1.9.1) a scale on the keys, lights
+                                                       * only (ui_input.c guide_keys) */
     {"MASTER", FAM_GLO, SC_GLOBAL, GR_NONE, {G_DUST, G_DUCK, G_FILT, G_ROLL}},
     {"SYSTEM", FAM_GLO, SC_GLOBAL, GR_NONE, {G_MIDI, G_SYNC, G_ROUTE, G_INFO}},
     {"DRUMS", FAM_GLO, SC_GLOBAL, GR_NONE, {G_DRCH, G_DRLVL, G_DRREV, G_DRDLY}},   /* GM kit on MIDI ch 10 */

@@ -946,10 +946,10 @@ int main(int argc, char **argv)
             open_family(FAM_SEQ); frame();            /* (round to STEP again: SEQ opens there, as before) */
             go_home(); frame();
             open_family(FAM_GLO); frame();
-            (void)page_pos(&n);                       /* GLO: its nine pages */
+            (void)page_pos(&n);                       /* GLO: its ten pages (1.9.1: SCALE) */
             go_home(); frame();
             ui.menu = (uint8_t)menu0, ui.menu_sel = (uint8_t)sel0, ui.force = 1; frame();
-            ok &= k1 == 1u && n1 == 2u && k2 == 2u && n2 == 2u && k3 == 3u && n3 == 3u && n == 9u;
+            ok &= k1 == 1u && n1 == 2u && k2 == 2u && n2 == 2u && k3 == 3u && n3 == 3u && n == 10u;
             if (!ok)
                 printf("ui:   counter: STEP %u/%u PATTERN %u/%u SONG %u/%u GLO /%u\n", k1, n1, k2, n2, k3, n3, n);
             check(ok, "page counter (2.7): as SELECT walks them: STEP 1/2, PATTERN 2/2 (SONG, its own screen, not counted)");
@@ -1096,41 +1096,62 @@ int main(int argc, char **argv)
         encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame();
         check(lights_keys == KEYS_ALL && lights_keys_mask() == 0x7FFFFFFu, "KEYS: ALL KEYS (every one of the 27 keys)");
         ui.force = 1; frame(); ppm("page-menu-keys-all");
-        encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame(); encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame();
-        check(lights_keys == KEYS_SCALE && song.g[G_KEYS] == KEYS_SCALE,
-              "KEYS: (1.9) SCALE, and it stops there; SEL 2 > KEYS shows the same");
-        {   /* (BONBLOOP 1.9) SCALE: track 1 in D major: its notes lit (16 of the 27 keys, F3 dark, F#3 lit), the Ds (D4,
-             * D5) brighter; TRN +2: the keys that play a D are the Cs; the drum track: none. SEL 2's fourth knob is KEYS */
+        encs[panel.enc[EN_K1 + mi_row(ui.menu_sel)]] = 1; frame();
+        check(lights_keys == KEYS_ALL, "KEYS: ... and it stops there (1.9.1: the scale is GLO > SCALE's)");
+        tap(B_OCTUP);
+        check(lights_keys == KEYS_OFF, "KEYS: OCT+ from ALL KEYS steps round to OFF");
+        {   /* (BONBLOOP 1.9.1) GLO > SCALE: D major on track 1 (QNT OFF, TRN 0), lights only: the SEL page's key untouched.
+             * LOW: the scale at the backlight's glow (2 us, LIGHTS OFF or not), the roots at the landmarks'; MID: the scale
+             * at the landmarks', the roots full; MAX: the scale full, a key played in it dark; 1-3-5: D F# A marked;
+             * the drum track: none */
             int16_t r0 = trk[0].p[P_ROOT], s0 = trk[0].p[P_SCALE], q0 = trk[0].p[P_QUANT], c0 = trk[0].p[P_CHORD];
             int16_t t0 = trk[0].p[P_TRANS];
-            uint32_t sel0 = song.sel, roots, i2;
-            const page_t *s2 = 0;
-            int16_t *vp;
+            uint32_t sel0 = song.sel, sc, mk, i2;
+            const page_t *gp = 0;
             song.sel = 0;
-            trk[0].p[P_ROOT] = 2, trk[0].p[P_SCALE] = 1, trk[0].p[P_QUANT] = 0, trk[0].p[P_CHORD] = 0, trk[0].p[P_TRANS] = 0;
-            for (m = lights_keys_mask(), nbits = 0; m; m &= m - 1u)
-                nbits++;
-            roots = scale_light(1);
-            check(nbits == 16u && !(lights_keys_mask() & 1u) && (lights_keys_mask() & 2u) && roots == (1u << 9 | 1u << 21),
-                  "KEYS SCALE: D major lit (16 keys, F3 dark, F#3 lit), D4 and D5 brighter");
-            trk[0].p[P_TRANS] = 2;
-            check(scale_light(1) == (1u << 7 | 1u << 19), "KEYS SCALE: TRN +2: the Cs play the D, they are the roots lit");
-            frame();
-            check(fm1_led_bg_ns == 500u, "KEYS SCALE: shown at the LIGHTS level (LOW)");
-            song.sel = TRK_DRUM;
-            check(!lights_keys_mask() && !scale_light(1), "KEYS SCALE: the drum track lights no scale");
+            trk[0].p[P_QUANT] = 0, trk[0].p[P_CHORD] = 0, trk[0].p[P_TRANS] = 0;
             for (i2 = 0; i2 < NPAGES; i2++)
-                if (!strcmp(PAGES[i2].title, "SEL 2"))
-                    s2 = &PAGES[i2];
-            song.sel = 0;
-            check(s2 && page_desc(s2, 3, &vp) == &GP[G_KEYS] && vp == &song.g[G_KEYS],
-                  "SEL 2: KNOB 4 is KEYS (the keys lit: MENU > LIGHTS > KEYS)");
+                if (PAGES[i2].fam == FAM_GLO && !strcmp(PAGES[i2].title, "SCALE"))
+                    gp = &PAGES[i2];
+            check(gp && gp->id[0] == G_GROOT && gp->id[1] == G_GSCL && gp->id[2] == G_GLIGHT && gp->id[3] == G_GMARK &&
+                  !knob_page(gp) && song.g[G_GLIGHT] == 0 && !guide_keys(0),
+                  "GLO > SCALE: ROOT SCALE LIGHT MARK, four windows; LIGHT OFF by default: nothing lit");
+            song.g[G_GROOT] = 2, song.g[G_GSCL] = 1, song.g[G_GLIGHT] = 1, song.g[G_GMARK] = 0;
+            sc = guide_keys(0), mk = guide_keys(1);
+            for (m = sc, nbits = 0; m; m &= m - 1u)
+                nbits++;
+            frame();
+            check(nbits == 16u && !(sc & 1u) && (sc & 2u) && mk == (1u << 9 | 1u << 21) && fm1_led_bg_ns == 2000u &&
+                  trk[0].p[P_ROOT] == r0 && trk[0].p[P_SCALE] == s0,
+                  "GLO > SCALE: D major, 16 keys lit (F3 dark, F#3 lit), D4 D5 marked; LOW glows at 2 us; SEL untouched");
+            song.g[G_GMARK] = 1;
+            check(guide_keys(1) == (1u << 1 | 1u << 4 | 1u << 9 | 1u << 13 | 1u << 16 | 1u << 21 | 1u << 25),
+                  "GLO > SCALE: MARK 1-3-5: the Ds, F#s and As");
+            song.g[G_GMARK] = 0;
+            {   /* the three lights (ui_leds' layers; the host's key map is empty, so its LEDs are not read here) */
+                uint32_t f, d, g, ok = 1, ms0 = fm1_ms;
+                guide_layers(0u, &f, &d, &g);                 /* LOW */
+                ok &= f == 0u && d == mk && g == (sc & ~mk);
+                song.g[G_GLIGHT] = 2;                         /* MID */
+                guide_layers(0u, &f, &d, &g);
+                ok &= f == mk && d == (sc & ~mk) && !g;
+                song.g[G_GLIGHT] = 3, fm1_ms = 1250u;         /* MAX (out of the marks' blink) */
+                guide_layers(1u << 9 | 1u << 0, &f, &d, &g);  /* D4 (in the scale) and F3 (out of it) played */
+                ok &= f == ((sc & ~(1u << 9)) | 1u << 0) && !d && !g;
+                fm1_ms = 1000u;                               /* (the marks' quarter off) */
+                guide_layers(0u, &f, &d, &g);
+                fm1_ms = ms0;
+                check(ok && f == (sc & ~mk), "GLO > SCALE: LOW glow + marks dim; MID dim + marks full; MAX full (D4 played "
+                      "dark, F3 played lit), the marks blinking");
+            }
+            song.sel = TRK_DRUM;
+            check(!guide_keys(0), "GLO > SCALE: the drum track lights no scale");
+            song.g[G_GLIGHT] = 0, song.g[G_GROOT] = 0, song.g[G_GSCL] = 1;
             trk[0].p[P_ROOT] = r0, trk[0].p[P_SCALE] = s0, trk[0].p[P_QUANT] = q0, trk[0].p[P_CHORD] = c0;
             trk[0].p[P_TRANS] = t0;
             song.sel = sel0;
+            frame();                                  /* (the frames as in 1.9: the visualiser's scope below is timed) */
         }
-        tap(B_OCTUP);
-        check(lights_keys == KEYS_OFF && song.g[G_KEYS] == KEYS_OFF, "KEYS: OCT+ from SCALE steps round to OFF");
         lights_keys = KEYS_ALL;
         check(lights_word() >> 4 & 15u, "KEYS: ALL KEYS kept in the settings word");
         lights_from_word(lights_word());
@@ -2197,6 +2218,26 @@ int main(int argc, char **argv)
         }
         fm1_in.buttons = 0; fm1_in.notes = 0; frames(4);
         #undef R
+    }
+    {   /* (BONBLOOP 1.9.1) the REPEAT lock: ARP held alone ~0.7 s on the drum track: REPEAT on, the ARP layer locked open
+         * (ARP let go: a key held rolls, KNOB 1 the rate); ARP again: unlocked, REPEAT off. ARP tapped: as before */
+        int16_t r0 = song.g[G_ROLL];
+        uint32_t r, on = 0, ok1;
+        song.sel = TRK_DRUM, rep_on = 0, ly_lock = LY_PLAY, ui.menu = 0, ui.confirm = 0;
+        frames(4);
+        press(B_ARP); frames(50); release(B_ARP); frames(2);
+        ok1 = rep_on && ly_lock == LY_ROLL;
+        fm1_in.notes = 1u << 7; frames(3);
+        for (r = 0; r < NROLL; r++)
+            on |= roll[r].on;
+        encs[panel.enc[EN_K1]] = 2; frames(2);
+        ok1 &= on && song.g[G_ROLL] != r0;
+        fm1_in.notes = 0; frame();
+        tap(B_ARP); frames(2);
+        ok1 &= !rep_on && ly_lock == LY_PLAY;
+        check(ok1, "1.9.1: ARP held alone on the drums: REPEAT locked on (keys roll, KNOB 1 its rate); ARP again: off");
+        song.g[G_ROLL] = r0, song.sel = 0;
+        frames(2);
     }
     printf("ui: %s\n", fails ? "FAILED" : "pages, layers (punch, steps, erase, roll, key, mix), layer lock, song layer, REC hold, drums, REC, 20000-frame fuzz PASS");
     return fails;

@@ -30,8 +30,7 @@ UI_SMALL static int mi_cpu1_have(void)                      /* the second core i
 #endif
 }
 static const char *const LIGHTS_NAME[LIGHTS_N] = {"OFF", "LOW", "MID", "HIGH"};   /* every button lit, the labels readable */
-static const char *const KEYS_NAME[KEYS_N] = {"OFF", "C KEYS", "WHITE KEYS", "ALL KEYS", "SCALE"};   /* keys lit too, at
-                                                * the LIGHTS level (1.9 SCALE: the selected track's, SEL 2 > KEYS too) */
+static const char *const KEYS_NAME[KEYS_N] = {"OFF", "C KEYS", "WHITE KEYS", "ALL KEYS"};      /* keys lit too, at the LIGHTS level */
 #define MI_Y0 26                                   /* the first row, under the section tabs */
 #define MI_DY 50                                   /* a row: the label, the value in large type */
 
@@ -308,7 +307,6 @@ UI_SMALL static void mi_set(uint32_t i, int32_t s)
             *v = (uint8_t)((*v + 1u) % n);
         if (i == MI_KEYS && lights_keys && !lights_lvl)
             lights_lvl = LIGHTS_LOW;                   /* keys lit need a level: the lowest */
-        song.g[G_KEYS] = (int16_t)lights_keys;         /* (1.9: SEL 2 > KEYS shows the same) */
         break;
     }
     case MI_LCLEAR:                                    /* (2.6) every learned CC: OCT+ */
