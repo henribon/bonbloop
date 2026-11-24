@@ -807,6 +807,16 @@ static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
             tflt_run(f, &fc, b, n, 0);
     }
 }
+/* (1.9) FX > CLIP on an instrument track (synx SX_CL*: DRIVE 0..63 as the drums' CLIP 0..126): the drums' clipper on
+ * its block, after its effects, before its level */
+static void clip_block(int32_t *x, uint32_t n, int32_t c, uint32_t shp, int32_t ceil, int32_t out);   /* (below) */
+static void track_clip(const track_t *t, int32_t *b, uint32_t n)
+{
+    uint32_t part = (uint32_t)(t - trk);
+    int32_t c = part < NPART ? sx_get(part, SX_CLD) * 2 : 0;
+    if (c && n <= CTL)
+        clip_block(b, n, c, (uint32_t)clamp(sx_get(part, SX_CLS), 0, 2), sx_get(part, SX_CLC), sx_get(part, SX_CLO));
+}
 static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
 {
     uint32_t i;
@@ -845,11 +855,16 @@ static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
                     track_fx_run(t, b, n, fx);
                 }
             }
+            if (!((done >> FXI_EQ) & 1u))               /* (1.9) FX > EQ, the track's: not in the chain, after it */
+                track_fx_core(t, b, n, FXI_EQ);
             slicer_track(t, b, n);
+            track_clip(t, b, n);                        /* (1.9) FX > CLIP, the track's own */
         } else {
             track_pdist(t, b, n);                       /* (1.7) DIST in parallel (FX > DIST) */
             slicer_track(t, b, n);                      /* slicer.c: before the level, pan and sends */
             track_fx_core(t, b, n, FXI_FILTER);         /* the track's FILTER (P_TFLT), after the SLICER (no MIX) */
+            track_fx_core(t, b, n, FXI_EQ);             /* (1.9) FX > EQ, the track's own (flat: nothing runs) */
+            track_clip(t, b, n);                        /* (1.9) FX > CLIP, the track's own (DRIVE 0: nothing) */
         }
         int32_t lvl0, dl, gl0, dgl, gr0, dgr;          /* (2.7) LEVEL (and a new sound's trim) and PAN glide (drums.c
                                                          * mix_glide), ramped sample by sample inside the block */
@@ -976,6 +991,20 @@ static const uint16_t CLIP_CEIL_Q15[13] = {32767, 29205, 26029, 23198, 20675, 18
                                            9235, 8231};                    /* 0 .. -12 dB */
 static const uint16_t CLIP_OUT_Q12[19] = {1029, 1154, 1295, 1453, 1631, 1830, 2053, 2303, 2584, 2900, 3254, 3651, 4096,
                                           4596, 5157, 5786, 6492, 7284, 8173};   /* -12 .. +6 dB */
+static int32_t clip_one(int32_t v, uint32_t shp, int32_t cl, int32_t kc);
+/* (1.9) the clipper on a block: DRIVE c (1..127), SHAPE, CEIL and OUT in dB; the drums' (left, right) and an instrument
+ * track's (mix_part_run). CEIL 0 dB SOFT: 1.7's tanh, bit for bit */
+static void clip_block(int32_t *x, uint32_t n, int32_t c, uint32_t shp, int32_t ceil, int32_t out)
+{
+    int32_t g = 4096 + c * 128, og = 268435456 / (4096 + g), cl = CLIP_CEIL_Q15[clamp(-ceil, 0, 12)];
+    int32_t kc = (int32_t)(134217728u / (uint32_t)cl);
+    uint32_t i;
+    og = (og * CLIP_OUT_Q12[clamp(out, -12, 6) + 12]) >> 12;   /* (1.8) OUT; 0 dB: 1.7's og */
+    for (i = 0; i < n; i++) {
+        int32_t v = MULQ12R(clamp(x[i], -262143, 262143), g, 2);
+        x[i] = mulq15(!shp && cl == 32767 ? softclip(v) : clip_one(v, shp, cl, kc), og);
+    }
+}
 static int32_t clip_one(int32_t v, uint32_t shp, int32_t cl, int32_t kc)
 {
     if (shp == 1u)                                     /* HARD */
@@ -993,7 +1022,6 @@ static uint8_t drum_wd_on;
 static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
 {
     int32_t d = TDRUM->p[P_DIST], c = song.g[G_DRCLIP];
-    uint32_t i;
     if (d) {
         uint32_t st = (uint32_t)clamp(song.g[G_DRSTY], 0, 4);
         int32_t tone = (song.g[G_DRTONE] >> 2) - 16, pun = song.g[G_DRPUN];
@@ -1007,21 +1035,10 @@ static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
     } else {
         drum_wd_on = 0;
     }
-    if (c) {
-        int32_t g = 4096 + c * 128, og = 268435456 / (4096 + g);   /* 1x .. ~5x; Q15 */
+    if (c) {                                           /* (1x .. ~5x) */
         uint32_t shp = (uint32_t)clamp(song.g[G_DRSHP], 0, 2);
-        int32_t cl = CLIP_CEIL_Q15[clamp(-song.g[G_DRCEIL], 0, 12)], kc = (int32_t)(134217728u / (uint32_t)cl);
-        og = (og * CLIP_OUT_Q12[clamp(song.g[G_DROUT], -12, 6) + 12]) >> 12;   /* (1.8) OUT; 0 dB: 1.7's og */
-        if (!shp && cl == 32767)                       /* 1.7's (CEIL 0 dB, SOFT) */
-            for (i = 0; i < n; i++) {
-                l[i] = mulq15(softclip(MULQ12R(clamp(l[i], -262143, 262143), g, 2)), og);
-                r[i] = mulq15(softclip(MULQ12R(clamp(r[i], -262143, 262143), g, 2)), og);
-            }
-        else
-            for (i = 0; i < n; i++) {
-                l[i] = mulq15(clip_one(MULQ12R(clamp(l[i], -262143, 262143), g, 2), shp, cl, kc), og);
-                r[i] = mulq15(clip_one(MULQ12R(clamp(r[i], -262143, 262143), g, 2), shp, cl, kc), og);
-            }
+        clip_block(l, n, c, shp, song.g[G_DRCEIL], song.g[G_DROUT]);
+        clip_block(r, n, c, shp, song.g[G_DRCEIL], song.g[G_DROUT]);
     }
 }
 /* the drum track with the metronome: drums_render, through the SLICER when it is on (slicer.c), then through its
@@ -1035,14 +1052,16 @@ static void mix_drums(uint32_t n, mixacc_t *mx)
     drums.a0 = TDRUM->att;                              /* the drum track's mute / solo fade */
     drums.a1 = 32767 - gain_next(TDRUM);
     flt = n <= CTL && djf_block(f, TDRUM->p[P_TFLT], &fc, tflt_reso());   /* the drum track's FILTER */
-    if (flt || (n <= CTL && (TDRUM->p[P_DIST] | drum_wd_on | song.g[G_DRCLIP] | TDRUM->p[P_CHOR]))) {   /* .. or (1.7)
-                                                         * its DST, CLIP, MOD send: left, right, the sends */
+    if (flt || (n <= CTL && (TDRUM->p[P_DIST] | drum_wd_on | song.g[G_DRCLIP] | TDRUM->p[P_CHOR] |
+                             (int32_t)(synx[NPART].w[5] & 0xFFFFFu)))) {   /* .. or (1.7) its DST, CLIP, MOD send; (1.9)
+                                                         * its EQ: left, right, the sends */
         int32_t *dl = drum_buf[0], *dr = drum_buf[1], *dv = drum_buf[2], *dd = drum_buf[3];
         int32_t c = TDRUM->p[P_CHOR] * 258;
         for (i = 0; i < n; i++)
             dl[i] = dr[i] = dv[i] = dd[i] = 0;
         slicer_drums(dl, dr, dv, dd, n);
         drum_fx(dl, dr, n);                             /* (1.7: off, nothing) */
+        eq_drums(dl, dr, n);                            /* (1.9) FX > EQ on the drum track (flat: nothing) */
         if (flt) {
             tflt_run(f, &fc, dl, n, 0);
             tflt_run(f, &fc, dr, n, 1);
@@ -1417,10 +1436,9 @@ static void mix_block(int32_t *out, uint32_t n)
         mix_l[i] += wet_l[i];
         mix_r[i] += wet_r[i];
     }
-    if (n <= CTL) {                                     /* (BONBLOOP 1.7) the master: FX > COMP, FX > EQ */
+    if (n <= CTL)                                       /* (BONBLOOP 1.7) the master: FX > COMP (1.9: FX > EQ is each
+                                                         * track's own, mix_part_run, mix_drums) */
         comp_process(mix_l, mix_r, n);
-        eq_master(mix_l, mix_r, n);
-    }
     dust_process(mix_l, mix_r, n);
     punch_process(mix_l, mix_r, n);
     djf_process(mix_l, mix_r, n);

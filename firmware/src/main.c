@@ -186,6 +186,7 @@ UI_SMALL static void felucca_init(void)
     song.master_q12 = 2048;
     autosave_resume();                        /* the project as it was left (project.c) */
     song.g[G_SYNC] = (int16_t)lights_sync;    /* a setting of the FM-1 (panel.c) */
+    song.g[G_KEYS] = (int16_t)lights_keys;    /* (BONBLOOP 1.9) SEL 2 > KEYS: the same */
     song.g[G_MIDI] = (int16_t)lights_mout;
     song.g[G_ROUTE] = (int16_t)lights_min;
     song.g[G_CH1] = midi_set[0], song.g[G_CH2] = midi_set[1], song.g[G_CH3] = midi_set[2];   /* (2.6: GLO > MIDI, */

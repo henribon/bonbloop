@@ -201,12 +201,36 @@ UI_SMALL static uint32_t keys_guide(void)
     return 1u << key_of_white(0) | 1u << key_of_white(4) | 1u << key_of_white(8) | 1u << key_of_white(12);
 }
 
-/* the keys the backlight lights (menu KEYS): the Cs, every white key, or every key; bit k = key k (0 = F3) */
+/* (BONBLOOP 1.9) KEYS SCALE: the keys whose note is in the selected track's scale, as each key plays it now (kb_pitch:
+ * TRN, QNT SNAP or WHITE, the chords' white keys); root_only: those on its root. The drum track: none (its keys are
+ * sounds). Shown at the LIGHTS level, the roots brighter (the landmarks' glow) */
+UI_SMALL static uint32_t scale_light(uint32_t root_only)
+{
+    const track_t *t = TSEL;
+    uint32_t k, m = 0, mask, root;
+    if (!lights_lvl || lights_keys != KEYS_SCALE || is_drum(t))
+        return 0u;
+    mask = scale_mask(t), root = (uint32_t)t->p[P_ROOT] % 12u;
+    for (k = 0; k < 27u; k++) {
+        uint32_t n = kb_pitch(t, k, 0), d;
+        if (n == KB_SILENT)
+            continue;
+        d = (n + 120u - root) % 12u;
+        if (((mask >> d) & 1u) && (!root_only || !d))
+            m |= 1u << k;
+    }
+    return m;
+}
+
+/* the keys the backlight lights (menu KEYS): the Cs, every white key, every key, or (1.9) the scale; bit k = key k
+ * (0 = F3) */
 UI_SMALL static uint32_t lights_keys_mask(void)
 {
     uint32_t k, m = 0;
     if (!lights_lvl || !lights_keys)
         return 0u;
+    if (lights_keys == KEYS_SCALE)
+        return scale_light(0);
     for (k = 0; k < 27u; k++) {
         uint32_t pc = (53u + k) % 12u;             /* key 0 = F3 (53) */
         if (lights_keys == KEYS_ALL || (lights_keys == KEYS_C ? pc == 0u : ((0xAB5u >> pc) & 1u) != 0u))   /* 0xAB5: C D E F G A B */
@@ -243,7 +267,7 @@ UI_SMALL static void ui_leds(void)
         led_put(nl, panel.btn[B_OCTUP], song.octave > 0);
     }
     keys = keys_lit();
-    guide = (keys_guide() | keys_notes_dim()) & ~keys;
+    guide = (keys_guide() | keys_notes_dim() | scale_light(1)) & ~keys;   /* (1.9: the scale's roots, brighter) */
     back = lights_keys_mask() & ~keys & ~guide;
     for (k = 0; k < 27u; k++) {
         led_put(nl, 14u + k, (int)((keys >> k) & 1u));
@@ -489,7 +513,7 @@ UI_SMALL static void project_new(void)
     drum_mute = 0;                                      /* (2.6: the live mutes) */
     for (i = 0; i < G_COUNT; i++)
         if (i != G_SLOT && i != G_DRCH && i != G_SYNC && i != G_MIDI && i != G_ROUTE && (i < G_CH1 || i > G_CHOTH) &&
-            i != G_BEND && i != G_FXCH && i != G_DRMAP && i != G_RMCH && i != G_CLKOUT && i != G_FXFADE)                                                                     /* (the
+            i != G_BEND && i != G_FXCH && i != G_DRMAP && i != G_RMCH && i != G_CLKOUT && i != G_FXFADE && i != G_KEYS)                                                                     /* (the
                                                                  * FM-1's settings: GLO > MIDI 2.6) */
             song.g[i] = GP[i].def;
     synx[NPART].w[4] = EQ_W4, synx[NPART].w[5] = 0;     /* (BONBLOOP 1.7) FX > EQ, the master's: flat */
@@ -618,8 +642,8 @@ UI_SMALL static void edit_param(uint32_t slot, int32_t steps)
                 : clamp(*vp + accel(EN_K1 + slot, steps, d->names ? 0 : d->max - d->min), d->min, d->max);
     }
     *vp = (int16_t)v;
-    if (wv_commit(glob ? &trk[NPART] : TSEL, vp))         /* BONBLOOP: a field of WAVE's packed words (no lock, no learn;
-                                                         * 1.7: on FX > EQ the master's) */
+    if (wv_commit(TSEL, vp))                              /* BONBLOOP: a field of WAVE's packed words (no lock, no learn;
+                                                         * 1.9: FX > EQ the track's) */
         return;
     if (id >= VG0 && id < VG0 + VG_N)                     /* (1.2) a global on a synth page: as on its own page */
         id = VG_MAP[id - VG0], glob = 1;

@@ -120,6 +120,9 @@ enum {                          /* global parameters */
     G_DRCLIP,                         /* .. the drums' soft clipper (FX > MIXER on the drum track, where DLY is) */
     G_DRCEIL, G_DRSHP, G_DROUT,       /* BONBLOOP 1.8, FX > CLIP on the drum track: the clipper's ceiling (0 .. -12 dB),
                                        * its shape (SOFT HARD FOLD), its output (-12 .. +6 dB); G_DRCLIP its DRIVE */
+    G_KEYS,                           /* BONBLOOP 1.9, SEL 2 > KEYS: the keys lit, MENU > LIGHTS > KEYS (panel.c
+                                       * lights_keys, a setting of the FM-1, not of a project); SCALE: the selected
+                                       * track's scale on the keys, its root brighter (ui_input.c scale_light) */
     G_COUNT
 };
 
