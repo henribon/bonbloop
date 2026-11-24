@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.9"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.9.1"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -968,12 +968,19 @@ UI_SMALL static void fav_toggle(int add)                      /* KNOB 4 on the P
 /* (2.7) the settings' side record: the theme (40 bytes, zero: none), then the favourites (ui.c fav) with a magic and a
  * CRC. A 2.7 beta wrote the theme alone (the rest erased: no favourites); an older SLOOP never reads it */
 #define FAVS_MAGIC 0x31564146u                      /* "FAV1" */
+#define GUIDE_MAGIC 0x31534c47u                     /* "GLS1": (BONBLOOP 1.9.1) GLO > SCALE */
 typedef struct {
     theme_t th;
     uint32_t fmagic;
     uint16_t fav[FAV_N];
     uint32_t fcrc;
+    uint32_t gmagic, guide;                     /* (1.9.1) appended: an older firmware reads the 80 bytes before */
 } side_rec_t;
+UI_SMALL static void guide_to_song(void)                     /* GLO > SCALE's values from the settings */
+{
+    song.g[G_GROOT] = (int16_t)guide_root, song.g[G_GSCL] = (int16_t)guide_scl;
+    song.g[G_GLIGHT] = (int16_t)guide_light, song.g[G_GMARK] = (int16_t)guide_mark;
+}
 UI_SMALL static void side_fill(side_rec_t *r)                /* what the settings' side record holds now */
 {
     memset(r, 0, sizeof *r);
@@ -982,6 +989,7 @@ UI_SMALL static void side_fill(side_rec_t *r)                /* what the setting
     r->fmagic = FAVS_MAGIC;
     memcpy(r->fav, fav, sizeof fav);
     r->fcrc = st_crc32(&r->fmagic, 4u + sizeof r->fav);
+    r->gmagic = GUIDE_MAGIC, r->guide = guide_word();
 }
 UI_SMALL static void side_take(side_rec_t *r)                /* a side record read back: what checks out (theme, favourites) */
 {
@@ -991,6 +999,8 @@ UI_SMALL static void side_take(side_rec_t *r)                /* a side record re
     }
     if (r->fmagic == FAVS_MAGIC && r->fcrc == st_crc32(&r->fmagic, 4u + sizeof r->fav))
         memcpy(fav, r->fav, sizeof fav);
+    if (r->gmagic == GUIDE_MAGIC)
+        guide_from_word(r->guide);
 }
 /* the PRESETS list: the favourites, then every factory sound by kind, then the user presets */
 UI_SMALL static uint32_t preset_pos(uint32_t *total)

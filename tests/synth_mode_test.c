@@ -812,6 +812,17 @@ int main(int argc, char **argv)
                   sx_get(0, SX_CLC) == -6 && song.g[G_DRCLIP] == 0, b);
             sx_set(0, SX_CLD, 0), sx_set(0, SX_CLS, 0), sx_set(0, SX_CLC, 0);
         }
+        {   /* (1.9.1) GLO > SCALE, for the docs: D MAJ, LIGHT MAX, MARK 1-3-5 */
+            uint8_t pg0 = ui.page, h0 = ui.home;
+            for (i = 0; i < NPAGES; i++)
+                if (PAGES[i].fam == FAM_GLO && str_eq(PAGES[i].title, "SCALE"))
+                    ui.page = (uint8_t)i;
+            song.g[G_GROOT] = 2, song.g[G_GSCL] = 1, song.g[G_GLIGHT] = 3, song.g[G_GMARK] = 1;
+            ui.home = 0;
+            shot("page-scale-lights");
+            song.g[G_GROOT] = 0, song.g[G_GLIGHT] = 0, song.g[G_GMARK] = 0;
+            ui.home = h0, ui.page = pg0;
+        }
     }
     {   /* 1.7: the parallel DIST on SLOOP's engines; FX > MOD a flanger, a phaser: each its own sound, bounded */
         track_t *t = &trk[2];

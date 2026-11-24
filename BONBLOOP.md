@@ -8,6 +8,11 @@ cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, de
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
+**Versão 1.9.1** — a escala nas teclas ganhou sua **página no GLOBAL** (**GLOBAL → SCALE**: ROOT, SCALE, LIGHT
+até o brilho máximo, MARK), só de luz: não mexe mais no ROOT/SCL da SEL, que podia travar as teclas pretas (ver *As
+teclas mostram a escala*). E o **REPEAT** da bateria ganhou uma **trava**: segure o **ARP** sozinho por um instante e
+ele fica ligado com a camada do ARP aberta, para mudar a divisão no **KNOB 1** enquanto toca (ver *REPEAT da bateria*).
+
 **Versão 1.9** — **as teclas mostram a escala**: SEL → página SEL 2 → **KEYS** em **SCALE** e as teclas do FM-1 ficam
 acesas nas notas do tom e da escala da track selecionada, a tônica mais forte (ver *As teclas mostram a escala*).
 E o **EQ** (FX → EQ 1 / EQ 2) passa a ser **de cada track**: mexe só no canal selecionado (na 1.7 e na 1.8 era o EQ
@@ -409,6 +414,11 @@ Com a **bateria** (track 4) selecionada, um **toque no ARP** liga o **REPEAT** (
 segurada repete no tempo, como o *note repeat* de uma drum machine, sem precisar segurar nada. Com **REC** ligado,
 as batidas são gravadas (mais rápidas que o passo viram ratchets). Outro toque no ARP desliga.
 
+**Trava do REPEAT (1.9.1).** Com a bateria selecionada, **segure o ARP sozinho** (sem tecla) por uns 0,7 s: o REPEAT
+liga e a **camada do ARP fica travada aberta** (o LED do ARP pisca). Solte o ARP: as teclas fazem o repeat e o
+**KNOB 1** muda a divisão enquanto você toca, com as duas mãos livres. **Toque no ARP de novo** para destravar e
+desligar o REPEAT (outro botão, exceto PLAY, REC e OCT, só destrava).
+
 A divisão é a do roll: **ARP + KNOB 1** — **1/2T, 1/4, 1/4T, 1/8, 1/8T, 1/16, 1/16T, 1/32, 1/32T, 1/64** (1.4.1: 1/4T
 e 1/2T). Segurar ARP + teclas continua sendo o roll de sempre, em qualquer track.
 
@@ -439,13 +449,28 @@ Com o **CHORD** ligado (SEL → página SEL 2), o antigo **VLEAD** virou **VOIC*
 
 Funciona nas teclas, nos passos e com os modificadores das teclas pretas.
 
-### As teclas mostram a escala (1.9)
+### As teclas mostram a escala (GLOBAL → SCALE, 1.9.1)
 
-Na página **SEL 2** (SEL, depois SELECT), o 4º knob é **KEYS**: quais teclas ficam acesas. É o mesmo ajuste de
-MENU → LIGHTS → KEYS (mudar num muda no outro), agora com uma opção nova:
+A página **SCALE** do GLOBAL (GLO, depois SELECT: logo depois de GLOBAL) mostra uma escala nas teclas do FM-1. É **só
+luz**: não muda o que as teclas tocam (o ROOT, SCL e QNT da página SEL ficam como estão; na 1.9 isso ficava na SEL e
+mexer na escala de lá podia travar as teclas pretas).
 
-| KEYS | Teclas acesas |
+| Knob | O quê |
 | --- | --- |
+| **ROOT** | a nota da escala, C a B |
+| **SCALE** | o tipo: MAJ, MIN, DOR, MIX, PEN, MPEN, HARM, PHRY, LYD, LOC, MEL, BLUES, WHOLE, DIMHW, DIMWH (CHR: todas) |
+| **LIGHT** | **OFF**, **LOW** (luz de fundo), **MID** (luz média), **MAX** (a luz mais forte, a mesma de uma tecla tocada) |
+| **MARK** | o que fica mais forte: **ROOT** (a tônica), **1-3-5** (1ª, 3ª e 5ª notas da escala) ou **OFF** |
+
+- As notas destacadas pelo MARK ficam um nível acima das outras; no **MAX** (que já é o máximo) elas **piscam**.
+- No **MAX**, uma tecla da escala que você toca **apaga** enquanto está pressionada, e uma tecla fora da escala
+  **acende**: dá para ver o que você está tocando.
+- As luzes seguem o que **cada tecla toca** na track selecionada (com o **TRN**, as teclas acesas andam junto).
+- Na **bateria** nada acende (lá as teclas são sons).
+- Funciona com MENU → LIGHTS desligado. É um ajuste do FM-1, não do projeto: fica como está ao abrir outro projeto.
+- MENU → LIGHTS → KEYS voltou a ter só OFF, C KEYS, WHITE KEYS e ALL KEYS.
+
+--- | --- |
 | OFF | nenhuma |
 | C | os Dós |
 | WHITE | as brancas |
@@ -497,7 +522,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.9: 579.896 de 581.564 bytes de flash (1,6 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
+Tamanho do 1.9.1: 579.928 de 581.564 bytes de flash (1,6 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).
