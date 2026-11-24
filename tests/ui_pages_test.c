@@ -176,6 +176,8 @@ int main(int argc, char **argv)
     sloop_splash(); ppm("page-splash");
     ui.menu = 2; ui.force = 1; frame(); ppm("page-about"); ui.menu = 0;
     go_home(); ui.force = 1; frame(); ppm("page-tracks");
+    trk[0].p[P_MUTE] = 1, song.solo = 2u; ui.force = 1; frame(); ppm("tracks-mute-solo");   /* (1.8) MUTE, SOLO */
+    trk[0].p[P_MUTE] = 0, song.solo = 0; ui.force = 1; frame();
     open_family(FAM_ENV); ui.force = 1; ui.hot_col = 1; ui.hot_t = 30; frame(); ppm("page-env");
     open_family(FAM_ARP); ui.force = 1; frame(); ppm("page-arp");
     check(big_page(cur_page()) && !strcmp(cur_page()->title, "ARP"), "ARP (2.7.2): page 1 shows its values large, as ARP 2");
@@ -1253,12 +1255,12 @@ int main(int argc, char **argv)
         TSEL->p[P_TFLT] = -32; ui.force = 1; frames(2); ppm("page-filter");
         check(!strcmp(ui.big_l[0], "FILT") && !strcmp(ui.big_v[0], "LP50") && !ui.big_l[1][0],
               "FILTER page: its one value drawn large (LP50 %)");
-        {   /* (BONBLOOP 1.7) the one value as a big knob in the middle of the graph strip: its ring lit */
+        {   /* (BONBLOOP 1.8) an effect's page: the value window, LP50 large in the middle of the strip (no knob) */
             uint32_t x, y, lit = 0;
-            for (y = Y_GRAPH + 10; y < Y_GRAPH + 84; y++)
-                for (x = 80; x < 160; x++)
+            for (y = Y_GRAPH + 30; y < Y_GRAPH + 80; y++)
+                for (x = 20; x < 220; x++)
                     lit += screen[y * 240u + x] != 0;
-            check(lit > 300u, "FILTER page: the graph strip shows it, a big knob (1.7)");
+            check(lit > 80u && fx_windows(cur_page()), "FILTER page: the graph strip shows it large, a window (1.8)");
         }
         TSEL->p[P_TFLT] = 0;
         SEL(9);

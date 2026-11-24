@@ -963,20 +963,20 @@ UI_SMALL static void layer_screen_draw(void)
             int m = trk[i].p[P_MUTE] != 0, so = (song.solo >> i) & 1u;
             str_cpy(tl[i].lab, "mute 1", 8);
             tl[i].lab[5] = (char)('1' + i);
-            tl[i].bg = m ? TE_G2 : TE_COL[i];
-            tl[i].fg = m ? TE_G3 : C_BLACK;
+            tl[i].bg = pal_peri ? (m ? pal_on : TE_G1) : m ? TE_G2 : TE_COL[i];   /* (1.8 PERI: a MUTE on violet, */
+            tl[i].fg = pal_peri ? (m ? C_WHITE : TE_G3) : m ? TE_G3 : C_BLACK;     /* off dark, as SOLO) */
             str_cpy(tl[4 + i].lab, "solo 1", 8);
             tl[4 + i].lab[5] = (char)('1' + i);
-            tl[4 + i].bg = so ? C_WHITE : TE_G1;
-            tl[4 + i].fg = so ? C_BLACK : TE_G3;
+            tl[4 + i].bg = so ? C_ON : TE_G1;
+            tl[4 + i].fg = so ? C_ONFG : TE_G3;
             tl[4 + i].top = TE_DIM[i];
         }
         str_cpy(tl[8].lab, "fill", 8);                  /* key 9: held = a fill; key 10: the next bar is one */
-        tl[8].bg = fill_now ? C_WHITE : TE_G1;
-        tl[8].fg = fill_now ? C_BLACK : TE_G4;
+        tl[8].bg = fill_now ? C_ON : TE_G1;
+        tl[8].fg = fill_now ? C_ONFG : TE_G4;
         str_cpy(tl[9].lab, "bar", 8);
-        tl[9].bg = fill_bar_on ? C_WHITE : TE_G1;
-        tl[9].fg = fill_bar_on ? C_BLACK : TE_G4;
+        tl[9].bg = fill_bar_on ? C_ON : TE_G1;
+        tl[9].fg = fill_bar_on ? C_ONFG : TE_G4;
         tl[9].top = fill_arm ? C_WHITE : 0;
         fmt_int(tl[15].lab, song.g[G_BPM]);
         tl[15].bg = song.playing && clk_pos < BEAT_U / 4u ? C_WHITE : TE_G2;

@@ -702,8 +702,65 @@ int main(int argc, char **argv)
             snprintf(b, sizeof b, "1.7: drums' DST 0 CLIP 0 dry; DST (T) changes them; CLIP 127 rounds 60000 to %d", clip);
             check(same && chg && clip > 5000 && clip < 12000, b);
         }
+        {   /* 1.8: FX > CLIP, the drums' clipper: its page on the drum track only, DRIVE CEIL SHAPE OUT; CEIL 0 dB SOFT
+             * OUT 0 dB: 1.7's clipper bit for bit; a lower CEIL rounds lower; HARD cuts at CEIL; FOLD folds back under
+             * it; OUT +6 dB about twice as loud */
+            static int32_t l[CTL], r[CTL], e[CTL];
+            const page_t *cp = 0;
+            const param_desc_t *d0;
+            int32_t j, same = 1, soft0, softc, hard6, fold0, hard0, out6, g = 4096 + 80 * 128, og = 268435456 / (4096 + g);
+            uint32_t ph = 0;
+            for (i = 0; i < NPAGES; i++)
+                if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "CLIP"))
+                    cp = &PAGES[i];
+            d0 = cp ? page_desc(cp, 0, &vp) : 0;
+            check(cp && page_shown(cp) && d0 && str_eq(d0->label, "DRIVE") && vp == &song.g[G_DRCLIP] &&
+                  page_desc(cp, 1, &vp) == &GP[G_DRCEIL] && vp == &song.g[G_DRCEIL] &&
+                  page_desc(cp, 2, &vp) == &GP[G_DRSHP] && page_desc(cp, 3, &vp) == &GP[G_DROUT] &&
+                  GP[G_DRCEIL].def == 0 && GP[G_DRSHP].def == 0 && GP[G_DROUT].def == 0,
+                  "1.8: FX > CLIP on the drums: DRIVE (FX > MIXER's CLIP), CEIL, SHAPE, OUT; all off by default");
+            if (cp) {                                  /* (the page, for the docs: DRIVE 90, CEIL -6, HARD, OUT +2) */
+                uint8_t pg0 = ui.page, h0 = ui.home;
+                song.g[G_DRCLIP] = 90, song.g[G_DRCEIL] = -6, song.g[G_DRSHP] = 1, song.g[G_DROUT] = 2;
+                ui.home = 0, ui.page = (uint8_t)(cp - PAGES);
+                shot("drums-clip");
+                song.g[G_DRCLIP] = song.g[G_DRCEIL] = song.g[G_DRSHP] = song.g[G_DROUT] = 0;
+                ui.home = h0, ui.page = pg0;
+            }
+            song.g[G_DRCLIP] = 80;                     /* (1.7's formula, inline) */
+            for (j = 0; j < CTL; j++, ph += 90000000u)
+                l[j] = r[j] = osc_sine(ph) * 2, e[j] = mulq15(softclip(MULQ12R(clamp(l[j], -262143, 262143), g, 2)), og);
+            drum_fx(l, r, CTL);
+            for (j = 0; j < CTL; j++)
+                same &= l[j] == e[j] && r[j] == e[j];
+#define CLIP_AT(v) (song.g[G_DRCLIP] = 127, l[0] = r[0] = (v), drum_fx(l, r, 1u), l[0])
+            soft0 = CLIP_AT(60000);
+            song.g[G_DRCEIL] = -12;
+            softc = CLIP_AT(60000);
+            song.g[G_DRCEIL] = -6, song.g[G_DRSHP] = 1;
+            hard6 = CLIP_AT(60000);
+            song.g[G_DRCEIL] = 0;
+            hard0 = CLIP_AT(60000);
+            song.g[G_DRSHP] = 2;
+            fold0 = CLIP_AT(60000);
+            song.g[G_DRSHP] = 0, song.g[G_DROUT] = 6;
+            out6 = CLIP_AT(60000);
+#undef CLIP_AT
+            song.g[G_DROUT] = 0, song.g[G_DRCLIP] = 0;
+            snprintf(b, sizeof b, "1.8: CLIP 1.7's at CEIL 0 SOFT OUT 0; 60000 -> SOFT %d, CEIL -12 %d, HARD -6 %d, "
+                     "FOLD %d, OUT +6 %d", soft0, softc, hard6, fold0, out6);
+            check(same && softc > 0 && softc * 3 < soft0 && hard6 == mulq15(16423, 10979) && fold0 > 0 &&
+                  fold0 < hard0 && out6 * 10 > soft0 * 19 && out6 * 10 < soft0 * 21, b);
+        }
         track_select(0);
         frames(2);
+        {
+            const page_t *cp = 0;
+            for (i = 0; i < NPAGES; i++)
+                if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "CLIP"))
+                    cp = &PAGES[i];
+            check(cp && !page_shown(cp), "1.8: FX > CLIP not on a synth track (the drums' only)");
+        }
     }
     {   /* 1.7: the parallel DIST on SLOOP's engines; FX > MOD a flanger, a phaser: each its own sound, bounded */
         track_t *t = &trk[2];

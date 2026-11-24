@@ -41,7 +41,7 @@
                                                 * so the format and its size do not change */
 _Static_assert(G_DRDLY == PROJ_NG && G_TXSRC == PROJ_NG + 5u,
                "the globals a project holds, then G_DRDLY (then 2.6's GLO > MIDI: settings of the FM-1)");
-_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DRCLIP + 1u,
+_Static_assert(G_FXFADE == G_CLKOUT + 1u && G_DMS == G_FXFADE + 1u && G_COUNT == G_DROUT + 1u,
                "G_FXFADE (2.7.2) is the last global of SLOOP, a setting of the FM-1; then BONBLOOP's (bbx_t: G_DMS)");
 #define PROJ_NC6 ((uint32_t)P_ITYPE)           /* format 6: the parameters kept in 16 bits, P_LEVEL .. P_VLEAD (as 5), */
 #define PROJ_NX6 ((uint32_t)(P_E0 - P_ITYPE))  /* the 2.6 ones in a byte (0..127), then P_E0 .. P_E7 */
@@ -183,10 +183,15 @@ typedef struct {
     uint32_t meq[2];                           /* (1.7) the master's EQ (synx[NPART].w[4], w[5]) */
     int16_t dms;
     uint8_t cmix, rmix;                        /* (1.6) G_CMIX, G_RMIX */
-    uint8_t fx[12];                            /* (1.7) G_XTYPE .. G_KREL; [10] the drums' STYLE | PUNSH << 3, [11] CLIP */
-    uint16_t dtone, sum;                       /* (1.7) the drums' TONE ^ 64 (0: the default, 64) */
+    uint8_t fx[12];                            /* (1.7) G_XTYPE .. G_KREL; [10] the drums' STYLE | PUNSH << 3 | (1.8)
+                                                * FX > CLIP's SHAPE << 4 (bits 1.7 never read), [11] CLIP */
+    uint16_t dtone, sum;                       /* (1.7) the drums' TONE ^ 64 (0: the default, 64); (1.8) FX > CLIP's
+                                                * -CEIL << 7 (4 bits) and OUT << 11 (5 bits, two's complement): 0, 0 dB.
+                                                * A 1.7 project has them 0 (the defaults); 1.7 reading a 1.8 one with
+                                                * either set takes the drums' TONE as its maximum */
 } bbx_t;
-_Static_assert(BBX_NG <= 10u && G_KREL == G_XTYPE + 9u && G_DRCLIP == G_DRSTY + 3u, "1.7's globals in the side record");
+_Static_assert(BBX_NG <= 10u && G_KREL == G_XTYPE + 9u && G_DRCLIP == G_DRSTY + 3u && G_DROUT == G_DRCLIP + 3u,
+               "1.7's and 1.8's globals in the side record");
 static bbx_t bbx_ram[5];                       /* (not .noinit, it is full: after a warm reset persist_boot reads the
                                                 * sections' back from flash) */
 UI_SMALL static bbx_t *bbx_of(const project_t *p)
@@ -528,8 +533,9 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
         x->rmix = (uint8_t)song.g[G_RMIX];
         for (i = 0; i < BBX_NG; i++)
             x->fx[i] = (uint8_t)(song.g[BBX_G0 + i] - GP[BBX_G0 + i].min);
-        x->fx[10] = (uint8_t)(song.g[G_DRSTY] | song.g[G_DRPUN] << 3), x->fx[11] = (uint8_t)song.g[G_DRCLIP];
-        x->dtone = (uint16_t)(song.g[G_DRTONE] ^ 64);
+        x->fx[10] = (uint8_t)(song.g[G_DRSTY] | song.g[G_DRPUN] << 3 | song.g[G_DRSHP] << 4);
+        x->fx[11] = (uint8_t)song.g[G_DRCLIP];
+        x->dtone = (uint16_t)((song.g[G_DRTONE] ^ 64) | (-song.g[G_DRCEIL]) << 7 | (song.g[G_DROUT] & 31) << 11);
         x->sum = bbx_sum(x);
     }
 }
@@ -567,7 +573,10 @@ static void proj_apply(const project_t *p, int all)
             song.g[G_DRSTY] = (int16_t)(xok ? clamp(x->fx[10] & 7, 0, 4) : 0);   /* (the drums' DST and CLIP) */
             song.g[G_DRPUN] = (int16_t)(xok ? (x->fx[10] >> 3) & 1 : 0);
             song.g[G_DRCLIP] = (int16_t)(xok ? clamp(x->fx[11], 0, 127) : 0);
-            song.g[G_DRTONE] = (int16_t)(xok ? clamp(x->dtone ^ 64, 0, 127) : 64);
+            song.g[G_DRTONE] = (int16_t)(xok ? clamp((x->dtone & 127) ^ 64, 0, 127) : 64);
+            song.g[G_DRSHP] = (int16_t)(xok ? clamp(x->fx[10] >> 4 & 3, 0, 2) : 0);   /* (1.8) FX > CLIP */
+            song.g[G_DRCEIL] = (int16_t)(xok ? -clamp(x->dtone >> 7 & 15, 0, 12) : 0);
+            song.g[G_DROUT] = (int16_t)(xok ? clamp(((x->dtone >> 11 & 31) ^ 16) - 16, -12, 6) : 0);
             synx[NPART].w[4] = xok ? x->meq[0] : EQ_W4;
             synx[NPART].w[5] = xok ? x->meq[1] : 0u;
         }

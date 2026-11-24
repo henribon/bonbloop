@@ -505,11 +505,13 @@ int main(void)
         song.g[G_XTYPE] = 4, song.g[G_XA] = 99, song.g[G_MTYPE] = 2, song.g[G_MFDBK] = 11;
         song.g[G_KTHR] = -23, song.g[G_KRAT] = 2, song.g[G_KATK] = 0, song.g[G_KREL] = 5;
         song.g[G_DRSTY] = 3, song.g[G_DRPUN] = 1, song.g[G_DRCLIP] = 77, song.g[G_DRTONE] = 20;
+        song.g[G_DRSHP] = 2, song.g[G_DRCEIL] = -12, song.g[G_DROUT] = -12;   /* (1.8 FX > CLIP: the extremes) */
         synx[NPART].w[4] = 0x1234567u, synx[NPART].w[5] = 0x00ABCDEu;
         proj_capture(pp);
         song.g[G_XTYPE] = song.g[G_XA] = song.g[G_MTYPE] = song.g[G_MFDBK] = 0;
         song.g[G_KTHR] = song.g[G_KRAT] = song.g[G_KATK] = song.g[G_KREL] = 0;
         song.g[G_DRSTY] = song.g[G_DRPUN] = song.g[G_DRCLIP] = song.g[G_DRTONE] = 0;
+        song.g[G_DRSHP] = song.g[G_DRCEIL] = song.g[G_DROUT] = 0;
         synx[NPART].w[4] = synx[NPART].w[5] = 0;
         proj_apply(pp, 1);
         ok = song.g[G_XTYPE] == 4 && song.g[G_XA] == 99 && song.g[G_MTYPE] == 2 && song.g[G_MFDBK] == 11 &&
@@ -517,10 +519,25 @@ int main(void)
              synx[NPART].w[4] == 0x1234567u && synx[NPART].w[5] == 0x00ABCDEu && song.g[G_DRSTY] == 3 &&
              song.g[G_DRPUN] == 1 && song.g[G_DRCLIP] == 77 && song.g[G_DRTONE] == 20;
         bad += check("1.7: FX > DIST, MOD, COMP, the master's EQ, the drums' DRIVE and CLIP captured and applied", ok);
+        bad += check("1.8: FX > CLIP's SHAPE, CEIL, OUT too (FOLD, -12 dB, -12 dB)",
+                     song.g[G_DRSHP] == 2 && song.g[G_DRCEIL] == -12 && song.g[G_DROUT] == -12);
+        {   /* OUT +6, CEIL -5, HARD; then a 1.7 record (those bits 0): the defaults, the drums' TONE as it was */
+            bbx_t *x = bbx_of(pp);
+            song.g[G_DRSHP] = 1, song.g[G_DRCEIL] = -5, song.g[G_DROUT] = 6, song.g[G_DRTONE] = 127;
+            proj_capture(pp);
+            song.g[G_DRSHP] = song.g[G_DRCEIL] = song.g[G_DROUT] = song.g[G_DRTONE] = 0;
+            proj_apply(pp, 1);
+            ok = song.g[G_DRSHP] == 1 && song.g[G_DRCEIL] == -5 && song.g[G_DROUT] == 6 && song.g[G_DRTONE] == 127;
+            x->fx[10] &= 15u, x->dtone &= 127u, x->sum = bbx_sum(x);
+            proj_apply(pp, 1);
+            ok &= song.g[G_DRSHP] == 0 && song.g[G_DRCEIL] == 0 && song.g[G_DROUT] == 0 && song.g[G_DRTONE] == 127;
+            bad += check("1.8: FX > CLIP's OUT +6, CEIL -5, HARD kept; a 1.7 project: SOFT, 0 dB, 0 dB, its TONE intact", ok);
+        }
         bbx_of(pp)->sum ^= 1u;
         proj_apply(pp, 1);
         ok = song.g[G_XTYPE] == GP[G_XTYPE].def && song.g[G_KTHR] == 0 && song.g[G_MTYPE] == 0 &&
-             synx[NPART].w[4] == EQ_W4 && synx[NPART].w[5] == 0u && song.g[G_DRCLIP] == 0 && song.g[G_DRTONE] == 64;
+             synx[NPART].w[4] == EQ_W4 && synx[NPART].w[5] == 0u && song.g[G_DRCLIP] == 0 && song.g[G_DRTONE] == 64 &&
+             song.g[G_DRSHP] == 0 && song.g[G_DRCEIL] == 0 && song.g[G_DROUT] == 0;
         bad += check("1.7: none (an older project): the comp off, MOD a chorus, DIST at its defaults, the master's EQ flat", ok);
     }
     printf("%s\n", bad ? "PROJECT FORMAT TEST FAILED" : "project format test passed");
