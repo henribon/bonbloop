@@ -208,8 +208,9 @@ UI_SMALL static uint32_t guide_keys(uint32_t mark)
 {
     const track_t *t = TSEL;
     uint32_t k, m = 0, mask, root = (uint32_t)song.g[G_GROOT] % 12u, i, n;
-    if (!song.g[G_GLIGHT] || is_drum(t))
-        return 0u;
+    if (!song.g[G_GLIGHT] || is_drum(t) || (ui.layer != LY_PLAY && ui.layer != LY_ROLL))
+        return 0u;                                      /* (1.9.2: not while a layer is held: FX, SEQ, SEL, GLO... -
+                                                         * the keys are pads then; the ARP's roll still plays notes) */
     mask = SCALE_MASK[clamp(song.g[G_GSCL], 0, NSCALES - 1)];
     if (mark) {                                          /* ROOT: degree 0; 1-3-5: the scale's 1st, 3rd and 5th notes */
         uint32_t keep = 0;
@@ -488,13 +489,20 @@ UI_SMALL static void step_edit(uint32_t slot, int32_t steps)
         last_note = st->note[k];
         break;
     case 2:                                               /* LEN: the note and the TIEs after it (2.6: ui.c note_set_len) */
-        if (step_on(st)) {
-            uint32_t was = note_span(t, ui.cursor), n;   /* (2.8.3: under later notes too, POLY) */
+        if (step_on(st)) {                                /* (BONBLOOP 1.9.2: in 1/8 steps, shown in ms: the TIEs, then where
+                                                           * it ends in the last step, SF_END; a ratchet's step: a step) */
+            uint32_t was = note_span(t, ui.cursor), u = (note_u128(t, ui.cursor) + 8u) / 16u, want, n, l;
             note_mark();
+            steps = accel(EN_K3, steps, 8 * NSTEP);       /* (a fast turn: up to 2 steps a detent) */
+            u = (uint32_t)clamp((int32_t)u + (st->rat && was == 1u ? 8 * steps : steps), 1, 8 * NSTEP);
+            want = (u - 1u) / 8u + 1u;
             fm1_irq_off();
-            n = note_span_set(t, ui.cursor, (uint32_t)clamp((int32_t)was + steps, 1, NSTEP));
+            n = want == was ? was : note_span_set(t, ui.cursor, want);   /* (2.8.3: under later notes too, POLY) */
+            l = (ui.cursor + n - 1u) % NSTEP;
+            t->step[l].flags |= SF_END;
+            t->nend[l] = (uint8_t)(n < want ? 7u : (u - 1u) % 8u);
             fm1_irq_on();
-            if (steps > 0 && n == was)
+            if (steps > 0 && n < want)
                 ui_message(ui.cursor + n >= (uint32_t)clamp(t->p[P_SLEN], 1, NSTEP) ? "END OF PATTERN"
                            : span_why == 2u ? "MONO: SET VOICE POLY" : span_why == 1u ? "STEP FULL: 4 NOTES" : "NOTE AHEAD");
         }
@@ -514,6 +522,13 @@ UI_SMALL static void project_new(void)
     uint32_t i;
     transport_req = 2;
     panic_req = (1u << NTRK) - 1u;
+    fm1_irq_off();
+    memset(synx, 0, sizeof synx);                       /* (BONBLOOP 1.9.2) every track's extras: the synth's chain, OSC
+                                                         * 2 / 3's envelopes and LFOs, each track's EQ and CLIP, the
+                                                         * drums' EQ: none kept (a preset below brings its own) */
+    for (i = 0; i <= NPART; i++)
+        synx[i].w[4] = EQ_W4;
+    fm1_irq_on();
     for (i = 0; i < NTRK; i++) {
         track_t *t = &trk[i];
         undo_mark(t, (undo_sess += 4u) | 3u);
@@ -537,11 +552,38 @@ UI_SMALL static void project_new(void)
             (i < G_GROOT || i > G_GMARK))                                          /* (1.9.1: GLO > SCALE) */                                                                     /* (the
                                                                  * FM-1's settings: GLO > MIDI 2.6) */
             song.g[i] = GP[i].def;
-    synx[NPART].w[4] = EQ_W4, synx[NPART].w[5] = 0;     /* (BONBLOOP 1.7) FX > EQ, the master's: flat */
     song.solo = 0;
     song.octave = 0;
     sync_reload = 1;
     ui.force = 1;
+}
+
+/* (BONBLOOP 1.9.2) OCT- + OCT+ on an effect's page (FX's pages, the synth's effect pages): that effect's values back to
+ * their defaults, the selected track's or the project's as the page shows them (EQ: both its pages, flat, the bands
+ * where they start; DELAY: SYNC). 0: not an effect's page */
+UI_SMALL static int fx_reset(const page_t *pg)
+{
+    uint32_t s, part = (uint32_t)(TSEL - trk) % NTRK;
+    int16_t *vp;
+    if (ui.home || !(pg->fam == FAM_FX || (pg->fam == FAM_SYN && syn_fx_of(pg))))
+        return 0;
+    if (pg->graph == GR_EQ) {
+        synx[part].w[4] = (synx[part].w[4] & SX_CLIP4) | EQ_W4;
+        synx[part].w[5] &= ~0xFFFFFu;                     /* (the four GAINs; the MIXes stay) */
+    } else {
+        for (s = 0; s < 4u; s++) {
+            const param_desc_t *d = page_desc(pg, s, &vp);
+            if (d && vp && d->max > d->min) {
+                *vp = d->def;
+                wv_commit(TSEL, vp);                      /* (a field of the track's words: written) */
+            }
+        }
+        if (song.g[G_DTIME] == (int16_t)DLY_FREE && (pg->id[0] == G_DTIME || pg->id[1] == VG0 + VG_DTIME))
+            song.g[G_DTIME] = GP[G_DTIME].def;            /* (DELAY: MODE back to SYNC) */
+    }
+    ui_say("RESET ", pg->title);
+    ui.force = 1;
+    return 1;
 }
 
 /* (BONBLOOP 1.6) SAVE > TOOLS COPY / TOOLS 2 PASTE: a track's pattern (its steps, nudges, fill conditions, locks and
@@ -551,6 +593,7 @@ static struct {
     uint8_t kind, eng;                                    /* 0 nothing yet, 1 a synth track's, 2 the drums' */
     step_t step[NSTEP];
     int8_t micro[NSTEP];
+    uint8_t nend[NSTEP];                                  /* (BONBLOOP 1.9.2) */
     uint8_t fill[NSTEP / 4u];
     plock_t lock[NLOCK];
     int16_t pat[4];
@@ -565,6 +608,7 @@ UI_SMALL static void pat_clip(int paste)
         clip.eng = t->eng_req;
         memcpy(clip.step, t->step, sizeof clip.step);
         memcpy(clip.micro, t->micro, sizeof clip.micro);
+        memcpy(clip.nend, t->nend, sizeof clip.nend);
         memcpy(clip.fill, t->fill, sizeof clip.fill);
         memcpy(clip.lock, t->lock, sizeof clip.lock);
         for (i = 0; i < 4u; i++)
@@ -580,6 +624,7 @@ UI_SMALL static void pat_clip(int paste)
     fm1_irq_off();
     memcpy(t->step, clip.step, sizeof t->step);
     memcpy(t->micro, clip.micro, sizeof t->micro);
+    memcpy(t->nend, clip.nend, sizeof t->nend);
     memcpy(t->fill, clip.fill, sizeof t->fill);
     for (i = 0; i < NLOCK; i++)
         t->lock[i] = clip.eng == t->eng_req ? clip.lock[i] : (plock_t){LOCK_FREE, 0, 0};
@@ -1487,8 +1532,15 @@ UI_SMALL static void ui_input(void)
         case B_OCTDN:
         case B_OCTUP: {
             uint32_t both = (1u << panel.btn[B_OCTDN]) | (1u << panel.btn[B_OCTUP]);
+            static int8_t oct_was;
+            if ((fm1_in.buttons & both) == both && fx_reset(cur_page())) {   /* (1.9.2) on an effect's page: it resets
+                                                         * (the octave as it was before the first of the two) */
+                song.octave = is_drum(TSEL) ? song.octave : oct_was;
+                break;
+            }
             if (is_drum(TSEL))
                 break;                                  /* the drum track: ghost / hard while held (seq.c) */
+            oct_was = song.octave;
             if ((fm1_in.buttons & both) == both)
                 song.octave = 0;
             else

@@ -1,5 +1,5 @@
 {
-  "what": "A groovebox built on SLOOP: three synth tracks, drums, a step sequencer and song mode. Hold ENV for the SYNTH MODE: three wavetable oscillators, an envelope and an LFO for each, and an FX chain you build. A parallel FX mixer, a glue compressor and an EQ on the master.",
+  "what": "A groovebox firmware based on SLOOP: three synth tracks and drums, a step sequencer and song mode. Its own SYNTH MODE (hold ENV): three wavetable oscillators, an envelope and an LFO for each, and an FX chain you build. Effects in parallel with an EQ and a soft clipper on every track, a glue compressor on the master, and the scale lit on the keys.",
   "author": "henribon",
   "kinds": [
     "groove",

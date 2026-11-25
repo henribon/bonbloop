@@ -448,7 +448,10 @@ UI_SMALL static void graph_roll(const track_t *t, uint16_t c)
         if (!step_on(st) || i + n <= v0 || i >= v0 + nv)
             continue;
         xa = x0 + ((int32_t)i - (int32_t)v0) * w / (int32_t)nv + 1;
-        xb = x0 + ((int32_t)(i + n) - (int32_t)v0) * w / (int32_t)nv - 1;
+        f = i + n - 1u;                                 /* (BONBLOOP 1.9.2) to its own end: 1/8 of a step (core.h SF_END) */
+        f = (t->step[f].flags & SF_END) && !(n == 1u && st->rat) ? f * 8u + t->nend[f] + 1u : (i + n) * 8u;
+        xb = x0 + ((int32_t)f - (int32_t)v0 * 8) * w / ((int32_t)nv * 8) - 1;
+        xb = xb <= xa ? xa + 1 : xb;
         xa = xa < x0 ? x0 : xa;
         xb = xb > x0 + w ? x0 + w : xb;
         for (j = 0; j < st->n; j++) {
@@ -559,8 +562,8 @@ UI_SMALL static uint32_t steps_hash(const track_t *t)
     uint32_t h = 2166136261u, i;
     for (i = 0; i < NSTEP; i++) {
         const step_t *st = &t->step[i];
-        h = (h ^ (st->note[0] + st->n * 128u + st->time * 1024u + st->flags * 4096u + st->note[1] * 65536u)) *
-            16777619u;
+        h = (h ^ (st->note[0] + st->n * 128u + st->time * 1024u + st->flags * 4096u + st->note[1] * 65536u +
+                  (uint32_t)t->nend[i] * 16777216u)) * 16777619u;   /* (BONBLOOP 1.9.2: + where its notes end) */
     }
     return h;
 }
@@ -578,6 +581,7 @@ UI_SMALL static int big_page(const page_t *pg)            /* (2.6: the INSERT pa
     return (pg->graph == GR_NONE || pg->graph == GR_INS) && pg->scope != SC_SONG && pg->scope != SC_DRUM;
 }
 UI_SMALL static uint32_t comp_meter(uint32_t h);    /* (BONBLOOP 1.7: below, with graph_comp) */
+UI_SMALL static uint32_t clip_meter(uint32_t h);    /* (1.9.2: below, with graph_clip) */
 UI_SMALL static uint32_t graph_signature(void)
 {
     const page_t *pg = cur_page();
@@ -591,6 +595,9 @@ UI_SMALL static uint32_t graph_signature(void)
             h = str_hash(str_hash(str_hash(h ^ ui.big_c[i] * 31u, ui.big_v[i]), ui.big_l[i]), ui.big_u[i]);
     if (!ui.home && pg->graph == GR_COMP)            /* (BONBLOOP 1.7) the COMP page's meter, falling */
         h = comp_meter(h);
+    if (!ui.home && pg->graph == GR_CLIP)            /* (1.9.2) FX > CLIP's: its values, the meter */
+        for (i = 0, h = clip_meter(h); i < 4u; i++)
+            h = str_hash(h ^ ui.big_c[i] * 31u, ui.big_v[i]);
     if (ui.home)
         return h ^ (ui.frame / 2u);                  /* scope: redraw every other frame */
     h ^= (uint32_t)pg->graph * 131u + TSEL->eng_req + song.sel * 7777u;
@@ -944,6 +951,63 @@ UI_SMALL static void graph_comp(void)
     }
 }
 
+/* (BONBLOOP 1.9.2) FX > CLIP as a soft clipper's screen: its transfer curve (in -> out, 0 .. +6 dBFS both ways: the
+ * clipper's own code on a ramp), its ceiling (violet), and the selected track's level in and out (green, as the COMP's,
+ * while it clips) */
+static uint8_t clm_px[2];
+UI_SMALL static uint32_t clip_meter(uint32_t h)
+{
+    uint32_t i;
+    for (i = 0; i < 2u; i++) {
+        int32_t v = clip_pk[i] ? clamp(96 + ((log2q16(clip_pk[i]) * 12) >> 16), 0, 96) : 0;
+        clip_pk[i] = 0;
+        clm_px[i] = (uint8_t)(v >= clm_px[i] ? v : clm_px[i] - 1);
+        h = (h ^ clm_px[i]) * 16777619u;
+    }
+    return h;
+}
+UI_SMALL static void graph_clip(const track_t *t)
+{
+    static const char *const L[2] = {"IN", "OUT"};
+    const page_t *pg = cur_page();
+    int16_t *vp;
+    int32_t v[4], i, x, y, px = 8, py = 116, c, top = 116, a = 1036;   /* (a: the input, -30 dBFS to +6 across) */
+    for (i = 0; i < 4; i++)
+        v[i] = page_desc(pg, (uint32_t)i, &vp) && vp ? *vp : 0;
+    c = is_drum(t) ? v[0] : v[0] * 2;
+    for (i = 0; i <= 6; i++) {                        /* the grid: 6 dB a line, -30 .. +6 dBFS both ways; 0 dB brighter */
+        cv_rect(8 + i * 112 / 6, 4, 1, 113, i == 5 ? C_DIM : C_LINE);
+        cv_rect(8, 4 + i * 112 / 6, 113, 1, i == 1 ? C_DIM : C_LINE);
+    }
+    for (x = 0; x <= 112; x++) {                      /* the curve: the clipper's own code on the input, in dB */
+        int32_t s = a;
+        if (c)
+            clip_block(&s, 1u, c, (uint32_t)clamp(v[2], 0, 2), v[1], v[3]);
+        s = s < 0 ? -s : s;
+        y = s ? clamp(23 - ((log2q16((uint32_t)s) * 1199) >> 22), 4, 116) : 116;   /* (6.02 dB an octave, 3.11 px a dB) */
+        top = y < top ? y : top;
+        if (x)
+            cv_line(px, py, 8 + x, y, c ? KNOB_LIT : C_DIM);
+        px = 8 + x, py = y;
+        a = (a * 4250) >> 12;                         /* (+0.32 dB a pixel) */
+    }
+    if (c) {                                          /* its ceiling: the curve's top */
+        for (x = 8; x < 121; x += 4)
+            cv_rect(x, top, 2, 1, C_ON);
+        cv_text(10, top < 20 ? top + 3 : top - 13, &FONT_T, "CEIL", C_ON);
+    }
+    cv_text(104, 104, &FONT_T, "IN", C_DIM);
+    for (i = 0; i <= 4; i++)                          /* 0, -12, -24, -36, -48 dB */
+        cv_rect(138, KM_Y + i * 24, 6, 1, TE_G2);
+    for (i = 0; i < 2; i++) {
+        int32_t bx = 150 + i * 22;
+        cv_text(bx + (i ? -3 : 0), 5, &FONT_T, L[i], C_GRAY);
+        cv_rect(bx, KM_Y, 10, 96, C_LINE);
+        for (y = KM_Y + 96 - clm_px[i]; y < KM_Y + 96; y++)
+            cv_rect(bx, y, 10, 1, y < KM_Y + 6 ? RGB(150, 240, 190) : RGB(30, 204, 112));
+    }
+}
+
 /* (BONBLOOP 1.7) a knob's dial for value c of the page: where its value sits in its range (0..1000; -1: no value) */
 UI_SMALL static int32_t knob_ratio(uint32_t c)
 {
@@ -1100,6 +1164,10 @@ UI_SMALL static void draw_graph(void)
             cv_oy = 0;
             graph_comp();
             break;
+        case GR_CLIP:                                /* (1.9.2) */
+            cv_oy = 0;
+            graph_clip(t);
+            break;
         case GR_BROWSE:
             cv_oy = 0;
             graph_browse();
@@ -1122,10 +1190,11 @@ UI_SMALL static void draw_graph(void)
     }
     top = !ui.home && !drum_note && (pg->graph == GR_BROWSE || pg->graph == GR_SLOTS || pg->graph == GR_USER ||
                                      pg->graph == GR_ROLL || pg->graph == GR_COMP || pg->graph == GR_FX ||
-                                     big_page(pg));   /* these draw from the top */
+                                     pg->graph == GR_CLIP || big_page(pg));   /* these draw from the top */
     cv_oy = 0;
     if (ui.hot_t && settings.zoom &&
-        !(top && (big_page(pg) || pg->graph == GR_ROLL || pg->graph == GR_COMP || pg->graph == GR_FX) && !drum_note)) {   /* (the big values show it already) */                 /* focus (menu ZOOM): the touched value, large and white */
+        !(top && (big_page(pg) || pg->graph == GR_ROLL || pg->graph == GR_COMP || pg->graph == GR_FX ||
+                  pg->graph == GR_CLIP) && !drum_note)) {   /* (the big values show it already) */                 /* focus (menu ZOOM): the touched value, large and white */
         int32_t x;
         top = 1;
         cv_rect(0, 0, 150, 50, C_BLACK);
@@ -1297,7 +1366,7 @@ UI_SMALL static void draw_columns(void)
         const step_t *st = &TSEL->step[ui.cursor];
         char sn[8], sl[8], u[8], ln[8];
         int on = step_on(st);
-        uint32_t k = on ? ui.note_k % st->n : 0u;
+        uint32_t k = on ? ui.note_k % st->n : 0u, ms;
         fmt_int(sn, (int32_t)ui.cursor + 1);
         str_cpy(sl, "/", 8);
         fmt_int(sl + 1, TSEL->p[P_SLEN]);
@@ -1314,11 +1383,12 @@ UI_SMALL static void draw_columns(void)
             str_cpy(val, "--", 12);
         }
         draw_column(1, "PITCH", val, u, on ? VAL(1u) : C_DIM, -1, ICON_AUTO);
+        ms = on ? note_ms(TSEL, ui.cursor) : 0u;        /* (BONBLOOP 1.9.2: in ms, not steps; from 10 s on, in s) */
         if (on)
-            fmt_int(ln, (int32_t)note_span(TSEL, ui.cursor));
+            fmt_int(ln, (int32_t)(ms < 10000u ? ms : ms / 1000u));
         else
             str_cpy(ln, "--", 8);
-        draw_column(2, "LEN", ln, on ? "STEP" : "", on ? VAL(2u) : C_DIM, -1, ICON_AUTO);
+        draw_column(2, "LEN", ln, !on ? "" : ms < 10000u ? "MS" : "S", on ? VAL(2u) : C_DIM, -1, ICON_AUTO);
         draw_column(3, "FORCE", on ? FORCE_N[note_force(st, k)] : "--", "", on ? VAL(3u) : C_DIM, -1, ICON_AUTO);
         return;
     }

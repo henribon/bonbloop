@@ -207,6 +207,11 @@ typedef struct {
 enum { ST_NOTE, ST_TIE, ST_REST };
 #define SF_ACCENT 1u
 #define SF_SLIDE 2u
+/* (BONBLOOP 1.9.2) bit 2 of a synth step's flags: the notes that end in this step end at (nend + 1) / 8 of it (track_t
+ * nend; kept in the project's side record, project.c bbx_t), not where the GATE says. A recording sets it where the key
+ * was let go, SEQ > NOTES LEN in ms too. SLOOP never sets bit 2 (an older one ignores it: the GATE); a user preset's
+ * pattern keeps 4 for a tie (upreset.c masks it) */
+#define SF_END 4u
 /* SLOOP 2.7: bits 3..6 of a NOTE step's flags: note k goes on from the step before (not triggered, not released),
  * so notes held in the pattern carry on under a note recorded over them (seq.c rec_note, seq_step_cont). An older
  * SLOOP ignores them (the notes play again there). Bit 2 stays free (the user presets' patterns use 4 for a tie). */
@@ -282,6 +287,7 @@ typedef struct track {
         dstep_t dstep[NSTEP];
     };
     int8_t micro[NSTEP];         /* each step's nudge, MICRO_MIN..MICRO_MAX (1/64 of a step; - early, + late) */
+    uint8_t nend[NSTEP];         /* (BONBLOOP 1.9.2) a step with SF_END: where its notes end, 0..7 = 1/8 .. 8/8 of it */
     plock_t lock[NLOCK];         /* parameter locks, unsorted (step LOCK_FREE = a free slot) */
     uint8_t fill[NSTEP / 4];     /* each step's condition, 2 bits (seq.c step_fill): FC_* */
     /* the locks in force (seq.c lock_step): the params overridden now, what they were, what the lock set */

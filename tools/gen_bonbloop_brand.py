@@ -59,25 +59,35 @@ def text_pixels(text):
     return out
 
 
+def pixelify_word(text):
+    """(BONBLOOP 1.9.2) [(x, y)] of the lit pixels of text in the FM-1's own screen font (Pixelify Sans on its 11 px
+    grid, tools/gen_font.py), its capitals' rows only, and its width"""
+    import sys
+    sys.path.insert(0, str(ROOT / "tools"))
+    from gen_font import render_pixelify, FONTS, PAD
+    h, glyphs = render_pixelify(FONTS / "PixelifySans-Variable.ttf", 11, 1, 32, 127, "S")
+    out, pen = [], 0
+    for ch in text:
+        adv, bw, px = glyphs[ord(ch) - 32]
+        for y in range(5, 12):                         # (the capitals: rows 5..11 of the 16-pixel cell)
+            for x in range(bw):
+                if px[y * bw + x]:
+                    out.append((pen + x - PAD, y - 5))
+        pen += adv
+    return out, pen - 1
+
+
 def logo_svg():
-    """BON over BLOOP, as the boot screen draws it (splash.c): BON white, BLOOP's B white and L O O P the tracks'
-    colours. Pixel runs as rects; the first rect is the background (the installer's CSS makes it transparent)"""
-    w, h, gap = 5 * 8, 2 * 16 + 2, 2
+    """BON over BLOOP, as the boot screen draws it (splash.c, BONBLOOP 1.7): the FM-1's font, BON in light lilac
+    #D9DAF4, BLOOP in Very Peri #6667AB. Pixel runs as rects; the first rect is the background (the installer's CSS
+    makes it transparent)"""
+    bon, wb = pixelify_word("BON")
+    bloop, wl = pixelify_word("BLOOP")
+    w, h, gap = wl, 7 * 2 + 3, 3
     rects = [f'<rect width="{w}" height="{h}" fill="#000"/>']
-    lines = [("BON", (w - 24) // 2, 0, [WHITE] * 3), ("BLOOP", 0, 16 + gap, [WHITE] + TRACK)]
-    for text, ox, oy, cols in lines:
-        for i, ch in enumerate(text):
-            rows = glyph(ch)
-            for y, bits in enumerate(rows):
-                x = 0
-                while x < 8:
-                    if bits & (0x80 >> x):
-                        x0 = x
-                        while x < 8 and bits & (0x80 >> x):
-                            x += 1
-                        rects.append(f'<rect x="{ox + i * 8 + x0}" y="{oy + y}" width="{x - x0}" height="1" fill="{cols[i]}"/>')
-                    else:
-                        x += 1
+    for pts, ox, oy, col in ((bon, (wl - wb) // 2, 0, "#D9DAF4"), (bloop, 0, 7 + gap, "#6667AB")):
+        for x, y in sorted(pts, key=lambda p: (p[1], p[0])):
+            rects.append(f'<rect x="{ox + x}" y="{oy + y}" width="1" height="1" fill="{col}"/>')
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" shape-rendering="crispEdges" '
             f'role="img" aria-label="BONBLOOP">' + "".join(rects) + "</svg>\n")
 
@@ -87,7 +97,8 @@ EDGE = Path(r"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe")
 
 PROMO_CSS = """
 :root { --bg: #0a0a0a; --fg: #fafafa; --solid: #cfcfcf; --muted: #8a8a8a; --dim: #5a5a5a; --tile: #141416;
-        --line: rgba(255,255,255,.09); --blue: #287cff; --green: #1ecc70; --yellow: #ffc618; --orange: #ff621a; }
+        --line: rgba(255,255,255,.09); --blue: #6667AB; --green: #3BA488; --yellow: #8B5CF6; --orange: #D9DAF4; }
+/* (BONBLOOP 1.9.2) its own colours, in the old names: Very Peri, the knobs' green, the violet of what is on, lilac */
 * { box-sizing: border-box; margin: 0; }
 html, body { width: WPX; height: HPX; overflow: hidden; background: var(--bg); color: var(--fg);
              font: 500 16px/1.25 "Inter Tight", sans-serif; -webkit-font-smoothing: antialiased; }
@@ -109,15 +120,17 @@ body { position: relative; }
 
 
 def promo(screens, out):
-    """the promo images: the layout they had (the tracks' colours, the FM-1's screens in colour, the cards and steps)
-    in bonbap.com.br's type: Inter Tight, the lower-case word, #0a0a0a. HTML pages shot by Edge headless"""
+    """the promo images: the layout they had (the FM-1's screens, the cards and steps) in bonbap.com.br's type (Inter
+    Tight, the lower-case word, #0a0a0a); BONBLOOP 1.9.2: its own colours and what it is now (a groovebox firmware
+    based on SLOOP, not SLOOP plus a mode). HTML pages shot by Edge headless"""
     import subprocess
     import tempfile
     from PIL import Image
 
     out.mkdir(parents=True, exist_ok=True)
     html_dir = Path(tempfile.mkdtemp(prefix="bonbloop-promo-"))
-    for name in ("synth-osc1-playing", "synth-osc3-vocal", "synth-drive", "synth-rev-swell", "synth-boot", "synth-osc2-saw"):
+    for name in ("synth-osc1-playing", "synth-osc3-vocal", "page-comp", "drums-clip", "page-scale-lights", "synth-boot",
+                 "page-tracks"):
         Image.open(screens / f"{name}.ppm").convert("RGB").resize((480, 480), Image.NEAREST).save(html_dir / f"{name}.png")
 
     def page(w, h, body):
@@ -134,33 +147,33 @@ def promo(screens, out):
         return f'<div class="abs {cls}" style="left:{x}px;top:{y}px;{style}">{text}</div>'
 
     hero = (at(70, 62, "word", "bonbloop", "font-size:150px")
-            + at(70, 262, "big", "Synth mode", "font-size:84px")
-            + at(70, 366, "sub", "for the M-VAVE FM-1", "font-size:36px")
-            + at(70, 470, "line", "3 oscillators · 16 waves", "font-size:30px;color:var(--blue)")
-            + at(70, 518, "line", "wavetables + reverse", "font-size:30px;color:var(--green)")
-            + at(70, 566, "line", "drive · phaser · filter", "font-size:30px;color:var(--yellow)")
-            + at(70, 614, "line", "chorus · delay · reverb", "font-size:30px;color:var(--orange)")
-            + at(70, 728, "small", "free · open source · installs from the browser", "font-size:20px")
+            + at(70, 262, "big", "Groovebox", "font-size:84px")
+            + at(70, 366, "sub", "firmware for the M-VAVE FM-1", "font-size:36px")
+            + at(70, 470, "line", "synth mode · 3 oscillators", "font-size:30px;color:var(--blue)")
+            + at(70, 518, "line", "parallel fx · eq + clipper per track", "font-size:30px;color:var(--green)")
+            + at(70, 566, "line", "the scale on the keys", "font-size:30px;color:var(--yellow)")
+            + at(70, 614, "line", "notes end where you let go", "font-size:30px;color:var(--orange)")
+            + at(70, 728, "small", "based on sloop · free · open source · installs from the browser", "font-size:20px")
             + at(70, 780, "line", URL, "font-size:40px;text-transform:none;letter-spacing:-.01em")
             + scr("synth-osc1-playing", 1010, 90, 480, "blue")
-            + scr("synth-drive", 1010, 610, 240, "yellow") + scr("synth-osc3-vocal", 1290, 610, 240, "green"))
+            + scr("drums-clip", 1010, 610, 240, "green") + scr("page-scale-lights", 1290, 610, 240, "yellow"))
     cards = ""
     for i, (title, l1, l2, s, c, foot) in enumerate((
-            ("3 osc", "sin tri saw sqr", "noise + 10 tables", "synth-osc2-saw", "blue", "hold env"),
-            ("wavetable", "basic pwm vocal", "digi fold fm chip", "synth-osc3-vocal", "green", "presets: 16 sounds"),
-            ("reverse", "play an oscillator", "backwards", "synth-rev-swell", "yellow", "rev swell"),
-            ("fx", "drive a-e-n-t-p", "phaser filter", "synth-drive", "orange", "+ chorus dly rev"))):
+            ("synth", "3 osc · 16 waves", "env + lfo each", "synth-osc3-vocal", "blue", "hold env"),
+            ("mix", "dst mod dly rev", "eq on every track", "page-comp", "green", "+ glue comp"),
+            ("clipper", "soft · hard · fold", "on every track", "drums-clip", "yellow", "its curve on screen"),
+            ("scale", "lit on the keys", "root or 1-3-5", "page-scale-lights", "orange", "glo > scale"))):
         x = 40 + i * 390
         cards += (f'<div class="card" style="left:{x}px;top:150px;width:360px;height:710px;border-top:8px solid var(--{c})"></div>'
                   + at(x + 22, 186, "big", title, f"font-size:52px;color:var(--{c})")
                   + at(x + 22, 262, "sub", l1, "font-size:26px") + at(x + 22, 300, "sub", l2, "font-size:26px")
                   + f'<img class="abs" src="{s}.png" style="left:{x + 20}px;top:380px;width:320px;height:320px;image-rendering:pixelated">'
                   + at(x + 22, 742, "small", foot, "font-size:20px"))
-    features = at(0, 40, "big", "what synth mode adds", "width:1600px;text-align:center;font-size:58px") + cards
+    features = at(0, 40, "big", "what bonbloop adds", "width:1600px;text-align:center;font-size:58px") + cards
     steps = ""
     y = 340
     for n, s, c in (("1", "plug the FM-1 into your pc (usb)", "blue"), ("2", "open in chrome or edge:", "green"), ("", URL, ""),
-                    ("3", "click install", "yellow"), ("4", "hold env: synth mode", "orange")):
+                    ("3", "click install", "yellow"), ("4", "play: hold env for the synth", "orange")):
         if n:
             steps += (f'<div class="abs" style="left:70px;top:{y - 6}px;width:60px;height:60px;background:var(--{c});'
                       f'color:#0a0a0a;font:800 40px/60px Inter Tight;text-align:center">{n}</div>'
@@ -176,8 +189,8 @@ def promo(screens, out):
                + at(70, 820, "small", "based on sloop + felucca · gpl-3.0 · not affiliated with m-vave", "font-size:20px")
                + scr("synth-boot", 1060, 300, 480, "blue"))
     square = (at(0, 70, "word", "bonbloop", "width:1080px;text-align:center;font-size:170px")
-              + at(0, 300, "big", "synth mode", "width:1080px;text-align:center;font-size:84px")
-              + at(0, 400, "sub", "for the M-VAVE FM-1", "width:1080px;text-align:center;font-size:36px")
+              + at(0, 300, "big", "groovebox", "width:1080px;text-align:center;font-size:84px")
+              + at(0, 400, "sub", "for the M-VAVE FM-1 · based on sloop", "width:1080px;text-align:center;font-size:36px")
               + scr("synth-osc1-playing", 300, 490, 480, "blue")
               + at(0, 1012, "line", URL, "width:1080px;text-align:center;font-size:32px;text-transform:none"))
     cards = {"bonbloop-hero-1600x900.png": (1600, 900, hero), "bonbloop-features-1600x900.png": (1600, 900, features),

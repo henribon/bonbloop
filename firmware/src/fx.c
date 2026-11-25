@@ -810,12 +810,25 @@ static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
 /* (1.9) FX > CLIP on an instrument track (synx SX_CL*: DRIVE 0..63 as the drums' CLIP 0..126): the drums' clipper on
  * its block, after its effects, before its level */
 static void clip_block(int32_t *x, uint32_t n, int32_t c, uint32_t shp, int32_t ceil, int32_t out);   /* (below) */
+static uint32_t clip_pk[2];                             /* (1.9.2) FX > CLIP's meter: the selected track's peak in, out */
+static void clip_peak(const int32_t *x, uint32_t n, uint32_t k)
+{
+    uint32_t i, a;
+    for (i = 0; i < n; i++)
+        if ((a = (uint32_t)(x[i] < 0 ? -x[i] : x[i])) > clip_pk[k])
+            clip_pk[k] = a;
+}
 static void track_clip(const track_t *t, int32_t *b, uint32_t n)
 {
     uint32_t part = (uint32_t)(t - trk);
     int32_t c = part < NPART ? sx_get(part, SX_CLD) * 2 : 0;
-    if (c && n <= CTL)
+    if (c && n <= CTL) {
+        if (part == song.sel)
+            clip_peak(b, n, 0);
         clip_block(b, n, c, (uint32_t)clamp(sx_get(part, SX_CLS), 0, 2), sx_get(part, SX_CLC), sx_get(part, SX_CLO));
+        if (part == song.sel)
+            clip_peak(b, n, 1);
+    }
 }
 static void mix_part_run(track_t *t, uint32_t n, mixacc_t *mx, int32_t *b)
 {
@@ -1037,8 +1050,12 @@ static void drum_fx(int32_t *l, int32_t *r, uint32_t n)
     }
     if (c) {                                           /* (1x .. ~5x) */
         uint32_t shp = (uint32_t)clamp(song.g[G_DRSHP], 0, 2);
+        if (song.sel == TRK_DRUM)
+            clip_peak(l, n, 0);
         clip_block(l, n, c, shp, song.g[G_DRCEIL], song.g[G_DROUT]);
         clip_block(r, n, c, shp, song.g[G_DRCEIL], song.g[G_DROUT]);
+        if (song.sel == TRK_DRUM)
+            clip_peak(l, n, 1);
     }
 }
 /* the drum track with the metronome: drums_render, through the SLICER when it is on (slicer.c), then through its

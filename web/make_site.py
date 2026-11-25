@@ -5,7 +5,9 @@
 
   index.html                  redirect to the installer
   firmware/felucca-VER.fwsc   the package
-  webapp/installer/index.html index_pkg.html with fm1pkg.js, fm1ota.js and the metadata inlined
+  webapp/installer/index.html index_pkg.html with fm1pkg.js, fm1ota.js and the metadata inlined (BONBLOOP: the site's
+                              page, the installer in it)
+  shots/*.png, press/*.png    (BONBLOOP) the FM-1's screens the page shows (assets/site), the images to share (assets/promo)
   webapp/editor/index.html    editor.html (+ fukiai.ttf, FUKIAI-LICENSE.txt)
   webapp/editor/sloop-editor.html  the editor in one file, for offline use (SLOOP 2.6): its icon font inlined,
                               its links to the installer and the font licence online; opened from the disk in
@@ -159,6 +161,11 @@ def main(pkg, version, out):
         shutil.copy(dsp, ed / dsp.name)
     elif (ed / dsp.name).exists():
         (ed / dsp.name).unlink()  # never serve an old audio build as the current one
+    shots = HERE.parent / "assets" / "site"                  # BONBLOOP 1.9.2: the FM-1's screens the page shows
+    if shots.exists():
+        (out / "shots").mkdir(parents=True, exist_ok=True)
+        for f in sorted(shots.glob("*.png")):
+            shutil.copy(f, out / "shots" / f.name)
     press = HERE.parent / "assets" / "promo"                 # BONBLOOP: the images to share, linked by the installer
     if press.exists():
         (out / "press").mkdir(parents=True, exist_ok=True)

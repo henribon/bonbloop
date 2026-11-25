@@ -748,7 +748,7 @@ int main(int argc, char **argv)
             if (cp) {                                  /* (the page, for the docs: DRIVE 90, CEIL -6, HARD, OUT +2) */
                 uint8_t pg0 = ui.page, h0 = ui.home;
                 song.g[G_DRCLIP] = 90, song.g[G_DRCEIL] = -6, song.g[G_DRSHP] = 1, song.g[G_DROUT] = 2;
-                ui.home = 0, ui.page = (uint8_t)(cp - PAGES);
+                ui.home = 0, ui.page = (uint8_t)(cp - PAGES), ui.msg_t = 0;
                 shot("drums-clip");
                 song.g[G_DRCLIP] = song.g[G_DRCEIL] = song.g[G_DRSHP] = song.g[G_DROUT] = 0;
                 ui.home = h0, ui.page = pg0;
@@ -818,7 +818,7 @@ int main(int argc, char **argv)
                 if (PAGES[i].fam == FAM_GLO && str_eq(PAGES[i].title, "SCALE"))
                     ui.page = (uint8_t)i;
             song.g[G_GROOT] = 2, song.g[G_GSCL] = 1, song.g[G_GLIGHT] = 3, song.g[G_GMARK] = 1;
-            ui.home = 0;
+            ui.home = 0, ui.msg_t = 0;
             shot("page-scale-lights");
             song.g[G_GROOT] = 0, song.g[G_GLIGHT] = 0, song.g[G_GMARK] = 0;
             ui.home = h0, ui.page = pg0;
@@ -858,6 +858,51 @@ int main(int argc, char **argv)
         t->p[P_CHOR] = 0;
         track_select(0);
         frames(2);
+    }
+    {   /* (BONBLOOP 1.9.2) OCT- + OCT+ on an effect's page resets that effect (the octave as it was); off an effect's page
+         * the octave goes to 0 as ever. NEW (SAVE > TOOLS) resets every effect: the tracks' EQ and CLIP, the drums'
+         * EQ, the synth's chain */
+        const page_t *eq = 0, *cp = 0;
+        int ok = 1;
+        for (i = 0; i < NPAGES; i++) {
+            if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "EQ 2"))
+                eq = &PAGES[i];
+            if (PAGES[i].fam == FAM_FX && str_eq(PAGES[i].title, "CLIP"))
+                cp = &PAGES[i];
+        }
+        track_select(1);
+        frames(2);
+        sx_set(1, SX_EG1, -9), sx_set(1, SX_EF4, 50), sx_set(1, SX_CLD, 40);
+        song.octave = 1;
+        ui.home = 0, ui.page = (uint8_t)(eq - PAGES);
+        frames(2);
+        press(B_OCTDN);
+        press(B_OCTUP);
+        release(B_OCTDN);
+        release(B_OCTUP);
+        ok &= sx_get(1, SX_EG1) == 0 && sx_get(1, SX_EF4) == 113 && sx_get(1, SX_CLD) == 40 && song.octave == 1;
+        ui.page = (uint8_t)(cp - PAGES);
+        frames(2);
+        press(B_OCTUP);
+        press(B_OCTDN);
+        release(B_OCTUP);
+        release(B_OCTDN);
+        ok &= sx_get(1, SX_CLD) == 0 && song.octave == 1;
+        check(ok, "1.9.2: OCT- + OCT+ on FX > EQ 2: the track's EQ flat (both pages); on FX > CLIP: its CLIP off; octave kept");
+        go_home();
+        frames(2);
+        press(B_OCTDN);
+        press(B_OCTUP);
+        release(B_OCTDN);
+        release(B_OCTUP);
+        check(song.octave == 0, "1.9.2: OCT- + OCT+ off an effect's page: the octave back to 0, as ever");
+        sx_set(1, SX_EG2, 7), sx_set(2, SX_CLD, 30), sx_set(NPART, SX_EG3, -5), sx_set(0, SX_C1, FXI_DELAY);
+        song.g[G_DRCLIP] = 50;
+        project_new();
+        frames(4);
+        check(!sx_get(1, SX_EG2) && !sx_get(2, SX_CLD) && !sx_get(NPART, SX_EG3) && sx_get(0, SX_C1) == 0 &&
+                  !song.g[G_DRCLIP] && sx_get(1, SX_EF1) == 24,
+              "1.9.2: NEW: every effect back to its default (EQs flat, CLIPs off, the synth's chain empty)");
     }
     printf(fails ? "synth mode: %d FAILED\n" : "synth mode: PASS\n", fails);
     return fails != 0;

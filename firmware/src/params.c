@@ -460,7 +460,7 @@ enum { FAM_HOME, FAM_ENV, FAM_LFO, FAM_FX, FAM_SCL, FAM_EDIT, FAM_GLO, FAM_SAVE,
 enum { SC_TRACK, SC_GLOBAL, SC_ENGINE, SC_STEP, SC_TRK, SC_SONG, SC_DRUM };
 enum { GR_NONE, GR_ADSR, GR_LFO, GR_STEPS, GR_ARP, GR_SCALE, GR_FX, GR_ROLL, GR_BROWSE, GR_SLOTS, GR_USER, GR_TRK,
        GR_SLCR, GR_INS,
-       GR_WAVE, GR_EQ, GR_COMP };                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
+       GR_WAVE, GR_EQ, GR_COMP, GR_CLIP };   /* (1.9.2: FX > CLIP's curve, ui_draw.c graph_clip) */                /* BONBLOOP: the wavetable, its frames and the position playing (ui_draw.c graph_wave) */
 
 typedef struct {
     const char *title;
@@ -492,7 +492,7 @@ static const page_t PAGES[] = {
                                                        * (synx: the synth's chain EQ too; the drums' synx[NPART]) */
     {"EQ 2", FAM_FX, SC_TRACK, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},
     {"DIST", FAM_FX, SC_GLOBAL, GR_NONE, {G_XTYPE, G_XA, G_XB, G_XC}},
-    {"CLIP", FAM_FX, SC_GLOBAL, GR_NONE, {G_DRCLIP, G_DRCEIL, G_DRSHP, G_DROUT}},   /* (1.8) the drums' clipper (its
+    {"CLIP", FAM_FX, SC_GLOBAL, GR_CLIP, {G_DRCLIP, G_DRCEIL, G_DRSHP, G_DROUT}},   /* (1.8) the drums' clipper (its
                                                        * DRIVE FX > MIXER's CLIP); 1.9: on an instrument track its own
                                                        * (synx SX_CL*: page_desc0) */
     {"MOD", FAM_FX, SC_GLOBAL, GR_NONE, {G_MTYPE, G_CRATE, G_CDEPTH, G_MFDBK}},

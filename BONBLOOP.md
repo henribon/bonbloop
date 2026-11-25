@@ -1,12 +1,30 @@
 # BONBLOOP
 
 **BONBLOOP** é um firmware para o **M-VAVE FM-1**, feito a partir do [SLOOP 2.8.5](https://github.com/isod89/sloop-fm1)
-(que por sua vez é baseado no [Felucca](https://github.com/hugelton/Felucca)). Ele é **idêntico ao SLOOP** —
-mesmos 4 tracks, sequenciador, bateria, efeitos, projetos, editor web — e acrescenta o **MODO SYNTH**: um
-sintetizador de **3 osciladores** (wavetables e formas analógicas, com **reverse**), filtro, envelope, LFO e uma
-cadeia de efeitos própria (drive estilo Decapitator, phaser, filtro, chorus, delay, reverb).
+(que por sua vez é baseado no [Felucca](https://github.com/hugelton/Felucca)). Ele **parte do SLOOP** — os 4 tracks,
+o sequenciador, a bateria, os projetos, o MIDI, o áudio USB e o editor web — e constrói o seu próprio instrumento por
+cima, com a sua própria cara:
+
+- **MODO SYNTH**: um sintetizador de **3 osciladores** (wavetables e formas analógicas, com **reverse**), com envelope
+  e LFO por oscilador, filtro e uma cadeia de efeitos que você monta (drive estilo Decapitator, phaser, filtro, EQ,
+  chorus, delay, reverb).
+- **Efeitos em paralelo**: o MIXER de cada track (DST, MOD, DLY, REV ao lado do som seco), um **EQ** e um **soft
+  clipper** em cada track, um **COMP** no master; OCT- + OCT+ volta um efeito ao padrão.
+- **Bateria**: o drive do synth, o clipper e o **REPEAT** que trava ligado.
+- **A escala nas teclas** (GLOBAL → SCALE), só de luz.
+- **A cara própria**: a fonte pixel Pixelify Sans, Very Peri sobre preto, violeta para o que está ligado.
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
+
+**Versão 1.9.2** — a página **CLIP** tem a cara de um *soft clipper*: a **curva de transferência** (entrada × saída
+em dB, desenhada pelo próprio código do clipper), o **teto** e os medidores **IN / OUT**. **OCT- + OCT+** numa página
+de efeito **volta aquele efeito ao padrão** (ver *Voltar um efeito ao padrão*). E o **NEW** (SAVE → TOOLS) agora zera
+**todos** os efeitos: o EQ e o CLIP de cada track, o EQ da bateria e a cadeia do synth (antes eles ficavam).
+**O fim da nota** deixou de ser preso ao grid: a gravação guarda **onde você soltou a tecla** (em 1/8 de passo, ~16 ms a
+120 BPM em 1/16) e o **LEN** da página **SEQ → NOTES** agora é em **ms** (ver *O fim da nota em ms*). E as luzes da
+escala (GLOBAL → SCALE) **apagam enquanto uma camada está segurada** (FX, ARP, SEQ...), para as teclas mostrarem só a
+camada. E o BONBLOOP tem **uma cara só**: a paleta lilás **PERI**; as outras cores do SLOOP, o MENU → COLOR e o tema do
+editor web saíram.
 
 **Versão 1.9.1** — a escala nas teclas ganhou sua **página no GLOBAL** (**GLOBAL → SCALE**: ROOT, SCALE, LIGHT
 até o brilho máximo, MARK), só de luz: não mexe mais no ROOT/SCL da SEL, que podia travar as teclas pretas (ver *As
@@ -150,8 +168,9 @@ As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abai
   enquanto o knob gira). Ocupa bem menos flash que a Terminus (1,9 KB contra 5,4 KB). (A primeira versão da 1.7
   usava a Inter Tight suavizada: sem *hinting*, borrava nesse tamanho.)
 - **Paleta PERI** (o novo padrão, no lugar da MONO): **Very Peri** `#6667AB` e preto. Rótulos e preenchimentos em
-  Very Peri, valores em lilás claro `#D9DAF4`, linhas em roxo bem escuro; o que você gira fica branco. GREEN,
-  AMBER, CYAN e RED continuam em MENU → COLOR (e o tema do editor web).
+  Very Peri, valores em lilás claro `#D9DAF4`, linhas em roxo bem escuro; o que você gira fica branco. Desde a
+  **1.9.2** é a **única**: GREEN, AMBER, CYAN e RED, o **MENU → COLOR** e o tema do editor web saíram (o MENU → SCREEN
+  ficou com ZOOM e KNOB ACCEL; um tema mandado antes fica guardado nos backups, mas não aparece).
 - **Knob ou fader onde é som** (1.8: só lá): as páginas de parâmetros de som contínuos mostram uma **fileira de
   knobs**, um embaixo de cada coluna, com o valor e o nome; as de escolha, de ajuste e de efeito, a tela dividida em
   quatro de antes; uma página de
@@ -376,7 +395,19 @@ O botão **FX** abre, em ordem (toque de novo no FX ou use o SELECT para passar)
   harmônicos, mais sujo); **OUT** ajusta o volume na saída (−12 a +6 dB), para comparar com e sem. Em CEIL 0 dB, SOFT e
   OUT 0 dB ele soa exatamente como o CLIP da 1.7. Fica salvo no projeto; um projeto da 1.7 abre com esses três nos
   padrões.
+- **A tela do CLIP (1.9.2)**: à esquerda, a **curva de transferência** em dB (entrada de −30 a +6 dBFS na
+  horizontal, saída na vertical, uma linha a cada 6 dB, a de 0 dB mais clara): sobe a 45° com o ganho do DRIVE e
+  dobra no **teto** (a linha violeta, CEIL) — arredondada no SOFT, em quina no HARD, voltando para baixo no FOLD. À
+  direita, os medidores **IN** e **OUT** da track selecionada (enquanto o clipper trabalha).
 - **Sem MIX nestas páginas:** os MIX (seco/molhado e retornos) ficam só no modo synth.
+
+### Voltar um efeito ao padrão (1.9.2)
+
+Numa página de efeito (FX → MIXER, COMP, EQ, DIST, CLIP, MOD, DELAY, REVERB, FILTER, SLICER, e as páginas de efeito do
+modo synth), aperte **OCT- e OCT+ juntos**: aquele efeito volta ao padrão (da track selecionada, ou do projeto, como a
+página mostra) e a tela diz **RESET**. No EQ, as duas páginas voltam juntas: plano, com as bandas onde começam. No
+DELAY, o MODE volta a SYNC. A oitava fica como estava. Fora das páginas de efeito, OCT- + OCT+ continua voltando a
+oitava para 0.
 - O antigo **INSERT** saiu destas páginas: as distorções dele são o DIST, e PHASR / FLANG / CHOR são o MOD. Ele continua
   existindo só como o PHASER da cadeia do synth. Num som antigo com INSERT, ele deixa de soar nas tracks do SLOOP; o
   DST antigo agora soa em paralelo, com o DIST do projeto.
@@ -407,6 +438,26 @@ passo, ~2 ms a 120 BPM em 1/16) guarda o tempo em que você tocou. Para gravar *
 (REC com o transporte parado) gire o **KNOB 4 (QUANT)** para a direita: **ON**; para a esquerda volta a **OFF**. A
 escolha fica salva no FM-1. Um passo tem um micro-timing só: num acorde, ou com dois sons da bateria no mesmo passo,
 vale o da primeira nota.
+
+### O fim da nota em ms (1.9.2)
+
+Até a 1.9.1 uma nota acabava no **GATE** do padrão: gravada, ela ocupava passos inteiros e, se você soltava a tecla
+antes do meio do passo seguinte, ela perdia esse passo (uma nota de 1,4 passo tocava meio passo). Agora cada nota tem
+o **seu próprio fim**:
+
+- **Gravando** (ao vivo ou no FREE TAKE), o FM-1 guarda onde você **soltou a tecla**, em **1/8 de passo** (~16 ms a
+  120 BPM em 1/16), contado de onde a nota toca (com o micro-timing dela). A nota segue nos passos em que você a
+  segurou (TIEs) e acaba no ponto exato do último; arredonda para cima, então nunca fica mais curta do que você tocou.
+  Só passando o começo de um passo por um fio (até 1/16 dele) não cria um TIE à toa.
+- Num **acorde** soltado de uma vez, todas acabam juntas nesse ponto. Uma nota solta enquanto outras seguem presas
+  (POLY) acaba no passo mais perto, como antes (um passo tem um fim só).
+- **SEQ → NOTES**, **KNOB 3 (LEN)** mostra a duração da nota em **ms** e cada clique muda o fim em **1/8 de passo**;
+  passando do fim do passo, a nota ganha o próximo (um TIE), e voltando ela o perde. Girando rápido, anda até 2 passos
+  por clique. Uma nota com ratchet anda de passo em passo (cada batida usa o GATE).
+- Sem fim próprio (notas de antes, ou programadas nos passos) vale o **GATE**, como sempre. O desenho das notas na
+  página NOTES mostra o fim exato.
+- O fim fica no **projeto** (no registro extra, depois do que a 1.9.1 lê): um projeto da 1.9.2 aberto na 1.9.1 ou no
+  SLOOP toca as notas no GATE.
 
 ### REPEAT da bateria (1.4)
 
@@ -500,6 +551,8 @@ mexer na escala de lá podia travar as teclas pretas).
 - Um projeto salvo no 1.3 aberto no SLOOP ou num BONBLOOP anterior perde só os extras (envelopes do OSC 2 e 3, LFO
   dos osciladores, cadeia, MS): o OSC 1 segue o ENV do track.
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
+- Um projeto da 1.9.2 aberto na 1.9.1 ou no SLOOP abre igual, só as notas com fim próprio (*O fim da nota em ms*)
+  acabam no GATE do padrão.
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
 - A identidade do pacote é **`FM-1_962`** (1.7), só do BONBLOOP, em todas as versões (até a 1.7 era `FM-1_900`, a do
   SLOOP, que vários firmwares dividem). Instala por cima do SLOOP e de qualquer versão anterior, pelo mesmo instalador.
@@ -522,8 +575,9 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.9.1: 579.928 de 581.564 bytes de flash (1,6 KB livres: a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus); RAM 60.076
-de 98.304 bytes, pool igual ao do SLOOP.
+Tamanho do 1.9.2: 578.820 de 581.564 bytes de flash (2,7 KB livres; para caber, o desenho de texto ficou só com o
+caminho de 1 bit, a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus; o estado da bateria começa
+zerado, sem ocupar flash com o valor inicial; e uma paleta só); RAM 60.908 de 98.304 bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).
 
@@ -534,6 +588,9 @@ Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 
 - `tests/wave_test.c` — o engine sozinho: os 24 campos empacotados, todas as tabelas em cada oscilador, todos os
   presets (limites, DC, volume), as formas varridas, REV, DRIVE, extremos, custo de CPU; grava
   `wave_presets.wav` e `wave_sweep.wav` para ouvir.
+- `tests/note_end_test.c` (1.9.2) — o fim da nota: segurada 3/8, 6/8, 9/8, 12/8 e 20/8 de passo gravando, ela toca
+  essa duração (até 1/8 a mais); o mesmo no FREE TAKE (POLY e LEGATO); o ratchet com o GATE; salvar e abrir, e um
+  projeto da 1.9.1 (sem fins).
 - `tests/synth_mode_test.c` — a interface real: segurar ENV, os 4 grupos e as 18 páginas, cada knob mexendo
   um campo só, os 3 osciladores tocando, os efeitos, o modo segurando a tela (ARP/SEQ/SEL/GLO/SAVE/HOME/ALGO),
   sair, a bateria selecionada; grava as telas em `synth-*.ppm`.

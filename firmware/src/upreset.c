@@ -131,7 +131,8 @@ UI_SMALL static void up_pat_from(up_rec_t *r, const step_t *st)   /* the first 1
     uint32_t i;
     for (i = 0; i < 16u; i++) {
         r->note[i] = st[i].time == ST_NOTE && st[i].n ? st[i].note[0] : 0u;
-        r->flags[i] = st[i].time == ST_TIE ? 4u : st[i].flags;
+        r->flags[i] = st[i].time == ST_TIE ? 4u : (uint8_t)(st[i].flags & ~SF_END);   /* (BONBLOOP 1.9.2: 4 a tie
+                                                       * here, not a note's own end) */
         up_pat_norm(&r->note[i], &r->flags[i]);
     }
 }
