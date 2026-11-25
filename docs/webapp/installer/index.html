@@ -235,7 +235,7 @@
       <article class="card k3"><img class="shot" src="../../shots/scale.png" width="480" height="480" alt="GLOBAL > SCALE" loading="lazy">
         <div><h3>Scale on the keys</h3><p data-t="f5"></p></div></article>
       <article class="card k1"><img class="shot" src="../../shots/notes.png" width="480" height="480" alt="SEQ > NOTES: a note's length in ms" loading="lazy">
-        <div><h3>Note ends in ms<span class="new">1.9.2</span></h3><p data-t="f6"></p></div></article>
+        <div><h3>Note ends in ms</h3><p data-t="f6"></p></div></article>
     </div>
     <div class="cols">
       <div class="box"><h3 data-t="moreTitle"></h3><ul><li data-t="m1"></li><li data-t="m2"></li><li data-t="m3"></li><li data-t="m4"></li><li data-t="m5"></li></ul></div>
@@ -265,7 +265,7 @@
         <pre id="log"></pre>
         <div class="doors">
           <a class="door" href="../editor/" data-t="editor"></a>
-          <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.9.2.html" data-t="edOffline"></a>
+          <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.0.html" data-t="edOffline"></a>
           <button id="app" class="door" hidden data-t="appInstall"></button>
           <a class="door" href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener" data-t="source"></a>
         </div>
@@ -677,12 +677,12 @@ const TEXT = {
     k3: "ソング・モード：セクション A〜D とチェイン、リアルタイム録音と FREE TAKE",
     k4: "ブラウザのエディタ：音色、パターン、サンプル、バックアップ",
     k5: "SLOOP のプロジェクト・プリセット・サンプルをそのまま開けます",
-    newTitle: "新しいバージョン",
+    newTitle: "最初の正式リリース",
     n1: "ノートはキーを離したところで終わる：録音で 1/8 ステップ単位、NOTES → LEN はミリ秒",
-    n2: "CLIP がソフト・クリッパーの画面に：伝達カーブ、シーリング、IN / OUT メーター",
-    n3: "エフェクトのページで OCT− + OCT+：そのエフェクトを初期値に戻す",
-    n4: "NEW（SAVE → TOOLS）ですべてのエフェクトもリセット",
-    n5: "レイヤーを押している間（FX など）はスケールの光が消え、鍵盤はレイヤーを表示",
+    n2: "どのエフェクトのページも KNOB 1 がそのレベル（MIX か SEND）：FX MIX のフェーダーと同じ値",
+    n3: "CLIP はソフト・クリッパーの画面：伝達カーブ、シーリング、IN / OUT メーター。OCT− + OCT+ でエフェクトを初期値に",
+    n4: "LOAD と NEW はすぐに保存：直後に電源を切っても、そのプロジェクトで起動",
+    n5: "ひとつの見た目、Very Peri。レイヤーを押している間はスケールの光が消える",
     instTitle: "インストール", instSub: "ブラウザから、USB で。プロジェクトはそのまま残ります（念のため、先にエディタでバックアップを）。",
     s1: "FM-1 をパソコンに USB で直接つなぐ（データ通信用のケーブル）。",
     s2: "このページを Chrome か Edge で開き、MIDI（SysEx）の使用を許可する。",
@@ -748,12 +748,12 @@ const TEXT = {
     k3: "Song mode (sections A–D, chains), live recording and free takes",
     k4: "The browser editor: sounds, patterns, samples, backups",
     k5: "Opens SLOOP's projects, presets and samples as they are",
-    newTitle: "New in",
+    newTitle: "The first official release:",
     n1: "Notes end where you let go: recorded to 1/8 of a step, NOTES → LEN in milliseconds",
-    n2: "CLIP drawn as a soft clipper: transfer curve, ceiling, IN / OUT meters",
-    n3: "OCT− + OCT+ on an effect's page resets that effect",
-    n4: "NEW (SAVE → TOOLS) clears every effect too",
-    n5: "The scale lights step aside while a layer is held (FX, SEQ, ARP…): the keys show the layer",
+    n2: "Every effect page starts with its level on KNOB 1 (MIX or SEND), the same value as its fader on FX MIX",
+    n3: "CLIP drawn as a soft clipper (transfer curve, ceiling, IN / OUT meters); OCT− + OCT+ resets an effect",
+    n4: "A LOAD or a NEW is kept at once: switched off right after, it comes back",
+    n5: "One look, Very Peri; the scale lights step aside while a layer is held",
     instTitle: "Install", instSub: "From the browser, over USB. Your projects stay on the FM-1 (back them up with the editor first, to be safe).",
     s1: "Plug the FM-1 straight into the computer by USB (a data cable).",
     s2: "Open this page in Chrome or Edge and allow MIDI (SysEx) when asked.",
@@ -819,7 +819,7 @@ const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; $("status").textCont
 const say = (txt) => { lastKey = null; $("status").textContent = txt; };
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
-const meta = {"version": "1.9.2", "product": "FM-1_962", "pkg": "../../firmware/bonbloop-1.9.2.fwsc", "sha256": "5d922f14f1855bd7b8f31f08f36d8c112c1c2c34ec7d7c70963cc13668d185c9"};
+const meta = {"version": "1.0", "product": "FM-1_962", "pkg": "../../firmware/bonbloop-1.0.fwsc", "sha256": "4ac1debfcf7d0b95bf73131488d44d0371349f83ff978e240f0009da88a31786"};
 document.querySelectorAll("[data-ver]").forEach((e) => { e.textContent = meta.version; });   /* (the version on the page) */
 
 let writing = false;
