@@ -1,162 +1,313 @@
 <!doctype html>
 <!-- SPDX-License-Identifier: GPL-3.0-only
      Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments
-     BONBLOOP: the installer in bonbap.com.br's look (Inter Tight, dark, monochrome) -->
+     BONBLOOP 1.9.2: the site as BONBLOOP's own (Very Peri on black, Pixelify Sans as on the FM-1's screen, the real
+     screens), with the installer in it. web/make_site.py fills LIB, META and LOGO and copies the screens (assets/site)
+     to shots/ and the images to share (assets/promo) to press/ -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>bonbloop — installer</title>
-<meta name="description" content="bonbloop: SLOOP + a SYNTH MODE for the M-VAVE FM-1. Install it from the browser.">
-<meta property="og:title" content="bonbloop">
-<meta property="og:description" content="SLOOP + a SYNTH MODE for the M-VAVE FM-1. Install it from the browser.">
+<title>BONBLOOP — groovebox firmware for the M-VAVE FM-1</title>
+<meta name="description" content="BONBLOOP: our own groovebox firmware for the M-VAVE FM-1, built on SLOOP's code. Free, open source, installs from the browser.">
+<meta property="og:title" content="BONBLOOP — groovebox firmware for the M-VAVE FM-1">
+<meta property="og:description" content="Our own groovebox firmware for the M-VAVE FM-1, built on SLOOP's code: a synth mode, effects in parallel, an EQ and a soft clipper on every track, the scale on the keys. Installs from the browser.">
+<meta property="og:image" content="https://bonbap.com.br/bonbloop/press/bonbloop-hero-1600x900.png">
 <meta property="og:url" content="https://bonbap.com.br/bonbloop/">
-<!--PWA--><link rel="manifest" href="../sloop.webmanifest"><meta name="theme-color" content="#0a0a0a"><link rel="icon" href="../icon-192.png"><!--/PWA-->
+<meta name="twitter:card" content="summary_large_image">
+<!--PWA--><link rel="manifest" href="../sloop.webmanifest"><meta name="theme-color" content="#09090c"><link rel="icon" href="../icon-192.png"><!--/PWA-->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;700&family=Pixelify+Sans:wght@400;600;700&display=swap">
 <style>
-  :root { color-scheme: dark; --bg: #0a0a0a; --fg: #fafafa; --solid: #cfcfcf; --dim: #464646; --muted: #8a8a8a;
-          --line: rgba(255, 255, 255, .09); --pad: clamp(1.25rem, 4vw, 3rem); --ease: cubic-bezier(.22, 1, .36, 1); }
+  :root { color-scheme: dark;
+          --bg: #09090c; --panel: #111117; --panel2: #16161f; --fg: #ececf6; --muted: #9a9bc4; --dim: #5b5c86;
+          --peri: #6667ab; --lilac: #d9daf4; --violet: #8b5cf6; --green: #3ba488;
+          --line: rgba(217, 218, 244, .10); --pad: clamp(1rem, 4vw, 2.5rem); --ease: cubic-bezier(.22, 1, .36, 1);
+          --pix: "Pixelify Sans", ui-monospace, monospace; }
   *, *::before, *::after { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body { margin: 0; min-height: 100svh; background: var(--bg); color: var(--fg); overflow-x: hidden;
-         font: 500 16px/1.5 "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+         font: 400 16px/1.55 "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
          -webkit-font-smoothing: antialiased; }
-  .layer { position: fixed; inset: 0; pointer-events: none; z-index: -1; }
-  .layer--glow { background: radial-gradient(42rem 42rem at var(--mx, 50%) var(--my, 30%), rgba(255, 255, 255, .055), transparent 62%); }
-  .layer--grain { opacity: .035; background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/><feColorMatrix type='saturate' values='0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>"); }
-  .mark { max-width: 760px; margin: 0 auto; padding: clamp(1.25rem, 4vh, 2.5rem) var(--pad) 0; }   /* (the content's width,
-                                                       not the screen's: a smaller header) */
-  .mark-in { overflow: hidden; width: min(100%, 360px); }
-  .mark span { display: block; width: max-content; white-space: nowrap; line-height: .74; letter-spacing: -.035em;
-               font-size: 24vw; font-weight: 800; color: var(--solid); }
-  main { max-width: 760px; margin: 0 auto; padding: 0 var(--pad) 3rem; }
-  .bar { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin: clamp(1.25rem, 3vh, 2.5rem) 0 1.5rem;
-         padding-bottom: .9rem; border-bottom: 1px solid var(--line); }
-  h1 { margin: 0; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .lang { font: inherit; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; color: var(--muted);
-          background: none; border: 0; padding: 0; cursor: pointer; }
-  .lang:hover { color: var(--fg); }
-  .lead { font-size: clamp(1.2rem, 2.6vw, 1.55rem); line-height: 1.3; font-weight: 700; letter-spacing: -.015em; margin: 0 0 1.75rem; }
-  .tiles { border-bottom: 1px solid var(--line); margin: 0 0 1.25rem; }
-  .tile { display: flex; align-items: baseline; justify-content: space-between; gap: 1.5rem; padding: .7rem 0;
-          border-top: 1px solid var(--line); }
-  .tile b { font-size: clamp(1.05rem, 2.4vw, 1.5rem); font-weight: 700; letter-spacing: -.015em; text-transform: uppercase; white-space: nowrap; }
-  .tile span { color: var(--muted); text-align: right; font-size: .95rem; }
-  p { margin: 0 0 .9rem; }
-  .small { color: var(--muted); font-size: .82rem; }
+  .glow { position: fixed; inset: 0; pointer-events: none; z-index: -1;
+          background: radial-gradient(40rem 32rem at var(--mx, 70%) var(--my, 10%), rgba(102, 103, 171, .22), transparent 65%),
+                      radial-gradient(30rem 24rem at 10% 90%, rgba(59, 164, 136, .07), transparent 70%); }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); }
   a { color: inherit; }
-  .small a { color: var(--muted); }
-  .small a:hover { color: var(--fg); }
-  button#go { display: block; width: 100%; margin: 1.5rem 0 0; padding: 1.15rem 0; border: 0; cursor: pointer;
-              font: 800 clamp(1.2rem, 3vw, 1.7rem)/1 "Inter Tight", ui-sans-serif, system-ui, sans-serif;
-              letter-spacing: -.01em; text-transform: uppercase; background: var(--solid); color: var(--bg);
-              transition: background .3s ease; }
-  button#go:hover:not(:disabled) { background: var(--fg); }
-  button#go:disabled { background: transparent; color: var(--dim); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: default; }
-  progress { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 2px; margin: 0; border: 0; background: var(--line); }
+  img { max-width: 100%; }
+  .px { font-family: var(--pix); letter-spacing: .02em; }
+  .shot { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #000; }
+
+  /* the top bar */
+  header { position: sticky; top: 0; z-index: 5; background: rgba(9, 9, 12, .82); backdrop-filter: blur(10px);
+           -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+  header .wrap { display: flex; align-items: center; gap: 1.25rem; height: 64px; }
+  .logo { display: flex; align-items: center; gap: .7rem; text-decoration: none; }
+  .logo svg { width: 58px; height: 34px; display: block; }
+  .logo svg > rect:first-child { fill: transparent; }   /* (the logo's own black ground: the bar's) */
+  .ver { font: 600 .78rem/1 var(--pix); color: var(--violet); border: 1px solid rgba(139, 92, 246, .45);
+         padding: .3rem .45rem .25rem; letter-spacing: .06em; }
+  nav { margin-left: auto; display: flex; align-items: center; gap: 1.3rem; }
+  nav a, .lang { font: 600 .82rem/1 var(--pix); letter-spacing: .08em; text-transform: uppercase; color: var(--muted);
+                 text-decoration: none; background: none; border: 0; padding: 0; cursor: pointer; }
+  nav a:hover, .lang:hover { color: var(--fg); }
+  @media (max-width: 640px) { nav a.opt { display: none; } }
+
+  /* hero */
+  .hero { display: grid; grid-template-columns: 1.05fr .95fr; gap: clamp(1.5rem, 5vw, 4rem); align-items: center;
+          padding: clamp(2.5rem, 8vh, 5.5rem) 0 clamp(2.5rem, 6vh, 4rem); }
+  .eyebrow { font: 600 .85rem/1.3 var(--pix); letter-spacing: .1em; text-transform: uppercase; color: var(--green); margin: 0 0 1rem; }
+  h1 { font: 700 clamp(2.4rem, 6.2vw, 4.6rem)/1 var(--pix); letter-spacing: -.01em; margin: 0 0 1.25rem; color: var(--lilac); }
+  h1 em { font-style: normal; color: var(--violet); }
+  .lead { font-size: clamp(1.05rem, 1.9vw, 1.22rem); color: #c9cae6; margin: 0 0 1.75rem; max-width: 36rem; }
+  .cta { display: flex; flex-wrap: wrap; gap: .75rem; margin: 0 0 1.1rem; }
+  .btn { display: inline-flex; align-items: center; gap: .55rem; padding: .85rem 1.3rem .8rem; text-decoration: none;
+         font: 700 1rem/1 var(--pix); letter-spacing: .06em; text-transform: uppercase; border: 1px solid var(--peri);
+         color: var(--lilac); background: transparent; transition: background .25s ease, color .25s ease, border-color .25s ease; }
+  .btn:hover { background: rgba(102, 103, 171, .18); }
+  .btn.main { background: var(--violet); border-color: var(--violet); color: #0b0716; }
+  .btn.main:hover { background: #a07dfa; border-color: #a07dfa; }
+  .facts { color: var(--muted); font-size: .88rem; margin: 0; }
+  .device { position: relative; }
+  .device .big { border: 2px solid var(--peri); padding: 10px; background: #000; box-shadow: 0 30px 80px -30px rgba(102, 103, 171, .55); }
+  .device .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+  .device .row div { border: 2px solid var(--line); padding: 6px; background: #000; }
+  .device .row div:first-child { border-color: rgba(59, 164, 136, .7); }
+  .device .row div:last-child { border-color: rgba(139, 92, 246, .7); }
+  .cap { font: 500 .75rem/1.3 var(--pix); letter-spacing: .08em; text-transform: uppercase; color: var(--dim); margin-top: .7rem; }
+  @media (max-width: 860px) { .hero { grid-template-columns: 1fr; } .device { max-width: 460px; } }
+
+  /* sections */
+  section { padding: clamp(2.5rem, 7vh, 4.5rem) 0; border-top: 1px solid var(--line); }
+  h2 { font: 700 clamp(1.6rem, 3.4vw, 2.3rem)/1.05 var(--pix); margin: 0 0 .6rem; color: var(--lilac); }
+  .sub { color: var(--muted); margin: 0 0 2rem; max-width: 44rem; }
+
+  /* the family: Felucca -> SLOOP -> BONBLOOP */
+  .line3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border: 1px solid var(--line); }
+  .node { padding: 1.3rem 1.3rem 1.2rem; position: relative; }
+  .node + .node { border-left: 1px solid var(--line); }
+  .node b { display: block; font: 700 1.35rem/1 var(--pix); margin-bottom: .55rem; }
+  .node span { color: var(--muted); font-size: .92rem; }
+  .node.us { background: linear-gradient(180deg, rgba(102, 103, 171, .16), transparent); }
+  .node.us b { color: var(--violet); }
+  .node:not(:last-child)::after { content: "\2192"; position: absolute; right: -.55rem; top: 1.2rem; z-index: 1;
+                                  background: var(--bg); color: var(--dim); font: 700 1rem/1 var(--pix); padding: 0 .1rem; }
+  @media (max-width: 760px) { .line3 { grid-template-columns: 1fr; } .node + .node { border-left: 0; border-top: 1px solid var(--line); }
+                              .node:not(:last-child)::after { content: "\2193"; right: auto; left: 1.3rem; top: auto; bottom: -.6rem; } }
+
+  /* features */
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; }
+  .card { background: var(--panel); border: 1px solid var(--line); display: flex; flex-direction: column; transition: border-color .3s ease, transform .4s var(--ease); }
+  .card:hover { border-color: rgba(139, 92, 246, .45); transform: translateY(-2px); }
+  .card .shot { border-bottom: 1px solid var(--line); }
+  .card div { padding: 1rem 1.1rem 1.2rem; }
+  .card h3 { font: 700 1.15rem/1.1 var(--pix); letter-spacing: .03em; text-transform: uppercase; margin: 0 0 .45rem; }
+  .card p { margin: 0; color: #c3c4e0; font-size: .94rem; }
+  .card .new { font: 600 .68rem/1 var(--pix); color: #0b0716; background: var(--green); padding: .2rem .35rem .15rem; margin-left: .4rem; vertical-align: .15rem; letter-spacing: .06em; }
+  .k1 h3 { color: var(--lilac); } .k2 h3 { color: var(--green); } .k3 h3 { color: var(--violet); }
+  @media (max-width: 920px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 1rem; }
+  .box { background: var(--panel); border: 1px solid var(--line); padding: 1.2rem 1.3rem 1.1rem; }
+  .box h3 { font: 700 1.05rem/1.1 var(--pix); letter-spacing: .04em; text-transform: uppercase; margin: 0 0 .8rem; color: var(--lilac); }
+  .box ul { margin: 0; padding: 0; list-style: none; }
+  .box li { position: relative; padding: .38rem 0 .38rem 1.2rem; border-top: 1px solid var(--line); color: #c3c4e0; font-size: .93rem; }
+  .box li:first-child { border-top: 0; }
+  .box li::before { content: ""; position: absolute; left: 0; top: .85rem; width: 7px; height: 7px; background: var(--peri); }
+  .box.news li::before { background: var(--green); }
+  @media (max-width: 760px) { .cols { grid-template-columns: 1fr; } }
+
+  /* install */
+  .inst { display: grid; grid-template-columns: .9fr 1.1fr; gap: 1rem; align-items: start; }
+  @media (max-width: 860px) { .inst { grid-template-columns: 1fr; } }
+  .steps { counter-reset: s; margin: 0; padding: 0; list-style: none; }
+  .steps li { counter-increment: s; display: grid; grid-template-columns: 2.4rem 1fr; gap: .9rem; align-items: start;
+              padding: .85rem 0; border-top: 1px solid var(--line); color: #c9cae6; }
+  .steps li:first-child { border-top: 0; padding-top: 0; }
+  .steps li::before { content: counter(s); font: 700 1.25rem/2.4rem var(--pix); text-align: center; background: var(--peri); color: #0b0716; }
+  .steps li:nth-child(2)::before { background: var(--green); } .steps li:nth-child(3)::before { background: var(--violet); }
+  .panel { background: var(--panel); border: 1px solid var(--line); padding: clamp(1.1rem, 3vw, 1.7rem); }
+  .panel .small:first-child { margin-top: 0; }
+  button#go { display: block; width: 100%; margin: 1.2rem 0 0; padding: 1.15rem 0 1.05rem; border: 0; cursor: pointer;
+              font: 700 clamp(1.25rem, 3vw, 1.6rem)/1 var(--pix); letter-spacing: .08em; text-transform: uppercase;
+              background: var(--violet); color: #0b0716; transition: background .25s ease; }
+  button#go:hover:not(:disabled) { background: #a07dfa; }
+  button#go:disabled { background: transparent; color: var(--dim); border: 1px solid var(--line); cursor: default; }
+  progress { -webkit-appearance: none; appearance: none; display: block; width: 100%; height: 3px; margin: 0; border: 0; background: var(--line); }
   progress::-webkit-progress-bar { background: var(--line); }
-  progress::-webkit-progress-value { background: var(--fg); }
-  progress::-moz-progress-bar { background: var(--fg); }
-  #status { margin-top: .9rem; min-height: 1.5em; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
+  progress::-webkit-progress-value { background: var(--green); }
+  progress::-moz-progress-bar { background: var(--green); }
+  #status { margin: .9rem 0 0; min-height: 1.5em; font: 600 1rem/1.4 var(--pix); letter-spacing: .05em; text-transform: uppercase; color: var(--lilac); }
   pre { color: var(--muted); font-size: 11px; white-space: pre-wrap; margin: .5rem 0 0; max-height: 160px; overflow: auto; }
   pre:empty { display: none; }
-  .doors { margin: 2rem 0; border-bottom: 1px solid var(--line); }
-  .press { margin: 2.5rem 0 0; }
-  .press h2 { margin: 0 0 .9rem; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .shots { display: grid; grid-template-columns: repeat(2, 1fr); gap: .75rem; }
-  .shots a { display: block; border: 1px solid var(--line); line-height: 0; transition: border-color .3s ease; }
-  .shots a:hover { border-color: var(--muted); }
-  .shots img { width: 100%; height: auto; }
-  .door { display: flex; justify-content: space-between; gap: 1.5rem; width: 100%; padding: .8rem 0; border: 0; border-top: 1px solid var(--line);
+  .small { color: var(--muted); font-size: .84rem; margin: .7rem 0 0; }
+  .small a { color: var(--muted); }
+  .small a:hover { color: var(--fg); }
+  .doors { margin-top: 1rem; border-bottom: 1px solid var(--line); }
+  .door { display: flex; justify-content: space-between; gap: 1.5rem; width: 100%; padding: .85rem 0; border: 0; border-top: 1px solid var(--line);
           background: none; color: var(--fg); text-decoration: none; text-align: left; cursor: pointer;
-          font: 700 clamp(.95rem, 2.2vw, 1.2rem)/1.2 "Inter Tight", ui-sans-serif, system-ui, sans-serif; letter-spacing: -.01em;
-          text-transform: uppercase; transition: color .4s ease, padding .5s var(--ease); }
-  .door::after { content: "\2197"; opacity: .35; transition: opacity .4s ease; }
-  .doors:hover .door { color: var(--dim); }
-  .doors .door:hover, .doors .door:focus-visible { color: var(--fg); padding-left: .6rem; outline: none; }
-  .doors .door:hover::after { opacity: 1; }
-  footer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1px solid var(--line); }
-  footer .small { font-size: .74rem; }
-  .foot { display: flex; justify-content: space-between; gap: 1rem; margin-top: 1.5rem; font-size: .68rem; letter-spacing: .14em; text-transform: uppercase; }
+          font: 600 1rem/1.25 var(--pix); letter-spacing: .04em; text-transform: uppercase; transition: color .3s ease, padding .45s var(--ease); }
+  .door::after { content: "\2197"; color: var(--violet); opacity: .5; transition: opacity .3s ease; }
+  .door:hover, .door:focus-visible { color: var(--lilac); padding-left: .5rem; outline: none; }
+  .door:hover::after { opacity: 1; }
+
+  /* the images to share */
+  .shots { display: grid; grid-template-columns: repeat(4, 1fr); gap: .75rem; }
+  .shots a { display: block; border: 1px solid var(--line); line-height: 0; transition: border-color .3s ease; }
+  .shots a:hover { border-color: var(--violet); }
+  .shots img { width: 100%; height: auto; }
+  @media (max-width: 760px) { .shots { grid-template-columns: repeat(2, 1fr); } }
+
+  footer { border-top: 1px solid var(--line); padding: 2.2rem 0 2.5rem; }
+  footer .small { font-size: .76rem; }
+  .foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; margin-top: 1.6rem;
+          font: 600 .78rem/1 var(--pix); letter-spacing: .1em; text-transform: uppercase; }
   .foot a { color: var(--muted); text-decoration: none; } .foot a:hover { color: var(--fg); }
   [hidden] { display: none !important; }
   @media (prefers-reduced-motion: no-preference) {
-    .reveal { animation: rise 1s var(--ease) backwards; animation-delay: var(--d, 0s); }
-    @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+    .reveal { animation: rise .9s var(--ease) backwards; animation-delay: var(--d, 0s); }
+    @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
   }
 </style>
 </head>
 <body>
-<div class="layer layer--glow"></div>
-<div class="layer layer--grain"></div>
-<div class="mark reveal"><div class="mark-in"><span data-fit>bonbloop</span></div></div>
-<main>
-  <div class="bar reveal" style="--d:.15s"><h1 data-t="h1"></h1><button class="lang" id="lang"></button></div>
+<div class="glow"></div>
+<header>
+  <div class="wrap">
+    <a class="logo" href="#top" aria-label="BONBLOOP"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 29 17" shape-rendering="crispEdges" role="img" aria-label="BONBLOOP"><rect width="29" height="17" fill="#000"/><rect x="8" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="9" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="10" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="14" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="15" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="16" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="0" width="1" height="1" fill="#D9DAF4"/><rect x="7" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="11" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="13" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="17" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="20" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="1" width="1" height="1" fill="#D9DAF4"/><rect x="7" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="11" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="13" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="17" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="21" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="2" width="1" height="1" fill="#D9DAF4"/><rect x="7" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="9" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="10" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="13" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="17" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="21" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="3" width="1" height="1" fill="#D9DAF4"/><rect x="7" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="11" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="13" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="17" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="21" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="4" width="1" height="1" fill="#D9DAF4"/><rect x="7" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="11" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="13" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="17" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="22" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="5" width="1" height="1" fill="#D9DAF4"/><rect x="8" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="9" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="10" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="14" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="15" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="16" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="19" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="23" y="6" width="1" height="1" fill="#D9DAF4"/><rect x="2" y="10" width="1" height="1" fill="#6667AB"/><rect x="3" y="10" width="1" height="1" fill="#6667AB"/><rect x="4" y="10" width="1" height="1" fill="#6667AB"/><rect x="7" y="10" width="1" height="1" fill="#6667AB"/><rect x="14" y="10" width="1" height="1" fill="#6667AB"/><rect x="15" y="10" width="1" height="1" fill="#6667AB"/><rect x="16" y="10" width="1" height="1" fill="#6667AB"/><rect x="20" y="10" width="1" height="1" fill="#6667AB"/><rect x="21" y="10" width="1" height="1" fill="#6667AB"/><rect x="22" y="10" width="1" height="1" fill="#6667AB"/><rect x="26" y="10" width="1" height="1" fill="#6667AB"/><rect x="27" y="10" width="1" height="1" fill="#6667AB"/><rect x="28" y="10" width="1" height="1" fill="#6667AB"/><rect x="1" y="11" width="1" height="1" fill="#6667AB"/><rect x="5" y="11" width="1" height="1" fill="#6667AB"/><rect x="7" y="11" width="1" height="1" fill="#6667AB"/><rect x="13" y="11" width="1" height="1" fill="#6667AB"/><rect x="17" y="11" width="1" height="1" fill="#6667AB"/><rect x="19" y="11" width="1" height="1" fill="#6667AB"/><rect x="23" y="11" width="1" height="1" fill="#6667AB"/><rect x="25" y="11" width="1" height="1" fill="#6667AB"/><rect x="29" y="11" width="1" height="1" fill="#6667AB"/><rect x="1" y="12" width="1" height="1" fill="#6667AB"/><rect x="5" y="12" width="1" height="1" fill="#6667AB"/><rect x="7" y="12" width="1" height="1" fill="#6667AB"/><rect x="13" y="12" width="1" height="1" fill="#6667AB"/><rect x="17" y="12" width="1" height="1" fill="#6667AB"/><rect x="19" y="12" width="1" height="1" fill="#6667AB"/><rect x="23" y="12" width="1" height="1" fill="#6667AB"/><rect x="25" y="12" width="1" height="1" fill="#6667AB"/><rect x="29" y="12" width="1" height="1" fill="#6667AB"/><rect x="1" y="13" width="1" height="1" fill="#6667AB"/><rect x="3" y="13" width="1" height="1" fill="#6667AB"/><rect x="4" y="13" width="1" height="1" fill="#6667AB"/><rect x="7" y="13" width="1" height="1" fill="#6667AB"/><rect x="13" y="13" width="1" height="1" fill="#6667AB"/><rect x="17" y="13" width="1" height="1" fill="#6667AB"/><rect x="19" y="13" width="1" height="1" fill="#6667AB"/><rect x="23" y="13" width="1" height="1" fill="#6667AB"/><rect x="25" y="13" width="1" height="1" fill="#6667AB"/><rect x="29" y="13" width="1" height="1" fill="#6667AB"/><rect x="1" y="14" width="1" height="1" fill="#6667AB"/><rect x="5" y="14" width="1" height="1" fill="#6667AB"/><rect x="7" y="14" width="1" height="1" fill="#6667AB"/><rect x="13" y="14" width="1" height="1" fill="#6667AB"/><rect x="17" y="14" width="1" height="1" fill="#6667AB"/><rect x="19" y="14" width="1" height="1" fill="#6667AB"/><rect x="23" y="14" width="1" height="1" fill="#6667AB"/><rect x="25" y="14" width="1" height="1" fill="#6667AB"/><rect x="26" y="14" width="1" height="1" fill="#6667AB"/><rect x="27" y="14" width="1" height="1" fill="#6667AB"/><rect x="28" y="14" width="1" height="1" fill="#6667AB"/><rect x="1" y="15" width="1" height="1" fill="#6667AB"/><rect x="5" y="15" width="1" height="1" fill="#6667AB"/><rect x="7" y="15" width="1" height="1" fill="#6667AB"/><rect x="11" y="15" width="1" height="1" fill="#6667AB"/><rect x="13" y="15" width="1" height="1" fill="#6667AB"/><rect x="17" y="15" width="1" height="1" fill="#6667AB"/><rect x="19" y="15" width="1" height="1" fill="#6667AB"/><rect x="23" y="15" width="1" height="1" fill="#6667AB"/><rect x="25" y="15" width="1" height="1" fill="#6667AB"/><rect x="2" y="16" width="1" height="1" fill="#6667AB"/><rect x="3" y="16" width="1" height="1" fill="#6667AB"/><rect x="4" y="16" width="1" height="1" fill="#6667AB"/><rect x="8" y="16" width="1" height="1" fill="#6667AB"/><rect x="9" y="16" width="1" height="1" fill="#6667AB"/><rect x="10" y="16" width="1" height="1" fill="#6667AB"/><rect x="14" y="16" width="1" height="1" fill="#6667AB"/><rect x="15" y="16" width="1" height="1" fill="#6667AB"/><rect x="16" y="16" width="1" height="1" fill="#6667AB"/><rect x="20" y="16" width="1" height="1" fill="#6667AB"/><rect x="21" y="16" width="1" height="1" fill="#6667AB"/><rect x="22" y="16" width="1" height="1" fill="#6667AB"/><rect x="25" y="16" width="1" height="1" fill="#6667AB"/></svg>
+</a>
+    <span class="ver" data-ver></span>
+    <nav>
+      <a class="opt" href="#features" data-t="navFeatures"></a>
+      <a class="opt" href="../editor/" data-t="navEditor"></a>
+      <a href="#install" data-t="navInstall"></a>
+      <button class="lang" id="lang"></button>
+    </nav>
+  </div>
+</header>
+<main class="wrap" id="top">
   
   
-  <p class="lead reveal" style="--d:.2s" data-t="lead"></p>
-  <div class="tiles reveal" style="--d:.28s">
-    <div class="tile"><b>3 oscillators</b><span data-t="tile1"></span></div>
-    <div class="tile"><b>16 waves</b><span data-t="tile2"></span></div>
-    <div class="tile"><b>Reverse</b><span data-t="tile3"></span></div>
-    <div class="tile"><b>FX</b><span data-t="tile4"></span></div>
-  </div>
-  <p class="small" data-t="how"></p>
-  <p data-t="intro"></p>
-  <p class="small" data-t="warn"></p>
-  <button id="go" disabled data-t="install"></button>
-  <progress id="bar" max="100" value="0"></progress>
-  <p id="status"></p>
-  <pre id="log"></pre>
-  <div class="doors">
-    <a class="door ed" href="../editor/" data-t="editor"></a>
-    <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.9.1.html" data-t="edOffline"></a>
-    <button id="app" class="door ed" hidden data-t="appInstall"></button>
-    <a class="door" href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">Source code and guide</a>
-  </div>
-  <div class="press">
-    <h2>Images to share (click to download)</h2>
-    <div class="shots">
-      <a href="../../press/bonbloop-hero-1600x900.png" download><img src="../../press/bonbloop-hero-1600x900.png" alt="bonbloop: SLOOP + a synth mode for the M-VAVE FM-1" loading="lazy" width="1600" height="900"></a>
-      <a href="../../press/bonbloop-features-1600x900.png" download><img src="../../press/bonbloop-features-1600x900.png" alt="What the synth mode adds" loading="lazy" width="1600" height="900"></a>
-      <a href="../../press/bonbloop-install-1600x900.png" download><img src="../../press/bonbloop-install-1600x900.png" alt="Install in a minute, from the browser" loading="lazy" width="1600" height="900"></a>
-      <a href="../../press/bonbloop-square-1080.png" download><img src="../../press/bonbloop-square-1080.png" alt="bonbloop, square" loading="lazy" width="1080" height="1080"></a>
+  <div class="hero">
+    <div>
+      <p class="eyebrow reveal" data-t="eyebrow"></p>
+      <h1 class="reveal" style="--d:.08s"><span data-t="h1a"></span> <em data-t="h1b"></em></h1>
+      <p class="lead reveal" style="--d:.16s" data-t="lead"></p>
+      <div class="cta reveal" style="--d:.24s">
+        <a class="btn main" href="#install" data-t="ctaInstall"></a>
+        <a class="btn" href="../editor/" data-t="ctaEditor"></a>
+      </div>
+      <p class="facts reveal" style="--d:.3s" data-t="facts"></p>
+    </div>
+    <div class="device reveal" style="--d:.2s">
+      <div class="big"><img class="shot" src="../../shots/synth.png" width="480" height="480" alt="BONBLOOP's synth mode: oscillator 1, its wavetable drawn as it plays"></div>
+      <div class="row">
+        <div><img class="shot" src="../../shots/clip.png" width="480" height="480" alt="The soft clipper: its transfer curve, ceiling and IN / OUT meters" loading="lazy"></div>
+        <div><img class="shot" src="../../shots/scale.png" width="480" height="480" alt="GLOBAL > SCALE: the key's notes lit on the keys" loading="lazy"></div>
+      </div>
+      <p class="cap" data-t="cap"></p>
     </div>
   </div>
-  <footer>
-  <p class="small" data-t="direct"></p>
-  <p class="small" data-t="beta"></p>
-  <p class="small"><span data-t="brick"></span>
-    <a href="https://github.com/kurogedelic/FM-1-transporter" target="_blank" rel="noopener">FM-1-transporter</a></p>
-  <p class="small" data-t="back"></p>
-  <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener">www.m-vave.com/download</a></p>
-  <p class="small">bonbloop is <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">SLOOP</a> (isod89) with a SYNTH MODE; SLOOP is based on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
-    Hold OCT− alone while switching on for USB rescue.<br>
-    Font: Terminus (Dimitar Toshkov Zhekov, SIL OFL 1.1). Samples: Versilian Studios VSCO-2 Community Edition and VCSL (CC0 1.0), and the Hügelton Sample Pack (© Hügelton Instruments, not CC0).<br>
-    M-VAVE and FM-1 are trademarks of their respective owners; bonbloop, SLOOP and Felucca are not affiliated with them.<br>
-    <span data-t="license"></span> <a href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">github.com/henribon/bonbloop</a>
-    · <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">github.com/isod89/sloop-fm1</a>
-    · <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener">github.com/hugelton/Felucca</a></p>
-  <div class="foot"><a href="https://bonbap.com.br/">bonbap &#8599;</a><a href="https://github.com/henribon/bonbloop">github &#8599;</a></div>
-  </footer>
+
+  <section id="family">
+    <h2 data-t="famTitle"></h2>
+    <p class="sub" data-t="famSub"></p>
+    <div class="line3">
+      <div class="node"><b>Felucca</b><span data-t="famFel"></span></div>
+      <div class="node"><b>SLOOP</b><span data-t="famSloop"></span></div>
+      <div class="node us"><b>BONBLOOP</b><span data-t="famBon"></span></div>
+    </div>
+  </section>
+
+  <section id="features">
+    <h2 data-t="featTitle"></h2>
+    <p class="sub" data-t="featSub"></p>
+    <div class="grid">
+      <article class="card k1"><img class="shot" src="../../shots/synth3.png" width="480" height="480" alt="Synth mode, oscillator 3" loading="lazy">
+        <div><h3>Synth mode</h3><p data-t="f1"></p></div></article>
+      <article class="card k2"><img class="shot" src="../../shots/chain.png" width="480" height="480" alt="The synth's FX chain" loading="lazy">
+        <div><h3>Parallel FX</h3><p data-t="f2"></p></div></article>
+      <article class="card k3"><img class="shot" src="../../shots/eq.png" width="480" height="480" alt="A track's 4-band EQ" loading="lazy">
+        <div><h3>EQ on every track</h3><p data-t="f3"></p></div></article>
+      <article class="card k2"><img class="shot" src="../../shots/clip.png" width="480" height="480" alt="The soft clipper" loading="lazy">
+        <div><h3>Soft clipper</h3><p data-t="f4"></p></div></article>
+      <article class="card k3"><img class="shot" src="../../shots/scale.png" width="480" height="480" alt="GLOBAL > SCALE" loading="lazy">
+        <div><h3>Scale on the keys</h3><p data-t="f5"></p></div></article>
+      <article class="card k1"><img class="shot" src="../../shots/notes.png" width="480" height="480" alt="SEQ > NOTES: a note's length in ms" loading="lazy">
+        <div><h3>Note ends in ms<span class="new">1.9.2</span></h3><p data-t="f6"></p></div></article>
+    </div>
+    <div class="cols">
+      <div class="box"><h3 data-t="moreTitle"></h3><ul><li data-t="m1"></li><li data-t="m2"></li><li data-t="m3"></li><li data-t="m4"></li><li data-t="m5"></li></ul></div>
+      <div class="box"><h3 data-t="keepTitle"></h3><ul><li data-t="k1"></li><li data-t="k2"></li><li data-t="k3"></li><li data-t="k4"></li><li data-t="k5"></li></ul></div>
+    </div>
+  </section>
+
+  <section id="new">
+    <h2><span data-t="newTitle"></span> <span class="px" style="color:var(--violet)" data-ver></span></h2>
+    <div class="box news"><ul><li data-t="n1"></li><li data-t="n2"></li><li data-t="n3"></li><li data-t="n4"></li><li data-t="n5"></li></ul></div>
+  </section>
+
+  <section id="install">
+    <h2 data-t="instTitle"></h2>
+    <p class="sub" data-t="instSub"></p>
+    <div class="inst">
+      <div>
+        <ol class="steps"><li data-t="s1"></li><li data-t="s2"></li><li data-t="s3"></li></ol>
+        <p class="small" data-t="how"></p>
+      </div>
+      <div class="panel">
+        <p class="small" data-t="intro"></p>
+        <p class="small" data-t="warn"></p>
+        <button id="go" disabled data-t="install"></button>
+        <progress id="bar" max="100" value="0"></progress>
+        <p id="status"></p>
+        <pre id="log"></pre>
+        <div class="doors">
+          <a class="door" href="../editor/" data-t="editor"></a>
+          <a class="door" href="../editor/sloop-editor.html" download="sloop-editor-1.9.2.html" data-t="edOffline"></a>
+          <button id="app" class="door" hidden data-t="appInstall"></button>
+          <a class="door" href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener" data-t="source"></a>
+        </div>
+        <p class="small" data-t="direct"></p>
+      </div>
+    </div>
+  </section>
+
+  <section id="press">
+    <h2 data-t="pressTitle"></h2>
+    <p class="sub" data-t="pressSub"></p>
+    <div class="shots">
+      <a href="../../press/bonbloop-hero-1600x900.png" download><img src="../../press/bonbloop-hero-1600x900.png" alt="BONBLOOP: a groovebox firmware for the M-VAVE FM-1, based on SLOOP" loading="lazy" width="1600" height="900"></a>
+      <a href="../../press/bonbloop-features-1600x900.png" download><img src="../../press/bonbloop-features-1600x900.png" alt="What BONBLOOP adds" loading="lazy" width="1600" height="900"></a>
+      <a href="../../press/bonbloop-install-1600x900.png" download><img src="../../press/bonbloop-install-1600x900.png" alt="Install in a minute, from the browser" loading="lazy" width="1600" height="900"></a>
+      <a href="../../press/bonbloop-square-1080.png" download><img src="../../press/bonbloop-square-1080.png" alt="BONBLOOP, square" loading="lazy" width="1080" height="1080"></a>
+    </div>
+  </section>
 </main>
+<footer>
+  <div class="wrap">
+    <p class="small" data-t="beta"></p>
+    <p class="small"><span data-t="brick"></span>
+      <a href="https://github.com/kurogedelic/FM-1-transporter" target="_blank" rel="noopener">FM-1-transporter</a></p>
+    <p class="small" data-t="back"></p>
+    <p class="small"><a href="https://www.m-vave.com/download" target="_blank" rel="noopener">www.m-vave.com/download</a></p>
+    <p class="small">BONBLOOP is built on the code of <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">SLOOP</a> (isod89), which is built on Felucca by Leo Kuroshita (@kurogedelic), <a href="https://hugelton.com" target="_blank" rel="noopener">Hügelton Instruments</a>.
+      Hold OCT− alone while switching on for USB rescue.<br>
+      Screen font: Pixelify Sans (The Pixelify Sans Project Authors, SIL OFL 1.1); the editor's: Terminus (Dimitar Toshkov Zhekov, SIL OFL 1.1). Samples: Versilian Studios VSCO-2 Community Edition and VCSL (CC0 1.0), and the Hügelton Sample Pack (© Hügelton Instruments, not CC0).<br>
+      M-VAVE and FM-1 are trademarks of their respective owners; BONBLOOP, SLOOP and Felucca are not affiliated with them.<br>
+      <span data-t="license"></span> <a href="https://github.com/henribon/bonbloop" target="_blank" rel="noopener">github.com/henribon/bonbloop</a>
+      · <a href="https://github.com/isod89/sloop-fm1" target="_blank" rel="noopener">github.com/isod89/sloop-fm1</a>
+      · <a href="https://github.com/hugelton/Felucca" target="_blank" rel="noopener">github.com/hugelton/Felucca</a></p>
+    <div class="foot"><a href="https://bonbap.com.br/">bonbap &#8599;</a><a href="https://github.com/henribon/bonbloop/releases">releases &#8599;</a><a href="https://github.com/henribon/bonbloop">github &#8599;</a></div>
+  </div>
+</footer>
 <script>
 (function () {
-  /* (bonbap.com.br) the word fits the screen's width exactly; the light follows the pointer */
-  var el = document.querySelector('[data-fit]');
-  function fit() {
-    var target = el.parentElement.clientWidth;
-    el.style.fontSize = '200px';
-    var natural = el.getBoundingClientRect().width;
-    el.style.fontSize = ((target && natural) ? 200 * target / natural : 200).toFixed(2) + 'px';
-  }
-  fit();
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-  addEventListener('resize', function () { requestAnimationFrame(fit); });
-  var glow = document.querySelector('.layer--glow'), tx = 50, ty = 30, cx = 50, cy = 30, raf = null;
+  /* the light follows the pointer, slowly */
+  var glow = document.querySelector('.glow'), tx = 70, ty = 10, cx = 70, cy = 10, raf = null;
   function frame() {
-    cx += (tx - cx) * .07; cy += (ty - cy) * .07;
+    cx += (tx - cx) * .06; cy += (ty - cy) * .06;
     glow.style.setProperty('--mx', cx.toFixed(2) + '%');
     glow.style.setProperty('--my', cy.toFixed(2) + '%');
     raf = (Math.abs(tx - cx) > .1 || Math.abs(ty - cy) > .1) ? requestAnimationFrame(frame) : null;
@@ -495,20 +646,60 @@ class Updater {
 const $ = (id) => document.getElementById(id);
 const TEXT = {
   ja: {
+    other: "English",
+    navFeatures: "機能", navEditor: "エディタ", navInstall: "インストール",
+    eyebrow: "M-VAVE FM-1 のためのファームウェア",
+    h1a: "わたしたちの", h1b: "グルーヴボックス。",
+    lead: "BONBLOOP は SLOOP のコードをもとにしたグルーヴボックス・ファームウェアです。SLOOP のすべて（3 つのシンセ・トラックとドラム、ステップ・シーケンサー、ソング・モード、ブラウザのエディタ）をそのままに、3 オシレーターの SYNTH MODE、パラレル FX、全トラックの EQ とソフト・クリッパー、鍵盤に光るスケール、離した瞬間で終わるノート、そして独自の見た目を加えました。",
+    ctaInstall: "インストール", ctaEditor: "エディタを開く",
+    facts: "無料・オープンソース（GPL-3.0）・ブラウザから約 1 分でインストール",
+    cap: "FM-1 の実際の画面：SYNTH MODE、CLIP、GLOBAL → SCALE",
+    famTitle: "SLOOP のコードから生まれた",
+    famSub: "BONBLOOP はゼロから作ったものではありません。オープンソースの系譜の上に立ち、その上に独自の楽器を作っています。",
+    famFel: "Leo Kuroshita（Hügelton Instruments）による FM-1 のオープンなファームウェア。",
+    famSloop: "isod89 が Felucca をグルーヴボックスに：トラック、シーケンサー、ソング・モード、エディタ。",
+    famBon: "bonbap が SLOOP のコードをさらに先へ：シンセ・モード、パラレル FX、クリッパー、スケール、独自の見た目。",
+    featTitle: "BONBLOOP が加えたもの",
+    featSub: "どれも FM-1 の上で動き、プロジェクトに保存されます。画像は実機の画面です。",
+    f1: "ENV を長押し：3 つのウェーブテーブル・オシレーター（16 波形、POS、LVL、リバース）、それぞれにエンベロープと LFO、フィルター、並べ替えられる FX チェーン。",
+    f2: "DRIVE・MOD・DELAY・REVERB をドライ音と並列に。トラックごとのミキサー、マスターにはグルー・コンプ。",
+    f3: "全トラックとドラムに 4 バンド EQ。カーブを画面に表示。",
+    f4: "SOFT・HARD・FOLD を全トラックとドラムに。伝達カーブ、シーリング、IN / OUT メーター付き。",
+    f5: "GLOBAL → SCALE：キーとスケールの音を鍵盤に表示。ルートや 1-3-5 をマーク、最大の明るさまで。光だけで、演奏は変えません。",
+    f6: "録音はキーを離した位置（1/8 ステップ単位）を記録。SEQ → NOTES の LEN でノートの長さをミリ秒で編集。",
+    moreTitle: "ほかにも", m1: "ドラムの REPEAT ロック：ARP を長押しで固定、演奏しながら KNOB 1 で分割を変更",
+    m2: "エフェクトのページで OCT− + OCT+：そのエフェクトを初期値に。NEW ですべてのエフェクトをリセット",
+    m3: "コード：転回、ドロップ 2 / 3、スプレッド、+ベース。アルペジエーターとディレイに全三連符",
+    m4: "選ぶものは 4 つの値の窓、音のパラメーターだけノブ。オンはバイオレット",
+    m5: "画面フォントは Pixelify Sans、色は黒地に Very Peri",
+    keepTitle: "SLOOP からそのまま", k1: "3 つのシンセ・トラック（13 のエンジン）と 16 音のドラム・トラック",
+    k2: "64 ステップのシーケンサー：パラメーター・ロック、ナッジ、ラチェット、フィル条件",
+    k3: "ソング・モード：セクション A〜D とチェイン、リアルタイム録音と FREE TAKE",
+    k4: "ブラウザのエディタ：音色、パターン、サンプル、バックアップ",
+    k5: "SLOOP のプロジェクト・プリセット・サンプルをそのまま開けます",
+    newTitle: "新しいバージョン",
+    n1: "ノートはキーを離したところで終わる：録音で 1/8 ステップ単位、NOTES → LEN はミリ秒",
+    n2: "CLIP がソフト・クリッパーの画面に：伝達カーブ、シーリング、IN / OUT メーター",
+    n3: "エフェクトのページで OCT− + OCT+：そのエフェクトを初期値に戻す",
+    n4: "NEW（SAVE → TOOLS）ですべてのエフェクトもリセット",
+    n5: "レイヤーを押している間（FX など）はスケールの光が消え、鍵盤はレイヤーを表示",
+    instTitle: "インストール", instSub: "ブラウザから、USB で。プロジェクトはそのまま残ります（念のため、先にエディタでバックアップを）。",
+    s1: "FM-1 をパソコンに USB で直接つなぐ（データ通信用のケーブル）。",
+    s2: "このページを Chrome か Edge で開き、MIDI（SysEx）の使用を許可する。",
+    s3: "「インストール」を押して「完了」まで待つ（約 1 分）。書き込み中は USB を抜かない。",
+    how: "SYNTH MODE：ENV を約 0.7 秒押す。もう一度で通常の画面に戻る。",
     intro: "FM-1 を USB で接続してください。（Chrome か Edge で使えます）",
     warn: "書き込み中は USB を抜かないでください。",
-    install: "インストール", other: "English",
-    h1: "M-VAVE FM-1 のファームウェア — SLOOP + SYNTH MODE",
-    lead: "BONBLOOP は SLOOP（4 トラックのライブ用グルーヴボックス）そのままに、SYNTH MODE を加えたものです。ENV を長押しすると、選んだトラックが 3 オシレーターのウェーブテーブル・シンセになります。",
-    tile1: "それぞれ専用のエンベロープと LFO", tile2: "波形：アナログ 5 + テーブル 10", tile3: "リバース：逆再生のように",
-    tile4: "自分で組む FX チェーン", how: "SYNTH MODE：ENV を約 0.7 秒押す。もう一度で SLOOP に戻る。",
-    editor: "エディタ（インストール後、パソコンから音色やシーケンスを編集）",
-    edOffline: "エディタをダウンロード（パソコンでインターネットなしで使う：ファイルを Chrome / Edge で開く）",
-    appInstall: "アプリとしてインストール（エディタとインストーラーがオフラインで使える・Android も）",
+    install: "インストール",
+    editor: "エディタ（パソコンから音色やシーケンスを編集）",
+    edOffline: "エディタをダウンロード（インターネットなしで使う）",
+    appInstall: "アプリとしてインストール（オフライン・Android も）",
+    source: "ソースコードとガイド（GitHub）",
     direct: "USB ケーブルはパソコンに直接つないでください。Probe や Transporter などの機材は不要です。",
+    pressTitle: "シェア用の画像", pressSub: "クリックでダウンロード。",
     brick: "万一インストールに失敗して起動しなくなった場合は、復旧に Transporter が必要です:",
     beta: "これはベータ版で、不安定な場合があります。このカスタムファームウェアを使ったことで FM-1 が壊れたり不具合が起きたりしても、作者は一切の責任を負いません。自己責任でお使いください。",
-    back: "公式ファームウェアに戻すには、M-VAVE 公式のアップデーター M-UPGRADE（Downloads → PC Software → M-UPGRADE）と公式ファームウェア（PC Firmware → FM-1、V16）が必要です。",
+    back: "公式ファームウェアに戻すには、M-VAVE 公式のアップデーター M-UPGRADE（Downloads → PC Software → M-UPGRADE）と公式ファームウェアを使ってください。FM-1 が見つからない場合は、MIDI を使う他のアプリとブラウザのタブを閉じてください。それでも見つからない場合は、Clipper のインストールページを開き、その「Return to the official firmware」を使ってください（Clipper を入れる必要はありません）。",
     nomidi: "このブラウザでは使えません。Chrome か Edge で開いてください。", loadfail: "読み込めませんでした: ",
     start: "開始します", verify: "確認中", loader: "書き込みモードに切り替え中", write: "書き込み中",
     reboot: "再起動中", done: "完了しました", stopped: "途中で止まりました。USB を挿し直してもう一度押してください。",
@@ -524,31 +715,62 @@ const TEXT = {
     badpkg: "インストールするファイルが壊れています。ページを再読み込みしてください。",
     leave: "書き込み中です。ページを閉じないでください。",
     license: "GPL-3.0、無保証。ソース:",
-    stockTitle: "公式ファームウェア（V15）に戻す",
-    stockHelp: "M-VAVE のサイトから公式の FM-1 V15 をダウンロードし、中の FM-1.fwsc（変更していないもの）を選んでください。ファイルはこのブラウザの中で確認され、どこにも送られません。",
-    stockBackup: "公式ファームウェアは BONBLOOP の曲・プロジェクト・サンプルを開けません。先にエディタでバックアップを保存してください（Projects → Backup）。BONBLOOP を入れ直せば、エディタから復元できます。",
-    stockEditor: "エディタを開いてバックアップする", stockSaved: "バックアップをパソコンに保存しました",
-    stockFile: "公式の FM-1.fwsc", stockGo: "公式 V15 をインストール",
-    stockValid: "公式 V15 を確認しました", stockBad: "公式 V15 ではありません: ",
-    stockConfirm: "FM-1 に公式 V15 をインストールします。BONBLOOP の曲は公式ファームウェアでは開けません。バックアップは保存しましたか？",
-    stockFinish: "FM-1 は BONBLOOP の書き込みモードです。先に「インストール」で BONBLOOP の書き込みを終えてから、公式 V15 に戻してください。",
-    back: "公式ファームウェアに戻すには、M-VAVE 公式のアップデーター M-UPGRADE（Downloads → PC Software → M-UPGRADE）と公式ファームウェアを使ってください。FM-1 が見つからない場合は、MIDI を使う他のアプリとブラウザのタブを閉じてください。それでも見つからない場合は、Clipper のインストールページを開き、その「Return to the official firmware」を使ってください（Clipper を入れる必要はありません）。",
   },
   en: {
+    other: "日本語",
+    navFeatures: "Features", navEditor: "Editor", navInstall: "Install",
+    eyebrow: "Firmware for the M-VAVE FM-1",
+    h1a: "Our own", h1b: "groovebox.",
+    lead: "BONBLOOP is a groovebox firmware built on SLOOP's code. It keeps everything SLOOP does — three synth tracks and the drums, the step sequencer, song mode, the browser editor — and adds a synth mode with three oscillators, effects in parallel, an EQ and a soft clipper on every track, the scale lit on the keys, notes that end where you let go, and a look of its own.",
+    ctaInstall: "Install", ctaEditor: "Open the editor",
+    facts: "Free · open source (GPL-3.0) · installs from the browser in about a minute",
+    cap: "The FM-1's own screens: synth mode, CLIP, GLOBAL → SCALE",
+    famTitle: "Built on SLOOP's code",
+    famSub: "BONBLOOP did not start from scratch: it stands on an open-source line of firmwares and builds its own instrument on top.",
+    famFel: "The open firmware for the FM-1, by Leo Kuroshita (Hügelton Instruments).",
+    famSloop: "Felucca grown into a groovebox by isod89: tracks, sequencer, song mode, editor.",
+    famBon: "SLOOP's code taken further by bonbap: synth mode, parallel FX, clipper, scale, a look of its own.",
+    featTitle: "What BONBLOOP adds",
+    featSub: "All of it runs on the FM-1 and is saved with your projects. The pictures are the device's real screens.",
+    f1: "Hold ENV: three wavetable oscillators (16 waves, position, level, reverse), each with its own envelope and LFO, a filter and an FX chain you order.",
+    f2: "DRIVE, MOD, DELAY and REVERB beside the dry sound, in a mixer per track; a glue COMP on the master.",
+    f3: "A 4-band EQ on every track and on the drums, drawn as its curve.",
+    f4: "SOFT, HARD or FOLD on every track and on the drums, with its transfer curve, ceiling and IN / OUT meters.",
+    f5: "GLOBAL → SCALE lights a key's notes on the FM-1's keys, the root or 1-3-5 marked, up to full brightness. Lights only: what you play is untouched.",
+    f6: "Recording keeps where you let go of the key, to 1/8 of a step; SEQ → NOTES edits a note's length in milliseconds.",
+    moreTitle: "And more", m1: "Drums: a REPEAT that locks on — hold ARP, then set its rate with KNOB 1 while you play",
+    m2: "OCT− + OCT+ on an effect's page puts it back to default; NEW clears every effect",
+    m3: "Chords: inversions, drop 2 and 3, spread, +bass; every triplet on the arp and the delay",
+    m4: "Value windows where you choose, knobs only where it is sound; violet for what is on",
+    m5: "Pixelify Sans on screen, Very Peri on black",
+    keepTitle: "Everything from SLOOP", k1: "Three synth tracks (13 engines) and a 16-sound drum track",
+    k2: "A 64-step sequencer with parameter locks, nudges, ratchets and fill conditions",
+    k3: "Song mode (sections A–D, chains), live recording and free takes",
+    k4: "The browser editor: sounds, patterns, samples, backups",
+    k5: "Opens SLOOP's projects, presets and samples as they are",
+    newTitle: "New in",
+    n1: "Notes end where you let go: recorded to 1/8 of a step, NOTES → LEN in milliseconds",
+    n2: "CLIP drawn as a soft clipper: transfer curve, ceiling, IN / OUT meters",
+    n3: "OCT− + OCT+ on an effect's page resets that effect",
+    n4: "NEW (SAVE → TOOLS) clears every effect too",
+    n5: "The scale lights step aside while a layer is held (FX, SEQ, ARP…): the keys show the layer",
+    instTitle: "Install", instSub: "From the browser, over USB. Your projects stay on the FM-1 (back them up with the editor first, to be safe).",
+    s1: "Plug the FM-1 straight into the computer by USB (a data cable).",
+    s2: "Open this page in Chrome or Edge and allow MIDI (SysEx) when asked.",
+    s3: "Press Install and wait for Done — about a minute. Do not unplug while it writes.",
+    how: "Synth mode: hold ENV for ~0.7 s. Hold it again to leave it.",
     intro: "Connect the FM-1 by USB. (Works in Chrome or Edge.)",
     warn: "Do not unplug the USB cable while writing.",
-    install: "Install", other: "日本語",
-    h1: "Firmware for the M-VAVE FM-1",
-    lead: "SLOOP — the four-track live groovebox — exactly as it is, plus a synth mode: hold ENV and the selected track becomes a three-oscillator wavetable synth with its own filter, envelope, LFO and effects.",
-    tile1: "each with its own envelope and LFO", tile2: "5 analog shapes + 10 wavetables", tile3: "an oscillator played backwards",
-    tile4: "your own chain: drive, phaser, filter, 4-band EQ, chorus, delay, reverb", how: "Synth mode: hold ENV for ~0.7 s. Hold it again to go back to SLOOP.",
+    install: "Install",
     editor: "Open the editor",
     edOffline: "Download the editor (works offline)",
     appInstall: "Install as an app (offline, Android too)",
+    source: "Source code and guide",
     direct: "Connect the USB cable directly to the computer. No probe or Transporter is needed.",
+    pressTitle: "Images to share", pressSub: "Click one to download it.",
     brick: "If an install fails and the FM-1 no longer starts, recovering it needs a Transporter:",
     beta: "This is a beta and may be unstable. The author accepts no responsibility if your FM-1 is damaged or misbehaves because of this custom firmware. Use it at your own risk.",
-    back: "To go back to the official firmware you need M-VAVE's official updater, M-UPGRADE (Downloads → PC Software → M-UPGRADE), and the official firmware (PC Firmware → FM-1, V16).",
+    back: "To return to the official firmware, use M-VAVE's own updater, M-UPGRADE (Downloads → PC Software → M-UPGRADE), with the official firmware from M-VAVE (PC Firmware → FM-1, V16). If it does not find the FM-1, close every other app and browser tab that uses MIDI; if it still does not, open Clipper's installer page and use its Return to the official firmware (no need to install Clipper).",
     nomidi: "This browser cannot do it. Open the page in Chrome or Edge.", loadfail: "Could not load: ",
     start: "Starting", verify: "Verifying", loader: "Switching to update mode", write: "Writing",
     reboot: "Restarting", done: "Done", stopped: "Stopped. Replug the USB cable and press Install again.",
@@ -564,15 +786,6 @@ const TEXT = {
     badpkg: "The file to install is damaged. Reload the page.",
     leave: "Writing. Do not close the page.",
     license: "GPL-3.0, no warranty. Source:",
-    stockTitle: "Return to the official firmware (V15)",
-    stockHelp: "Download the official FM-1 V15 from M-VAVE and select the FM-1.fwsc inside it, unmodified. The file is checked in this browser; it is not sent anywhere.",
-    stockBackup: "The official firmware cannot open BONBLOOP's music, projects or samples. Save a backup with the editor first (Projects → Backup); reinstall BONBLOOP and restore it from the editor whenever you want them back.",
-    stockEditor: "Open the editor to back up", stockSaved: "I saved a backup on this computer",
-    stockFile: "The official FM-1.fwsc", stockGo: "Install the official V15",
-    stockValid: "Official V15 verified", stockBad: "Not the official V15: ",
-    stockConfirm: "Install the official V15 on the FM-1? The official firmware cannot open BONBLOOP's music. Did you save a backup?",
-    stockFinish: "The FM-1 is in BONBLOOP's update mode. Press Install to finish the BONBLOOP update first, then return to the official V15.",
-    back: "To return to the official firmware, use M-VAVE's own updater, M-UPGRADE (Downloads → PC Software → M-UPGRADE), with the official firmware from M-VAVE (PC Firmware → FM-1, V16). If it does not find the FM-1, close every other app and browser tab that uses MIDI; if it still does not, open Clipper's installer page and use its Return to the official firmware (no need to install Clipper).",
   },
 };
 let lang = "en";                                   /* (BONBLOOP: English; 日本語 behind the button) */
@@ -606,7 +819,8 @@ const sayK = (k, arg = "") => { lastKey = k; lastArg = arg; $("status").textCont
 const say = (txt) => { lastKey = null; $("status").textContent = txt; };
 const log = (t) => { $("log").textContent += t + "\n"; };
 let image = null;
-const meta = {"version": "1.9.1", "product": "FM-1_962", "pkg": "../../firmware/bonbloop-1.9.1.fwsc", "sha256": "6044b5348e3d74466cbc2231bbb6b23a73cde708e628c003f876606348a77d18"};
+const meta = {"version": "1.9.2", "product": "FM-1_962", "pkg": "../../firmware/bonbloop-1.9.2.fwsc", "sha256": "5d922f14f1855bd7b8f31f08f36d8c112c1c2c34ec7d7c70963cc13668d185c9"};
+document.querySelectorAll("[data-ver]").forEach((e) => { e.textContent = meta.version; });   /* (the version on the page) */
 
 let writing = false;
 const lockAll = (on) => {
@@ -635,7 +849,7 @@ window.addEventListener("beforeunload", (e) => { if (writing) { e.preventDefault
       if (h !== meta.sha256) { sayK("badpkg"); log(`sha256 ${h}, expected ${meta.sha256}`); return; }
     }
     image = logicalImage(pkg);
-    say(`bonbloop ${meta.version}`);
+    say(`BONBLOOP ${meta.version}`);
     lockAll(writing);
   } catch (e) { sayK("loadfail", e.message); }
 })();
@@ -676,7 +890,7 @@ $("go").addEventListener("click", async () => {
 });
 
 /* Returning to the official firmware is done with M-VAVE's own updater (M-UPGRADE): the in-browser
-   revert was removed because it is not reliable on every system. The note under "stockTitle" points there. */
+   revert was removed because it is not reliable on every system. The footer's note ("back") points there. */
 </script>
 </body>
 </html>
