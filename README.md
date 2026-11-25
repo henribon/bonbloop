@@ -10,8 +10,8 @@ own.
 **[Install from the browser](https://bonbap.com.br/bonbloop/)** (Chrome or Edge, the FM-1 on USB) ·
 **[Guia completo em português](BONBLOOP.md)** · [Web editor](https://bonbap.com.br/bonbloop/webapp/editor/)
 
-> **Status: in development toward 1.0.** BONBLOOP has not had an official release yet; the site installs the
-> current development build. Custom firmware is installed at your own risk, with no warranty.
+> **Version 1.0** — the first official release ([release notes](../../releases/tag/v1.0)). Custom firmware is
+> installed at your own risk, with no warranty.
 
 ---
 

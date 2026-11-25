@@ -16,6 +16,17 @@ cima, com a sua própria cara:
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
+**Versão 1.0** — o **primeiro lançamento oficial**. Junta tudo o que veio nas versões de desenvolvimento abaixo e traz:
+**o nível de cada efeito no KNOB 1** de todas as páginas de efeito do modo synth — **MIX** (seco / molhado) no DRIVE,
+no PHASER e no DJ FILT, **SEND** no CHORUS, no DELAY e no REVERB —, o **mesmo valor** do fader daquele efeito no **FX
+MIX** (ver *O nível de cada efeito: MIX e SEND*). O DST do DRIVE passou a se chamar **DRIVE** e o PUNSH foi para a
+página **DRIVE 2**; o EQ não tem mais MIX, e os MIX de retorno do chorus, do delay e do reverb saíram. Um **LOAD** ou
+um **NEW** fica guardado na hora: desligou logo depois, o FM-1 volta com ele (antes podia voltar o projeto de antes).
+E o estilo do **barquinho** (o logo do SLOOP) saiu do visualizador: agora são 11.
+
+*Antes da 1.0, o BONBLOOP passou por versões de desenvolvimento (1.1 a 1.9.2), não lançadas oficialmente; as notas de
+cada uma ficam aqui como histórico.*
+
 **Versão 1.9.2** — a página **CLIP** tem a cara de um *soft clipper*: a **curva de transferência** (entrada × saída
 em dB, desenhada pelo próprio código do clipper), o **teto** e os medidores **IN / OUT**. **OCT- + OCT+** numa página
 de efeito **volta aquele efeito ao padrão** (ver *Voltar um efeito ao padrão*). E o **NEW** (SAVE → TOOLS) agora zera
@@ -563,6 +574,8 @@ mexer na escala de lá podia travar as teclas pretas).
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
 - Um projeto da 1.9.2 aberto na 1.9.1 ou no SLOOP abre igual, só as notas com fim próprio (*O fim da nota em ms*)
   acabam no GATE do padrão.
+- Na 1.0 os retornos do chorus e do reverb ficam inteiros e o do delay no nível padrão: um projeto em que esses MIX
+  estavam mais baixos toca esses efeitos mais alto (com os valores padrão, nada muda).
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
 - A identidade do pacote é **`FM-1_962`** (1.7), só do BONBLOOP, em todas as versões (até a 1.7 era `FM-1_900`, a do
   SLOOP, que vários firmwares dividem). Instala por cima do SLOOP e de qualquer versão anterior, pelo mesmo instalador.
@@ -585,9 +598,10 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.9.2: 578.820 de 581.564 bytes de flash (2,7 KB livres; para caber, o desenho de texto ficou só com o
+Tamanho do 1.0: 577.512 de 581.564 bytes de flash (4,0 KB livres; para caber, o desenho de texto ficou só com o
 caminho de 1 bit, a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus; o estado da bateria começa
-zerado, sem ocupar flash com o valor inicial; e uma paleta só); RAM 60.908 de 98.304 bytes, pool igual ao do SLOOP.
+zerado, sem ocupar flash com o valor inicial; uma paleta só; e sem o estilo do barquinho); RAM 60.924 de 98.304
+bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).
 
