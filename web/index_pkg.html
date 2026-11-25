@@ -42,9 +42,9 @@
   /* the top bar */
   header { position: sticky; top: 0; z-index: 5; background: rgba(9, 9, 12, .82); backdrop-filter: blur(10px);
            -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
-  header .wrap { display: flex; align-items: center; gap: 1.25rem; height: 64px; }
+  header .wrap { display: flex; align-items: center; gap: 1.25rem; height: 92px; }   /* (1.0.1: the stacked logo) */
   .logo { display: flex; align-items: center; gap: .7rem; text-decoration: none; }
-  .logo svg { width: 111px; height: 36px; display: block; }   /* (BONBLOOP 1.0: the penguin and BON / BLOOP, 111 x 36:
+  .logo svg { width: 60px; height: 72px; display: block; }   /* (BONBLOOP 1.0.1: BON, the penguin, BLOOP, 60 x 72:
                                                        * whole pixels only, or a letter loses a column) */
   .logo svg > rect:first-child { fill: transparent; }   /* (the logo's own black ground: the bar's) */
   .ver { font: 600 .78rem/1 var(--pix); color: var(--violet); border: 1px solid rgba(139, 92, 246, .45);
@@ -359,7 +359,7 @@ const TEXT = {
     n2: "どのエフェクトのページも KNOB 1 がそのレベル（MIX か SEND）：FX MIX のフェーダーと同じ値",
     n3: "CLIP はソフト・クリッパーの画面：伝達カーブ、シーリング、IN / OUT メーター。OCT− + OCT+ でエフェクトを初期値に",
     n4: "LOAD と NEW はすぐに保存：直後に電源を切っても、そのプロジェクトで起動",
-    n5: "1.0.1：ロゴはマゼランペンギンのピクセルアート、FM-1 の起動画面にも",
+    n5: "1.0.1：新しいロゴ — BON、マゼランペンギンのピクセルアート、BLOOP を縦に。FM-1 の起動画面にも",
     instTitle: "インストール", instSub: "ブラウザから、USB で。プロジェクトはそのまま残ります（念のため、先にエディタでバックアップを）。",
     s1: "FM-1 をパソコンに USB で直接つなぐ（データ通信用のケーブル）。",
     s2: "このページを Chrome か Edge で開き、MIDI（SysEx）の使用を許可する。",
@@ -430,7 +430,7 @@ const TEXT = {
     n2: "Every effect page starts with its level on KNOB 1 (MIX or SEND), the same value as its fader on FX MIX",
     n3: "CLIP drawn as a soft clipper (transfer curve, ceiling, IN / OUT meters); OCT− + OCT+ resets an effect",
     n4: "A LOAD or a NEW is kept at once: switched off right after, it comes back",
-    n5: "1.0.1: a Magellanic penguin in pixel art as the logo, on the FM-1's boot screen too",
+    n5: "1.0.1: a new logo, BON over a Magellanic penguin in pixel art over BLOOP, on the FM-1's boot screen too",
     instTitle: "Install", instSub: "From the browser, over USB. Your projects stay on the FM-1 (back them up with the editor first, to be safe).",
     s1: "Plug the FM-1 straight into the computer by USB (a data cable).",
     s2: "Open this page in Chrome or Edge and allow MIDI (SysEx) when asked.",
