@@ -200,8 +200,8 @@ the update loader, MIDI, and the web pages. `web/make_site.py` builds the site i
 - Samples: Versilian Studios VSCO-2 Community Edition and VCSL, and the Sonic Pi samples (CC0 1.0); the free
   user-slot pack in `assets/hiphop-pack` adds Wurlitzer EP200 samples by Greg Sullivan (CC BY 3.0,
   `assets/hiphop-pack/CREDITS.txt`).
-- Fonts: Pixelify Sans (The Pixelify Sans Project Authors, SIL OFL 1.1) on the FM-1's screen; Terminus (SIL OFL 1.1)
-  in the editor. Icons: Fukiai (MIT, Hügelton Instruments). The FM6 engine uses msfa from Dexed (Apache-2.0).
+- Fonts: Pixelify Sans (The Pixelify Sans Project Authors, SIL OFL 1.1) on the FM-1's screen, the site and the
+  editor; Inter Tight (SIL OFL 1.1) for the site's and the editor's text. Icons: Fukiai (MIT, Hügelton Instruments). The FM6 engine uses msfa from Dexed (Apache-2.0).
 
 ## Licence
 
