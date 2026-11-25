@@ -122,7 +122,7 @@ def svg(w, h, rects):
             f'role="img" aria-label="BONBLOOP"><rect width="{w}" height="{h}" fill="#000"/>' + "".join(rects) + "</svg>\n")
 
 
-LOGO_W, LOGO_H = 111, 36                                   # (the logo's size in its pixels: logo_svg)
+LOGO_W, LOGO_H = 60, 72                                   # (the logo's size in its pixels: logo_svg)
 
 
 def logo_png(path):
@@ -157,14 +157,26 @@ def editor_logo():
     return p
 
 
+def word_rects(text, col, ox=0, oy=0, k=1):
+    """one word in the FM-1's font, k screen pixels a pixel: its rects, width and height"""
+    pts, _ = pixelify_word(text)
+    out = [f'<rect x="{ox + x * k}" y="{oy + y * k}" width="{k}" height="{k}" fill="{col}"/>'
+           for x, y in sorted(pts, key=lambda q: (q[1], q[0]))]
+    return out, (max(x for x, _ in pts) + 1) * k, 7 * k
+
+
 def logo_svg():
-    """(BONBLOOP 1.0) the logo: the penguin's head, then BON / BLOOP at twice its pixel (as thick as the penguin's
-    outline), in the middle of its height"""
-    pen, pw, ph = penguin_rects()
-    _, ww, wh = wordmark_rects(k=2)
-    gap = 6
-    words, _, _ = wordmark_rects(pw + gap, (ph - wh) // 2, 2)
-    return svg(pw + gap + ww, ph, pen + words)
+    """(BONBLOOP 1.0.1) the logo, stacked: BON (light lilac) on top, the penguin's head in the middle, BLOOP (Very
+    Peri) under it, each centred; the words at twice the penguin's pixel (as thick as its outline). The first 1.0.1
+    build had the penguin left of BON / BLOOP"""
+    _, pw, ph = penguin_rects()
+    _, bw, bh = word_rects("BON", "#D9DAF4", k=2)
+    _, lw, lh = word_rects("BLOOP", "#6667AB", k=2)
+    w, gap = max(pw, bw, lw), 4
+    bon, _, _ = word_rects("BON", "#D9DAF4", (w - bw) // 2, 0, 2)
+    pen, _, _ = penguin_rects((w - pw) // 2, bh + gap)
+    bloop, _, _ = word_rects("BLOOP", "#6667AB", (w - lw) // 2, bh + gap + ph + gap, 2)
+    return svg(w, bh + gap + ph + gap + lh, bon + pen + bloop)
 
 
 def wordmark_svg():
