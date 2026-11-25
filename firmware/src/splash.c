@@ -10,33 +10,30 @@
 #define FELUCCA_LOGO_TEXT 1
 #endif
 #if FELUCCA_LOGO_TEXT
-/* one word of the wordmark: small at the top left, letter i in col[i], then twice as big in place (from the end:
- * nothing read is overwritten before), centred, at y */
-UI_SMALL static void logo_word(const char *s, const uint16_t *col, uint32_t y)
-{
-    uint32_t i, w = text_w(&FONT_L, s), k = 2u, h = 32u, off = (240u - w * k) / 2u, yy, x;
-    int32_t px = 0;
-    char c[2] = {0, 0};
-    cv_begin(240, h * k, C_BLACK);
-    for (i = 0; s[i]; i++) {
-        c[0] = s[i];
-        px = cv_text(px, 0, &FONT_L, c, col[i]);
-    }
-    for (yy = h * k; yy-- > 0;)
-        for (x = w * k; x-- > 0;)
-            cv_px[yy * 240u + off + x] = cv_px[(yy / k) * 240u + x / k];
-    for (yy = 0; yy < h * k; yy++)                      /* (the small one's left-over columns) */
-        for (x = 0; x < off; x++)
-            cv_px[yy * 240u + x] = swap16(C_BLACK);
-    cv_blit(0, y);
-}
+/* (BONBLOOP 1.0) the logo: the Magellanic penguin's head (bonbloop_penguin.h, tools/gen_bonbloop_brand.py: its runs,
+ * (run - 1) << 4 | colour, 0 the black) three times as big, then BON (light lilac) over BLOOP (Very Peri) in the
+ * screen's font, as the site and the editor show them. Up to 1.9.2: BON over BLOOP alone, twice as big */
+#include "bonbloop_penguin.h"
+#define PENGUIN_K 3u
 UI_SMALL static void sloop_logo_draw(uint32_t y0)
 {
-    const uint16_t L = RGB(217, 218, 244), P = RGB(102, 103, 171);   /* (BONBLOOP 1.7) light lilac, Very Peri */
-    const uint16_t bon[3] = {L, L, L};
-    const uint16_t bloop[5] = {P, P, P, P, P};
-    logo_word("BON", bon, y0 + 52u);                    /* BON light, BLOOP in Very Peri */
-    logo_word("BLOOP", bloop, y0 + 118u);
+    uint32_t i, pos = 0, off = (240u - PENGUIN_W * PENGUIN_K) / 2u;
+    cv_begin(240, PENGUIN_H * PENGUIN_K, C_BLACK);      /* (108 rows: one band of the canvas) */
+    for (i = 0; i < sizeof PENGUIN_RLE; i++) {
+        uint32_t run = (PENGUIN_RLE[i] >> 4) + 1u, c = PENGUIN_RLE[i] & 15u;
+        for (; run; run--, pos++)
+            if (c) {
+                uint32_t x = off + (pos % PENGUIN_W) * PENGUIN_K, y = (pos / PENGUIN_W) * PENGUIN_K, a, b;
+                for (b = 0; b < PENGUIN_K; b++)
+                    for (a = 0; a < PENGUIN_K; a++)
+                        cv_px[(y + b) * 240u + x + a] = swap16(PENGUIN_PAL[c]);
+            }
+    }
+    cv_blit(0, y0);
+    cv_begin(240, 60, C_BLACK);
+    cv_text(120 - text_w(&FONT_L, "BON") / 2, 0, &FONT_L, "BON", RGB(217, 218, 244));
+    cv_text(120 - text_w(&FONT_L, "BLOOP") / 2, 26, &FONT_L, "BLOOP", RGB(102, 103, 171));
+    cv_blit(0, y0 + PENGUIN_H * PENGUIN_K + 2u);
 }
 #else
 #include "sloop_logo.h"
@@ -63,7 +60,7 @@ UI_SMALL static void sloop_logo_draw(uint32_t y0)
 UI_SMALL static void sloop_splash(void)
 {
     lcd_fill(0, 0, 240, 240, C_BLACK);
-    sloop_logo_draw(10);
+    sloop_logo_draw(6);
     const char *v = FELUCCA_VERSION, *sp = v;
     while (*sp && *sp != ' ')
         sp++;

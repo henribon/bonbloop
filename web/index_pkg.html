@@ -44,7 +44,8 @@
            -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
   header .wrap { display: flex; align-items: center; gap: 1.25rem; height: 64px; }
   .logo { display: flex; align-items: center; gap: .7rem; text-decoration: none; }
-  .logo svg { width: 58px; height: 34px; display: block; }
+  .logo svg { width: 111px; height: 36px; display: block; }   /* (BONBLOOP 1.0: the penguin and BON / BLOOP, 111 x 36:
+                                                       * whole pixels only, or a letter loses a column) */
   .logo svg > rect:first-child { fill: transparent; }   /* (the logo's own black ground: the bar's) */
   .ver { font: 600 .78rem/1 var(--pix); color: var(--violet); border: 1px solid rgba(139, 92, 246, .45);
          padding: .3rem .45rem .25rem; letter-spacing: .06em; }
@@ -353,12 +354,12 @@ const TEXT = {
     k3: "ソング・モード：セクション A〜D とチェイン、リアルタイム録音と FREE TAKE",
     k4: "ブラウザのエディタ：音色、パターン、サンプル、バックアップ",
     k5: "SLOOP のプロジェクト・プリセット・サンプルをそのまま開けます",
-    newTitle: "最初の正式リリース",
+    newTitle: "バージョン",
     n1: "ノートはキーを離したところで終わる：録音で 1/8 ステップ単位、NOTES → LEN はミリ秒",
     n2: "どのエフェクトのページも KNOB 1 がそのレベル（MIX か SEND）：FX MIX のフェーダーと同じ値",
     n3: "CLIP はソフト・クリッパーの画面：伝達カーブ、シーリング、IN / OUT メーター。OCT− + OCT+ でエフェクトを初期値に",
     n4: "LOAD と NEW はすぐに保存：直後に電源を切っても、そのプロジェクトで起動",
-    n5: "ひとつの見た目、Very Peri。レイヤーを押している間はスケールの光が消える",
+    n5: "1.0.1：ロゴはマゼランペンギンのピクセルアート、FM-1 の起動画面にも",
     instTitle: "インストール", instSub: "ブラウザから、USB で。プロジェクトはそのまま残ります（念のため、先にエディタでバックアップを）。",
     s1: "FM-1 をパソコンに USB で直接つなぐ（データ通信用のケーブル）。",
     s2: "このページを Chrome か Edge で開き、MIDI（SysEx）の使用を許可する。",
@@ -424,12 +425,12 @@ const TEXT = {
     k3: "Song mode (sections A–D, chains), live recording and free takes",
     k4: "The browser editor: sounds, patterns, samples, backups",
     k5: "Opens SLOOP's projects, presets and samples as they are",
-    newTitle: "The first official release:",
+    newTitle: "What's in",
     n1: "Notes end where you let go: recorded to 1/8 of a step, NOTES → LEN in milliseconds",
     n2: "Every effect page starts with its level on KNOB 1 (MIX or SEND), the same value as its fader on FX MIX",
     n3: "CLIP drawn as a soft clipper (transfer curve, ceiling, IN / OUT meters); OCT− + OCT+ resets an effect",
     n4: "A LOAD or a NEW is kept at once: switched off right after, it comes back",
-    n5: "One look, Very Peri; the scale lights step aside while a layer is held",
+    n5: "1.0.1: a Magellanic penguin in pixel art as the logo, on the FM-1's boot screen too",
     instTitle: "Install", instSub: "From the browser, over USB. Your projects stay on the FM-1 (back them up with the editor first, to be safe).",
     s1: "Plug the FM-1 straight into the computer by USB (a data cable).",
     s2: "Open this page in Chrome or Edge and allow MIDI (SysEx) when asked.",
