@@ -559,18 +559,22 @@ static const page_t PAGES[] = {
     {"FX CHAIN", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C1, VX0 + SX_C2, VX0 + SX_C3, VX0 + SX_C4}},   /* FX */
     {"CHAIN 2", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_C5, VX0 + SX_C6, VX0 + SX_C7, 0xFF}},
     /* (1.6) the chain is the project's (the synth's tracks); 1.7: FX MIX, each effect of the chain in its order, how
-     * much of it this track has: DRIVE PHASER FILTER EQ their MIX (dry / wet), CHORUS DELAY REVERB their send */
+     * much of it this track has: DRIVE PHASER FILTER their MIX (dry / wet), CHORUS DELAY REVERB their send (1.0: the EQ
+     * none, always all of it). (1.0) Each effect's page starts with that same value on KNOB 1 (MIX or SEND: one value,
+     * turned on either page), then the effect's own; the returns of CHORUS DELAY REVERB are fixed (fx.c) */
     {"FX MIX", FAM_SYN, SC_TRACK, GR_FX, {VS0, VS0 + 1u, VS0 + 2u, VS0 + 3u}},
     {"FX MIX 2", FAM_SYN, SC_TRACK, GR_FX, {VS0 + 4u, VS0 + 5u, VS0 + 6u, 0xFF}},   /* (five effects or more) */
-    {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE, VP0 + WV_PUN}},   /* (fx.c: DIST) */
+    {"DRIVE", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_MXD, P_DIST, VP0 + WV_DSTY, VP0 + WV_DTONE}},   /* (fx.c: DIST; 1.0:
+                                                                         * MIX first, P_DIST shown as DRIVE) */
+    {"DRIVE 2", FAM_SYN, SC_TRACK, GR_NONE, {VP0 + WV_PUN, 0xFF, 0xFF, 0xFF}},   /* (1.0: PUNSH, MIX took its place) */
     {"PHASER", FAM_SYN, SC_TRACK, GR_INS, {P_IMIX, P_IA, P_IB, P_IC}},       /* the INSERT as a PHASER */
-    {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {P_TFLT, 0xFF, 0xFF, 0xFF}},     /* the track's filter */
+    {"DJ FILT", FAM_SYN, SC_TRACK, GR_NONE, {VX0 + SX_MXF, P_TFLT, 0xFF, 0xFF}},   /* the track's filter (1.0: its MIX) */
     {"EQ 1", FAM_SYN, SC_TRACK, GR_EQ, {VX0 + SX_EF1, VX0 + SX_EG1, VX0 + SX_EF2, VX0 + SX_EG2}},   /* (1.5) LOW, MID 1 */
     {"EQ 2", FAM_SYN, SC_TRACK, GR_EQ, {VX0 + SX_EF3, VX0 + SX_EG3, VX0 + SX_EF4, VX0 + SX_EG4}},   /* MID 2, HIGH */
-    {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, VG0 + VG_CMIX}},
+    {"CHORUS", FAM_SYN, SC_TRACK, GR_NONE, {P_CHOR, VG0 + VG_CRATE, VG0 + VG_CDEPTH, 0xFF}},   /* (1.0: no return MIX) */
     {"DELAY", FAM_SYN, SC_TRACK, GR_NONE, {P_DLY, VG0 + VG_DTIME, VG0 + VG_DFDBK, VG0 + VG_DFIX}},   /* (MODE) */
-    {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, VG0 + VG_DMIX, 0xFF, 0xFF}},
-    {"REVERB", FAM_SYN, SC_TRACK, GR_NONE, {P_REV, VG0 + VG_RSIZE, VG0 + VG_RDAMP, VG0 + VG_RMIX}},
+    {"DELAY 2", FAM_SYN, SC_TRACK, GR_NONE, {VG0 + VG_DCOLOR, 0xFF, 0xFF, 0xFF}},
+    {"REVERB", FAM_SYN, SC_TRACK, GR_NONE, {P_REV, VG0 + VG_RSIZE, VG0 + VG_RDAMP, 0xFF}},
     {"PRESET", FAM_SYN, SC_GLOBAL, GR_USER, {0xFF, 0xFF, 0xFF, 0xFF}},   /* (1.7) SAVE: the user presets, SLOT LOAD ERASE
                                                                       * SAVE (as SAVE > USER) */
 };
@@ -597,9 +601,9 @@ static int page_for_drum(const page_t *pg)
 static uint32_t syn_fx_of(const page_t *pg)
 {
     switch (pg->id[0]) {
-    case P_DIST: return pg->id[1] == VP0 + WV_DSTY ? FXI_DRIVE : 0;   /* (TRACK FX, starting with DST too: always) */
+    case VX0 + SX_MXD: case VP0 + WV_PUN: return FXI_DRIVE;   /* (1.0: DRIVE starts with its MIX; DRIVE 2) */
     case P_IMIX: return FXI_PHASER;
-    case P_TFLT: return FXI_FILTER;
+    case VX0 + SX_MXF: return FXI_FILTER;
     case P_CHOR: return FXI_CHORUS;
     case P_DLY: case VG0 + VG_DCOLOR: return FXI_DELAY;
     case P_REV: return FXI_REVERB;
@@ -636,7 +640,7 @@ static const param_desc_t *wave_field(uint32_t id, int16_t **valp)
 static uint32_t page_id(const page_t *pg, uint32_t slot)
 {
     static const uint8_t FX_AMT[FXI_N] = {0xFF, VX0 + SX_MXD, VX0 + SX_MXP, VX0 + SX_MXF, P_CHOR, P_DLY, P_REV,
-                                          VX0 + SX_MXE};
+                                          0xFF};   /* (1.0: the EQ, no MIX) */
     uint32_t id = pg->id[slot];
     if (id >= VS0 && id < VS0 + SX_NSLOT)
         return FX_AMT[(uint32_t)sx_get(0, SX_C1 + id - VS0) % FXI_N];
@@ -699,6 +703,14 @@ static const param_desc_t *page_desc(const page_t *pg, uint32_t slot, int16_t **
         m[slot & 3u] = *d;
         m[slot & 3u].label = N_FXID[(uint32_t)sx_get(0, SX_C1 + id - VS0) % FXI_N];
         return &m[slot & 3u];
+    }
+    if (d && pg->fam == FAM_SYN && (id == P_DIST || id == P_CHOR || id == P_DLY || id == P_REV)) {   /* (1.0) the synth's
+                                                       * effect pages: the drive's amount DRIVE, a send effect's level SEND
+                                                       * (as FX MIX shows it under the effect's name) */
+        static param_desc_t e;
+        e = *d;
+        e.label = id == P_DIST ? "DRIVE" : "SEND";
+        return &e;
     }
     if (d && id == G_DRCLIP) {                         /* (1.8) FX > CLIP: the amount is its DRIVE (CLIP on the MIXER) */
         static param_desc_t c;

@@ -1545,7 +1545,7 @@ int main(int argc, char **argv)
         tap(B_HOME); frames(2);
         check(vis_shown() && vis_on, "visualiser: HOME on HOME opens it");
         vis_style = 0; ui.force = 1;
-        for (st = 0; st < 12u; st++) {
+        for (st = 0; st < VIS_N; st++) {                /* (BONBLOOP 1.0: 11, SLOOP's boat gone) */
             char nm[80];
             frames(st == 0u ? 40u : 70u);           /* (past the name's second) */
             ui.force = 1; frames(2);
@@ -1558,6 +1558,8 @@ int main(int argc, char **argv)
             check(lit > (st == 3u ? 400u : 1500u) && vis_style == st, nm);   /* (Lissajous: points) */
             encs[panel.enc[EN_SELECT]] = 1; frame();
         }
+        frames(73);                                 /* (the 12th style's frames, as before 1.0: the tests after
+                                                     * this one count on the audio's time) */
         {   /* MASTER at 0: silence out, the picture as if MASTER were all the way up */
             uint32_t m0 = song.master_q12, pk = 0, op = 0, b;
             static int32_t o2[CTL * 2];
@@ -1569,11 +1571,17 @@ int main(int argc, char **argv)
             check(op < 64u && pk > 2000u && lit > 1500u, "visualiser: MASTER at 0: no sound, the picture as at full volume");
             song.master_q12 = m0; frames(4);
         }
-        check(vis_style == 0u, "visualiser: SELECT goes round (12 -> 1)");
+        check(vis_style == 0u && VIS_N == 11u, "visualiser: SELECT goes round (11 -> 1)");
         encs[panel.enc[EN_SELECT]] = -1; frames(2);
-        check(vis_style == 11u && (lights_word() >> 17 & 15u) == 11u, "visualiser: SELECT left: SLOOP (12), kept in the settings word");
+        check(vis_style == 10u && (lights_word() >> 17 & 15u) == 10u, "visualiser: SELECT left: WIRES (11), kept in the settings word");
         lights_from_word(lights_word());
-        check(vis_style == 11u, "visualiser: the style read back");
+        check(vis_style == 10u, "visualiser: the style read back");
+        {   /* (BONBLOOP 1.0) a settings word with SLOOP's 12th style (the boat): OSCILLOSCOPE; back to WIRES */
+            uint32_t w = lights_word();
+            lights_from_word((w & ~(15u << 17)) | 11u << 17);
+            check(vis_style == 0u, "1.0 visualiser: SLOOP's boat (style 12) saved before: OSCILLOSCOPE");
+            lights_from_word(w);
+        }
         { int16_t bpm = song.g[G_BPM], lv = trk[0].p[P_LEVEL];
           encs[panel.enc[EN_K2]] = 5; frame();
           check(trk[0].p[P_LEVEL] == lv && song.g[G_BPM] == bpm, "visualiser: KNOB 2 (the hidden TRACKS screen) edits nothing, SELECT is not the tempo"); }

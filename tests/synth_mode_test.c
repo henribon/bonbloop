@@ -288,16 +288,34 @@ int main(int argc, char **argv)
         }
         tap(B_FX);
         check(str_eq(pg_title(), "DRIVE"), "FX: then DRIVE (FX MIX 2 hidden: four effects)");
-        turn(EN_K1, 30);
-        turn(EN_K2, 3);
-        turn(EN_K4, 1);
-        check(TSEL->p[P_DIST] > 60 && field(WV_DSTY) == 3 && field(WV_PUN) == 1, "DRIVE: KNOB 1 the drive, KNOB 2 style T, KNOB 4 PUNISH");
+        {   /* (BONBLOOP 1.0) KNOB 1 the drive's MIX, the same value as FX MIX's DRIVE; KNOB 2 the drive (DST: DRIVE) */
+            int16_t *v0, *v1;
+            const param_desc_t *d0 = page_desc(cur_page(), 0, &v0), *d1 = page_desc(cur_page(), 1, &v1);
+            turn(EN_K1, -3);
+            check(d0 && str_eq(d0->label, "MIX") && d1 && str_eq(d1->label, "DRIVE") && sx_get(part, SX_MXD) == 12,
+                  "1.0 DRIVE: KNOB 1 MIX (FX MIX's DRIVE: one value), KNOB 2 DRIVE (the amount, was DST)");
+            turn(EN_K1, 3);
+        }
+        turn(EN_K2, 30);
+        turn(EN_K3, 3);
+        check(TSEL->p[P_DIST] > 60 && field(WV_DSTY) == 3 && sx_get(part, SX_MXD) == 15, "DRIVE: KNOB 2 the drive, KNOB 3 style T");
         shot("synth-drive");
+        tap(B_FX);
+        check(str_eq(pg_title(), "DRIVE 2"), "1.0 FX again: DRIVE 2 (PUNSH)");
+        turn(EN_K1, 1);
+        check(field(WV_PUN) == 1, "1.0 DRIVE 2: KNOB 1 PUNSH");
         tap(B_FX);
         check(str_eq(pg_title(), "PHASER"), "FX again: PHASER");
         shot("synth-phaser");
         tap(B_FX);
         check(str_eq(pg_title(), "DJ FILT"), "FX again: DJ FILT (in the chain)");
+        {   /* (1.0) DJ FILT: KNOB 1 its MIX, FX MIX's FILTER */
+            int16_t *v0;
+            const param_desc_t *d0 = page_desc(cur_page(), 0, &v0);
+            turn(EN_K1, -1);
+            check(d0 && str_eq(d0->label, "MIX") && sx_get(part, SX_MXF) == 14, "1.0 DJ FILT: KNOB 1 MIX (FX MIX's FILTER)");
+            turn(EN_K1, 1);
+        }
         tap(B_FX);
         check(str_eq(pg_title(), "DELAY"), "FX again: DELAY (CHORUS hidden)");
         turn(EN_K2, -5);
@@ -385,7 +403,7 @@ int main(int argc, char **argv)
             frames(4);
             p2 = peak_of(200);
             snprintf(b, sizeof b, "EQ LOW up to 16 kHz: peak %d flat, %d at +15 dB (the limiter), %d at -15 dB", p0, p1, p2);
-            check(p1 >= p0 && p2 * 4 < p0, b);
+            check(p1 + 16 >= p0 && p2 * 4 < p0, b);       /* (1.0: the chorus' return full: flat at the limiter too) */
             turn(EN_K2, 15);
             turn(EN_K3, 40 - sx_get(part, SX_EF2));
             turn(EN_K4, 9);

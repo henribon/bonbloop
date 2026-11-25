@@ -140,17 +140,18 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
 | | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
-| | FX MIX | **um fader por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER, FILTER e EQ o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio |
+| | FX MIX | **um fader por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER e FILTER o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio. É **o mesmo valor do KNOB 1 da página de cada efeito**: mexeu num, mexeu no outro (1.0). O EQ não tem MIX (soa sempre inteiro) |
 | | FX MIX 2 | os efeitos dos slots 5 a 7 (só aparece com 5 efeitos ou mais) |
-| | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
+| | DRIVE | **MIX** (seco / molhado, o do FX MIX) · **DRIVE** (o quanto distorce; 0 desliga; era o DST) · STYLE (A E N T P) · TONE |
+| | DRIVE 2 | PUNSH (1.0: saiu da página DRIVE para o MIX caber) |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
-| | DJ FILT | FILT (filtro DJ do track) |
+| | DJ FILT | **MIX** (o do FX MIX) · FILT (filtro DJ do track) |
 | | EQ 1 | LOW (Hz) · GAIN · MID1 (Hz) · GAIN — com a curva (1.5) |
 | | EQ 2 | MID2 (Hz) · GAIN · HIGH (Hz) · GAIN — com a curva |
-| | CHORUS | MOD (envio) · CRT · CDP · **MIX** (o retorno, 1.6) — o TYPE (chorus / flanger / phaser) fica em FX → MOD |
+| | CHORUS | **SEND** (o envio, o do FX MIX) · CRT · CDP — o TYPE (chorus / flanger / phaser) fica em FX → MOD |
 | | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
-| | DELAY 2 | COLR · MIX |
-| | REVERB | REV (envio) · SIZE · DAMP · **MIX** (o retorno, 1.6) |
+| | DELAY 2 | COLR |
+| | REVERB | **SEND** (o envio, o do FX MIX) · SIZE · DAMP |
 | **SAVE** | PRESET | SLOT · LOAD · ERASE · SAVE — **salvar o som** (1.7) |
 
 As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
@@ -426,10 +427,19 @@ para confirmar) cola nela. De uma track de synth para outra de synth, da bateria
 tela avisa *DRUMS / SYNTH: NO*). Os locks só vão junto se a outra track tiver o mesmo engine. **EDIT + OCT−** desfaz o
 PASTE.
 
-### MIX do reverb e do chorus (1.6)
+### O nível de cada efeito: MIX e SEND (1.0)
 
-Reverb e chorus são envios: a quantidade em cada track é o som molhado, e o seco fica inteiro. O **MIX** de cada um
-(nas páginas REVERB / CHORUS do modo synth) é o nível do retorno, como o MIX do delay.
+No modo synth, **o KNOB 1 de toda página de efeito é o nível dele**, e é **o mesmo valor** do fader daquele efeito no
+**FX MIX** (mexeu num, o outro acompanha):
+
+- **DRIVE, PHASER e DJ FILT** são efeitos de inserção: o KNOB 1 é o **MIX** (seco / molhado). No DRIVE, o KNOB 2
+  **DRIVE** é *quanto* distorce; o MIX é *quanto da distorção* aparece.
+- **CHORUS, DELAY e REVERB** são envios: o KNOB 1 é o **SEND**, quanto deste track vai para o efeito. O retorno deles
+  ficou fixo (o chorus e o reverb inteiros, o delay no nível de sempre do SLOOP): só há um nível para mexer.
+- O **EQ** não tem MIX: soa sempre inteiro (um EQ meio seco quase nunca é útil).
+
+Da 1.6 à 1.9.2 o chorus, o delay e o reverb tinham também um MIX de retorno nas páginas deles, e o DRIVE chamava a
+distorção de DST: dois "níveis" com nomes parecidos para coisas diferentes.
 
 ### REC em tempo real (1.5)
 

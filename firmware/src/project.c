@@ -840,12 +840,15 @@ UI_SMALL static void project_load(uint32_t slot)
         return;
     }
     project_apply(p);
+    autosave_req = 1;                                   /* (BONBLOOP 1.0: switched off right after, it comes back) */
     ui_say("LOADED SECTION ", SEC_NAME[slot & 3u]);
 }
 
 /* ---- the working project, kept in flash by itself: saved when it changed, the transport is stopped,
  * nothing sounds and the panel was not touched for AUTOSAVE_IDLE (a flash erase stops the audio for
- * ~50 ms: never while something plays); loaded at power-on (autosave_resume) */
+ * ~50 ms: never while something plays); loaded at power-on (autosave_resume). (BONBLOOP 1.0) A LOAD or a NEW
+ * (autosave_req) is saved at once, the transport stopped: up to 1.9.2 it waited for AUTOSAVE_GAP and a quiet panel, and
+ * the FM-1 switched off after a LOAD and a play came back with the project from before it */
 #define AUTOSAVE_IDLE 2500u                    /* ms without input */
 #define AUTOSAVE_GAP 20000u                    /* ms between two saves at least */
 static project_t autosave_buf __attribute__((section(".pool")));
@@ -869,13 +872,16 @@ UI_SMALL static void autosave_tick(void)                /* main loop */
 #if FELUCCA_FLASH
     uint32_t h, now = fm1_ms;
     if (!flash_ok || song.playing || transport_req || rec_wait || ft_on || ui.menu ||
-        now - ui_input_ms < AUTOSAVE_IDLE || now - autosave_ms < AUTOSAVE_GAP || now - autosave_checked < 1000u)
+        (!autosave_req && (now - ui_input_ms < AUTOSAVE_IDLE || now - autosave_ms < AUTOSAVE_GAP || now - autosave_checked < 1000u)))
         return;
     autosave_checked = now;
     proj_capture(&autosave_buf);
     h = proj_tag(&autosave_buf);
-    if (h == autosave_hash || !audio_quiet())
+    if (h == autosave_hash || (!autosave_req && !audio_quiet())) {
+        autosave_req = 0;
         return;
+    }
+    autosave_req = 0;
     if (proj_store(OBJ_AUTOSAVE, &autosave_buf) == 0)
         autosave_hash = h;
     autosave_ms = fm1_ms;

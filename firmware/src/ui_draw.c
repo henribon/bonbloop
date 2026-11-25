@@ -518,8 +518,14 @@ UI_SMALL static void graph_fx(const track_t *t, uint16_t c)
         const param_desc_t *d = page_desc(cur_page(), i, &vp);
         int32_t x = (int32_t)i * 60 + 30, h, w;
         uint16_t col = ui.big_c[i] == C_WHITE ? C_WHITE : TE_COL[i];
-        if (!d || !vp || d->max == d->min)
+        if (!d || !vp || d->max == d->min) {
+            uint32_t id = cur_page()->id[i];
+            if (id >= VS0 && id < VS0 + SX_NSLOT && sx_get(0, SX_C1 + id - VS0) == FXI_EQ) {   /* (1.0) the EQ: no MIX */
+                cv_text(x - text_w(&FONT_S, "--") / 2, 88, &FONT_S, "--", C_DIM);
+                cv_text(x - text_w(&FONT_T, "EQ") / 2, 108, &FONT_T, "EQ", C_DIM);
+            }
             continue;
+        }
         h = (clamp(*vp, d->min, d->max) - d->min) * 72 / (d->max - d->min);
         for (k = 0; k <= 4u; k++)
             cv_rect(x - 14, 8 + (int32_t)k * 18, 6, 1, TE_G2);

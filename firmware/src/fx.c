@@ -199,7 +199,8 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
     int32_t fb = song.g[G_DFDBK] * 230, col = 2000 + song.g[G_DCOLOR] * 240;
     if (thr_dly && fb < 89 * 230)                       /* ECHO THROW: FDBK at least 70 %, gliding with it (2.6) */
         fb += ((89 * 230 - fb) * thr_dly) >> 15;
-    int32_t dmix = song.g[G_DMIX] * 258;
+    int32_t dmix = 90 * 258;                            /* (BONBLOOP 1.0: the delay's return fixed, G_DMIX's default; up to
+                                                         * 1.9.2 the synth's DELAY 2 MIX) */
     int32_t g = 17000 + song.g[G_RSIZE] * 104, lpk = 32767 - song.g[G_RDAMP] * 200;   /* loop gain (RT60 ~0.4..4 s), damping */
     int32_t frnd = rev_frz ? 128 : 0;                  /* FREEZE: what is in the lines stays there (below: no
                                                          * loss, rounded to nearest; 0: as always, bit for bit) */
@@ -236,8 +237,6 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
         fx.cho_w++;
         if (mt)
             yl = ml[i], yr = mr[i];
-        if (song.g[G_CMIX] < 127)                       /* (BONBLOOP 1.6) the chorus' MIX: its return */
-            yl = mulq15(yl, song.g[G_CMIX] * 258), yr = mulq15(yr, song.g[G_CMIX] * 258);
         /* delay with a low-passed feedback (in the middle) */
         x = dly_buf[(fx.dly_w - dl) & (DLY_LEN - 1u)];
         fx.dly_lp += mulq15(x - fx.dly_lp, col);
@@ -296,10 +295,8 @@ static void fx_buses(const int32_t *cho_in, const int32_t *dly_in, const int32_t
             if (++fx.line_i[2] >= REV_LINE[2]) fx.line_i[2] = 0;
             if (++fx.line_i[3] >= REV_LINE[3]) fx.line_i[3] = 0;
         }
-        if (song.g[G_RMIX] < 127)                       /* (BONBLOOP 1.6) the reverb's MIX: its return */
-            wet_l[i] = yl + mulq15(o0 + o2, song.g[G_RMIX] * 258), wet_r[i] = yr + mulq15(o1 - o3, song.g[G_RMIX] * 258);
-        else
-            wet_l[i] = yl + o0 + o2, wet_r[i] = yr + o1 - o3;
+        wet_l[i] = yl + o0 + o2, wet_r[i] = yr + o1 - o3;   /* (BONBLOOP 1.0: the chorus' and the reverb's returns full;
+                                                         * 1.6 .. 1.9.2: their MIX on the synth's pages) */
         rev_l[i] = o0 + o2;
         rev_r[i] = o1 - o3;
     }
@@ -778,8 +775,8 @@ static void track_fx_core(track_t *t, int32_t *b, uint32_t n, uint32_t fx);
 static void track_fx_run(track_t *t, int32_t *b, uint32_t n, uint32_t fx)
 {
     uint32_t part = (uint32_t)(t - trk), i;
-    int32_t dry[CTL], m = part < NPART && fx != FXI_PHASER ? sx_get(part, fx == FXI_DRIVE ? SX_MXD : fx == FXI_EQ ? SX_MXE
-                                                                                                         : SX_MXF) : 15;
+    int32_t dry[CTL], m = part < NPART && fx != FXI_PHASER && fx != FXI_EQ ? sx_get(part, fx == FXI_DRIVE ? SX_MXD : SX_MXF)
+                                                                         : 15;   /* (BONBLOOP 1.0: the EQ, all of it) */
     if (m < 15)                                         /* (BONBLOOP 1.6) its MIX: the dry kept (n <= CTL) */
         for (i = 0; i < n && i < CTL; i++)
             dry[i] = b[i];
