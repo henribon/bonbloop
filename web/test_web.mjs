@@ -1478,12 +1478,12 @@ function editorTabs() {
   {   /* 2.4: the device's palette as tokens (:root), used through var(--...); outside them only #000 (text on a colour) */
     const css = html.slice(html.indexOf("<style>"), html.indexOf("</style>")).replace(/:root\s*\{[^}]*\}/g, "");
     const hex = [...css.matchAll(/#[0-9a-f]{3,6}\b/gi)].map((m) => m[0].toLowerCase()).filter((c) => c !== "#000");
-    ok(!hex.length && /--t1: #287cff; --t2: #1ecc70; --t3: #ffc618; --t4: #ff621a;/.test(html),
-      "editor: the track colours of the device (gfx.c TE_COL_DEF), colours only as tokens" + (hex.length ? ` (${hex.join(" ")})` : ""));
+    ok(!hex.length && /--t1: #d9daf4; --t2: #3ba488; --t3: #8b5cf6; --t4: #9c9dd8;/.test(html),
+      "editor: BONBLOOP's track colours (lilac, green, violet, light Very Peri), colours only as tokens" + (hex.length ? ` (${hex.join(" ")})` : ""));
     const te = readFileSync(join(HERE, "../firmware/src/gfx.c"), "utf8");   /* (BONBLOOP 1.9.2: one look on the FM-1) */
     ok(/TE_COL\[k\] = RGB\(217, 218, 244\)/.test(te) && !/TE_COL_DEF/.test(te),
       "editor: ... SLOOP's four, the editor's own (BONBLOOP 1.9.2: the FM-1 draws every track in PERI's lilac)");
-    ok(/SLOOP-FONT\*\/url\(data:font\/ttf;base64,[A-Za-z0-9+\/=]{20000,}\)/.test(html), "editor: the device's Terminus font inlined (tools/gen_webfont.py)");
+    ok(/BONBLOOP-FONT\*\/url\(data:font\/ttf;base64,[A-Za-z0-9+\/=]{20000,}\)/.test(html), "editor: the FM-1's Pixelify Sans inlined (tools/gen_webfont.py)");
   }
 }
 
