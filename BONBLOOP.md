@@ -16,6 +16,10 @@ cima, com a sua própria cara:
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
+**Versão 1.0.1** — o **logo do BONBLOOP** ganhou um **pinguim-de-Magalhães** em pixel art, a cabeça de lado, ao lado
+do BON / BLOOP: na **tela de boot** do FM-1 (o pinguim grande, BON / BLOOP embaixo), no site, no editor, no ícone do
+app e nas imagens de divulgação. E o "P" do BLOOP, que saía cortado no logo do site e do editor, aparece inteiro.
+
 **Versão 1.0** — o **primeiro lançamento oficial**. Junta tudo o que veio nas versões de desenvolvimento abaixo e traz:
 **o nível de cada efeito no KNOB 1** de todas as páginas de efeito do modo synth — **MIX** (seco / molhado) no DRIVE,
 no PHASER e no DJ FILT, **SEND** no CHORUS, no DELAY e no REVERB —, o **mesmo valor** do fader daquele efeito no **FX
@@ -598,7 +602,7 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.0: 577.512 de 581.564 bytes de flash (4,0 KB livres; para caber, o desenho de texto ficou só com o
+Tamanho do 1.0.1: 577.868 de 581.564 bytes de flash (3,6 KB livres; o pinguim da tela de boot ocupa 385 bytes; para caber, o desenho de texto ficou só com o
 caminho de 1 bit, a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus; o estado da bateria começa
 zerado, sem ocupar flash com o valor inicial; uma paleta só; e sem o estilo do barquinho); RAM 60.924 de 98.304
 bytes, pool igual ao do SLOOP.

@@ -10,8 +10,8 @@ own.
 **[Install from the browser](https://bonbap.com.br/bonbloop/)** (Chrome or Edge, the FM-1 on USB) ·
 **[Guia completo em português](BONBLOOP.md)** · [Web editor](https://bonbap.com.br/bonbloop/webapp/editor/)
 
-> **Version 1.0** — the first official release ([release notes](../../releases/tag/v1.0)). Custom firmware is
-> installed at your own risk, with no warranty.
+> **Version 1.0.1** ([release notes](../../releases/tag/v1.0.1)); 1.0 was the first official release. Custom firmware
+> is installed at your own risk, with no warranty.
 
 ---
 
@@ -58,7 +58,8 @@ it stays on, so KNOB 1 changes its rate while you play.
 
 **Chords.** Voicings on SEL (inversions, drop 2 and 3, spread, +bass); every triplet on the arp and the delay.
 
-**One look.** The **Pixelify Sans** pixel font and Pantone **Very Peri** on black — the only palette. Knobs only where
+**One look.** A Magellanic penguin's head in pixel art as the logo (on the FM-1's boot screen too), the
+**Pixelify Sans** pixel font and Pantone **Very Peri** on black — the only palette. Knobs only where
 the value is a sound (a level, a time, a cutoff); value windows where you choose something; violet for what is on.
 
 **Its own identity: `FM-1_962`.** The update loader is Felucca's: an interrupted install resumes, and any other FM-1

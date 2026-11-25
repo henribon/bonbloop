@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """BONBLOOP's look outside the FM-1, in the FM-1's own font (Terminus Bold 8x16, assets/fonts) and colours.
 
-  tools/gen_bonbloop_brand.py logo              assets/logo/bonbloop-logo.svg and web/icon-*.png (the site's, web/make_site.py)
+  tools/gen_bonbloop_brand.py logo              assets/logo/bonbloop-logo.svg (1.0: the penguin and BON / BLOOP),
+                                                assets/logo/bonbloop-wordmark.svg and web/icon-*.png (the penguin)
   tools/gen_bonbloop_brand.py promo SCREENS OUT  the promo images (1600x900 and 1080x1080 PNG) into OUT, from the
                                                 device screens SCREENS/synth-*.ppm (tests/synth_mode_test.c writes them)
 
@@ -77,19 +78,99 @@ def pixelify_word(text):
     return out, pen - 1
 
 
-def logo_svg():
+PENGUIN = ROOT / "assets" / "logo" / "bonbloop-penguin.png"   # (BONBLOOP 1.0) the mark: a Magellanic penguin's head,
+                                                            # pixel art, 1 px a pixel, transparent around it
+
+
+def penguin_rects(ox=0, oy=0):
+    """the penguin as SVG rects (a row's runs of one colour as one rect), its width and height"""
+    from PIL import Image
+    im = Image.open(PENGUIN).convert("RGBA")
+    px = im.load()
+    out = []
+    for y in range(im.height):
+        x = 0
+        while x < im.width:
+            r, g, b, a = px[x, y]
+            if a < 128:
+                x += 1
+                continue
+            x0 = x
+            while x < im.width and px[x, y] == (r, g, b, a):
+                x += 1
+            out.append(f'<rect x="{ox + x0}" y="{oy + y}" width="{x - x0}" height="1" fill="#{r:02X}{g:02X}{b:02X}"/>')
+    return out, im.width, im.height
+
+
+def wordmark_rects(ox=0, oy=0, k=1):
     """BON over BLOOP, as the boot screen draws it (splash.c, BONBLOOP 1.7): the FM-1's font, BON in light lilac
-    #D9DAF4, BLOOP in Very Peri #6667AB. Pixel runs as rects; the first rect is the background (the installer's CSS
-    makes it transparent)"""
-    bon, wb = pixelify_word("BON")
-    bloop, wl = pixelify_word("BLOOP")
-    w, h, gap = wl, 7 * 2 + 3, 3
-    rects = [f'<rect width="{w}" height="{h}" fill="#000"/>']
-    for pts, ox, oy, col in ((bon, (wl - wb) // 2, 0, "#D9DAF4"), (bloop, 0, 7 + gap, "#6667AB")):
-        for x, y in sorted(pts, key=lambda p: (p[1], p[0])):
-            rects.append(f'<rect x="{ox + x}" y="{oy + y}" width="1" height="1" fill="{col}"/>')
+    #D9DAF4, BLOOP in Very Peri #6667AB, k screen pixels a pixel; its rects, width and height"""
+    bon, _ = pixelify_word("BON")
+    bloop, _ = pixelify_word("BLOOP")
+    wb, wl = max(x for x, _ in bon) + 1, max(x for x, _ in bloop) + 1   # (1.0: the lit pixels' width: pixelify_word's
+    gap = 3                                                              # is one less, and BLOOP's P lost its right side)
+    out = []
+    for pts, x0, y0, col in ((bon, (wl - wb) // 2, 0, "#D9DAF4"), (bloop, 0, 7 + gap, "#6667AB")):
+        for x, y in sorted(pts, key=lambda q: (q[1], q[0])):
+            out.append(f'<rect x="{ox + (x0 + x) * k}" y="{oy + (y0 + y) * k}" width="{k}" height="{k}" fill="{col}"/>')
+    return out, wl * k, (7 * 2 + gap) * k
+
+
+def svg(w, h, rects):
+    """the first rect is the background (the installer's CSS makes it transparent)"""
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {w} {h}" shape-rendering="crispEdges" '
-            f'role="img" aria-label="BONBLOOP">' + "".join(rects) + "</svg>\n")
+            f'role="img" aria-label="BONBLOOP"><rect width="{w}" height="{h}" fill="#000"/>' + "".join(rects) + "</svg>\n")
+
+
+LOGO_W, LOGO_H = 111, 36                                   # (the logo's size in its pixels: logo_svg)
+
+
+def logo_png(path):
+    """the logo as a PNG, 1 px a pixel, transparent around it (the promo pages scale it, pixelated)"""
+    import re
+    from PIL import Image, ImageDraw
+    s = logo_svg()
+    w, h = (int(v) for v in re.search(r'viewBox="0 0 (\d+) (\d+)"', s).groups())
+    assert (w, h) == (LOGO_W, LOGO_H), (w, h)
+    im = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    for i, m in enumerate(re.finditer(r'<rect ([^/]*)/>', s)):
+        if i == 0:
+            continue                                     # (the ground)
+        a = dict(re.findall(r'(\w+)="([^"]+)"', m.group(1)))
+        x, y = int(a.get("x", 0)), int(a.get("y", 0))
+        d.rectangle([x, y, x + int(a["width"]) - 1, y + int(a["height"]) - 1], fill=a["fill"])
+    im.save(path)
+    return path
+
+
+def editor_logo():
+    """the editor's logo (web/editor.html, between <!--LOGO--> and <!--/LOGO-->): the logo SVG inline"""
+    import re
+    p = ROOT / "web" / "editor.html"
+    s = p.read_text(encoding="utf-8")
+    new, k = re.subn(r"<!--LOGO-->.*?<!--/LOGO-->", lambda m: "<!--LOGO-->" + logo_svg().strip() + "<!--/LOGO-->", s,
+                     flags=re.S)
+    if k != 1:
+        sys.exit("web/editor.html: no <!--LOGO-->...<!--/LOGO-->")
+    p.write_text(new, encoding="utf-8")
+    return p
+
+
+def logo_svg():
+    """(BONBLOOP 1.0) the logo: the penguin's head, then BON / BLOOP at twice its pixel (as thick as the penguin's
+    outline), in the middle of its height"""
+    pen, pw, ph = penguin_rects()
+    _, ww, wh = wordmark_rects(k=2)
+    gap = 6
+    words, _, _ = wordmark_rects(pw + gap, (ph - wh) // 2, 2)
+    return svg(pw + gap + ww, ph, pen + words)
+
+
+def wordmark_svg():
+    """BON / BLOOP alone (1 px a pixel)"""
+    r, w, h = wordmark_rects()
+    return svg(w, h, r)
 
 
 # ------------------------------------------------------------------------------------------------ promo ---
@@ -132,6 +213,13 @@ def promo(screens, out):
     for name in ("synth-osc1-playing", "synth-osc3-vocal", "page-comp", "drums-clip", "page-scale-lights", "synth-boot",
                  "page-tracks"):
         Image.open(screens / f"{name}.ppm").convert("RGB").resize((480, 480), Image.NEAREST).save(html_dir / f"{name}.png")
+    logo_png(html_dir / "logo.png")                     # (BONBLOOP 1.0) the logo, 1 px a pixel: scaled in the pages
+
+    def logo(x, y, k, centre=False):
+        w = LOGO_W * k
+        left = (1080 - w) // 2 if centre else x
+        return (f'<img class="abs" src="logo.png" style="left:{left}px;top:{y}px;width:{w}px;height:{LOGO_H * k}px;'
+                f'image-rendering:pixelated">')
 
     def page(w, h, body):
         return (f'<!doctype html><html><head><meta charset="utf-8">'
@@ -146,7 +234,7 @@ def promo(screens, out):
     def at(x, y, cls, text, style=""):
         return f'<div class="abs {cls}" style="left:{x}px;top:{y}px;{style}">{text}</div>'
 
-    hero = (at(70, 62, "word", "bonbloop", "font-size:150px")
+    hero = (logo(70, 44, 5)
             + at(70, 262, "big", "Groovebox", "font-size:84px")
             + at(70, 366, "sub", "firmware for the M-VAVE FM-1", "font-size:36px")
             + at(70, 470, "line", "synth mode · 3 oscillators", "font-size:30px;color:var(--blue)")
@@ -182,13 +270,13 @@ def promo(screens, out):
         else:
             steps += at(170, y - 16, "line", s, "font-size:38px;text-transform:none;color:var(--fg)")
             y += 70
-    install = (at(70, 62, "word", "bonbloop", "font-size:110px")
+    install = (logo(70, 40, 4)
                + at(70, 196, "big", "install in 1 minute", "font-size:60px")
                + at(70, 268, "sub", "from the browser, over usb", "font-size:26px;color:var(--muted)")
                + steps
                + at(70, 820, "small", "based on sloop + felucca · gpl-3.0 · not affiliated with m-vave", "font-size:20px")
                + scr("synth-boot", 1060, 300, 480, "blue"))
-    square = (at(0, 70, "word", "bonbloop", "width:1080px;text-align:center;font-size:170px")
+    square = (logo(0, 60, 6, centre=True)
               + at(0, 300, "big", "groovebox", "width:1080px;text-align:center;font-size:84px")
               + at(0, 400, "sub", "for the M-VAVE FM-1 · based on sloop", "width:1080px;text-align:center;font-size:36px")
               + scr("synth-osc1-playing", 300, 490, 480, "blue")
@@ -217,27 +305,67 @@ def promo(screens, out):
 
 
 def icons():
-    """the site's app icons (web/icon-*.png, web/make_site.py), in bonbap.com.br's look: bonbap's mark is a grey dot on
-    #0a0a0a; bonbloop's, a grey ring (the loop). The maskable one: the ring inside the middle 60 %, the square full"""
+    """(BONBLOOP 1.0) the site's app icons (web/icon-*.png, web/make_site.py): the penguin's head in the middle of the
+    site's black (#09090c), whole pixels only (nearest); the maskable one inside the middle circle (80 %), the square full"""
     from PIL import Image, ImageDraw
+    pen = Image.open(PENGUIN).convert("RGBA")
     made = []
-    for name, size, frac, rounded in (("icon-192.png", 192, .5, True), ("icon-512.png", 512, .5, True),
-                                      ("icon-maskable-512.png", 512, .38, False)):
-        k = 4                                          # drawn 4x, then down: smooth edges
-        S = size * k
-        img = Image.new("RGBA", (S, S), (0, 0, 0, 0))
+    for name, size, k, rounded in (("icon-192.png", 192, 3, True), ("icon-512.png", 512, 8, True),
+                                   ("icon-maskable-512.png", 512, 6, False)):
+        img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
         d = ImageDraw.Draw(img)
         if rounded:
-            d.rounded_rectangle([0, 0, S - 1, S - 1], radius=S // 4, fill="#0a0a0a")
+            d.rounded_rectangle([0, 0, size - 1, size - 1], radius=size // 5, fill="#09090c")
         else:
-            d.rectangle([0, 0, S - 1, S - 1], fill="#0a0a0a")
-        r, w = int(S * frac / 2), int(S * frac * .22)
-        d.ellipse([S // 2 - r, S // 2 - r, S // 2 + r, S // 2 + r], outline="#cfcfcf", width=w)
-        img = img.resize((size, size), Image.LANCZOS)
+            d.rectangle([0, 0, size - 1, size - 1], fill="#09090c")
+        big = pen.resize((pen.width * k, pen.height * k), Image.NEAREST)
+        img.alpha_composite(big, ((size - big.width) // 2, (size - big.height) // 2))
         p = ROOT / "web" / name
         img.save(p)
         made.append(p)
     return made
+
+
+def penguin_h():
+    """(BONBLOOP 1.0) the penguin for the FM-1's boot screen (splash.c): firmware/src/bonbloop_penguin.h, its colours
+    as RGB565 (0: none, the screen's black) and its pixels row by row as runs, (run - 1) << 4 | colour (SLOOP's logo's
+    format)"""
+    from PIL import Image
+    im = Image.open(PENGUIN).convert("RGBA")
+    px = im.load()
+    seq = [px[x, y] for y in range(im.height) for x in range(im.width)]
+    cols = {}
+    for c in seq:
+        if c[3] >= 128:
+            cols[c[:3]] = cols.get(c[:3], 0) + 1
+    pal = [None] + sorted(cols, key=lambda c: -cols[c])
+    assert len(pal) <= 16, len(pal)
+    idx = [0 if c[3] < 128 else pal.index(c[:3]) for c in seq]
+    rle, i = [], 0
+    while i < len(idx):
+        j = i
+        while j < len(idx) and idx[j] == idx[i] and j - i < 16:
+            j += 1
+        rle.append((j - i - 1) << 4 | idx[i])
+        i = j
+    rgb565 = ["0x0000"] + [f"0x{((r >> 3) << 11) | ((g >> 2) << 5) | (b >> 3):04X}" for r, g, b in pal[1:]]
+    body = ", ".join(f"0x{b:02X}" for b in rle)
+    lines, line = [], "    "
+    for tok in body.split(", "):
+        if len(line) + len(tok) + 2 > 118:
+            lines.append(line.rstrip())
+            line = "    "
+        line += tok + ", "
+    lines.append(line.rstrip().rstrip(","))
+    out = ROOT / "firmware" / "src" / "bonbloop_penguin.h"
+    out.write_text(
+        "/* SPDX-License-Identifier: GPL-3.0-only */\n"
+        "/* BONBLOOP 1.0: the boot screen's penguin (splash.c), made by tools/gen_bonbloop_brand.py logo from\n"
+        " * assets/logo/bonbloop-penguin.png: its colours (RGB565, 0 none) and its pixels as runs, (run - 1) << 4 | colour */\n"
+        f"#define PENGUIN_W {im.width}u\n#define PENGUIN_H {im.height}u\n"
+        f"static const uint16_t PENGUIN_PAL[16] = {{{', '.join(rgb565)}}};\n"
+        f"static const uint8_t PENGUIN_RLE[{len(rle)}] = {{\n" + "\n".join(lines) + "\n};\n", encoding="utf-8")
+    return out, len(rle)
 
 
 def main():
@@ -245,6 +373,11 @@ def main():
         out = ROOT / "assets" / "logo" / "bonbloop-logo.svg"
         out.write_text(logo_svg(), encoding="utf-8")
         print(f"logo: {out} ({out.stat().st_size} B)")
+        print(f"editor: {editor_logo()}")
+        print("boot screen: %s (%d B of runs)" % penguin_h())
+        wm = ROOT / "assets" / "logo" / "bonbloop-wordmark.svg"
+        wm.write_text(wordmark_svg(), encoding="utf-8")
+        print(f"wordmark: {wm}")
         for p in icons():
             print(f"icon: {p}")
     elif len(sys.argv) == 4 and sys.argv[1] == "promo":
