@@ -475,6 +475,7 @@ static struct {
     uint32_t sess;
     step_t st[NSTEP];
     int8_t micro[NSTEP];                                 /* (2.7) the nudges too (REC QUANT OFF writes them) */
+    uint8_t nend[NSTEP];                                 /* (BONBLOOP 1.9.2) and the notes' ends */
 } undo;
 static uint32_t undo_sess = 1;           /* UI sessions (seq.c: recording passes use the track's pass) */
 static void undo_mark(const track_t *t, uint32_t sess)
@@ -484,6 +485,7 @@ static void undo_mark(const track_t *t, uint32_t sess)
         return;                                          /* (this session is marked already) */
     memcpy(undo.st, t->step, sizeof undo.st);
     memcpy(undo.micro, t->micro, sizeof undo.micro);
+    memcpy(undo.nend, t->nend, sizeof undo.nend);
     undo.len = t->p[P_SLEN];
     undo.trk = (uint8_t)i;
     undo.sess = sess;
@@ -526,6 +528,21 @@ static void rec_micro_set(track_t *t, uint32_t idx, int was_empty)
 {
     if (rec_quant_off && was_empty && idx < NSTEP)
         t->micro[idx] = rec_m;
+}
+
+/* (BONBLOOP 1.9.2) step i's notes end e64 / 64 of a step after its start on the grid: from where it fires (its nudge
+ * off), the next 1/8 up (core.h SF_END: never shorter than played; two in one step: the later). Not a REST's, nor a
+ * ratchet's (each hit has its GATE) */
+UI_SMALL static void end_put(track_t *t, uint32_t i, int32_t e64)
+{
+    step_t *s = &t->step[i % NSTEP];
+    int32_t v = e64 - t->micro[i % NSTEP];
+    if (s->time == ST_REST || (s->time == ST_NOTE && (!s->n || s->rat)))
+        return;
+    v = v <= 0 ? 0 : clamp((v + 7) / 8 - 1, 0, 7);
+    if (!(s->flags & SF_END) || v > t->nend[i % NSTEP])
+        t->nend[i % NSTEP] = (uint8_t)v;
+    s->flags |= SF_END;
 }
 
 /* note into synth step idx (overdub: a step that holds notes gets this one added, a chord of up to 4;
@@ -925,11 +942,13 @@ UI_SMALL static void rec_note(track_t *t, uint32_t note, uint32_t vel, uint32_t 
         return;
     if (merged) {                                   /* (2.7.1) over held ones: they stay held, from this step on */
         t->rh_start = (uint8_t)idx;
+        t->rh_last_abs = abs;                       /* (BONBLOOP 1.9.2: where it ends is from here: rec_release) */
         t->rh_ties = 0;
         t->rh_rs = t->rh_end = t->rh_offn = 0;
     } else if (!t->rh_n || t->rh_start != idx) {    /* a new hold (one in another step ends) */
         t->rh_n = 0;
         t->rh_start = (uint8_t)idx;
+        t->rh_last_abs = abs;
         t->rh_ties = 0;
         t->rh_rs = t->rh_end = t->rh_offn = 0;
     }
@@ -1061,18 +1080,28 @@ UI_SMALL static void rec_hold(track_t *t, uint32_t idx, uint32_t len, uint32_t a
     t->rh_put = *s;
 }
 
-/* a key of a recorded note is up: the hold ends with the last one */
+/* a key of a recorded note is up: the hold ends with the last one. (BONBLOOP 1.9.2) Where it was let go (as heard)
+ * is the end of the step it ends in (SF_END, to 1/8 of a step), not that step's GATE: the length played, not a grid's.
+ * So the hold's last TIE stays when it was let go inside it (it used to go back before the middle of it: one step
+ * shorter) and goes back only when it was let go before 1/16 of it */
 UI_SMALL static void rec_release(track_t *t, uint32_t note)
 {
-    uint32_t i, k = 0, into, slen, half, lat, early, len = trk_len(t);
+    uint32_t i, k = 0, into, slen, half, lat, early, len = trk_len(t), now, e, rev = 0, rs = t->rh_rs;
+    int32_t pos, q, r, d;
     for (i = 0; i < t->rh_n; i++)
         if (t->rh_note[i] != note)
             t->rh_note[k++] = t->rh_note[i];
     if (k == t->rh_n)
         return;                                     /* not one of them */
-    early = trk_grid(t, &into, &slen) == t->rh_last_abs;
+    now = trk_grid(t, &into, &slen);
+    early = now == t->rh_last_abs;
     half = slen / 2u;
     lat = REC_LAT * (uint32_t)song.g[G_BPM];
+    q = (int32_t)(slen / 64u) + !(slen / 64u);      /* (1.9.2) where it was let go as heard, in 1/64 of a step from the
+                                                     * start of the hold's last step (its first step: no TIE) */
+    r = (int32_t)into - (int32_t)lat;
+    d = (int32_t)(now - t->rh_last_abs);
+    pos = (d > 0 ? 64 : d < 0 ? -64 : 0) + (r >= 0 ? (r + q - 1) / q : -(-r / q));
     early = early && into <= half + (lat < half ? lat : half);   /* (let go early in the hold's last step) */
     if (k) {                                        /* (2.7.1) others still held: this one ends, they go on */
         t->rh_n = (uint8_t)k;
@@ -1087,15 +1116,28 @@ UI_SMALL static void rec_release(track_t *t, uint32_t note)
         return;
     }
     t->rh_n = 0;
+    early = pos <= 4;                               /* (1.9.2: before 1/16 of it, as heard: no TIE for a hair) */
     hold_marker_clear(t, ((t->rh_ties || t->rh_rs ? t->rh_last : t->rh_start) + 1u) % len, note);   /* (2.7.1) an end left
                                                      * ahead of notes all let go */
     if (t->rh_rs && !t->rh_ties && early && step_pure_cont(&t->step[t->rh_last])) {
         memset(&t->step[t->rh_last], 0, sizeof t->step[t->rh_last]);   /* (2.7.1) let go early in a step the others went on */
         t->step[t->rh_last].time = ST_REST;                            /* into: not held into it */
+        rev = 1;
     }
     t->rh_end = t->rh_rs = t->rh_offn = 0;
-    if (t->rh_ties && early && (t->step[t->rh_last].time == ST_TIE || !memcmp(&t->step[t->rh_last], &t->rh_put, sizeof t->rh_put)))
+    if (t->rh_ties && early && (t->step[t->rh_last].time == ST_TIE || !memcmp(&t->step[t->rh_last], &t->rh_put, sizeof t->rh_put))) {
         t->step[t->rh_last] = t->rh_bak;            /* released early in it: not held into this step */
+        rev = 1;
+    }
+    e = t->rh_ties || rs ? t->rh_last : t->rh_start;   /* (1.9.2) the step it ends in: its end */
+    if (rev) {
+        e = (e + len - 1u) % len;
+        pos += 64;
+    }
+    if (song.playing) {
+        t->step[e % NSTEP].flags &= (uint8_t)~SF_END;   /* (this take's end, not an older one's) */
+        end_put(t, e, pos);
+    }
     {   /* (2.8.3) the hold ended inside a recorded melody's note (TIEs carrying it and the held note on): from the step
          * it ended in, only the melody's notes go on */
         uint32_t j = t->rh_ties && early ? t->rh_last : (uint32_t)(t->rh_ties || t->rh_rs ? t->rh_last : t->rh_start) + 1u;
@@ -1439,14 +1481,20 @@ static void ft_close(void)
     if (!is_drum(t))
         for (i = 0; i < ft_n; i++) {                  /* their lengths: TIE steps, up to the next note */
             uint32_t d = ft_ev[i].d == FT_OPEN || ft_ev[i].t + ft_ev[i].d > T ? T - ft_ev[i].t : ft_ev[i].d;
-            uint32_t idx = (ft_ev[i].t * len * 2u + T) / (2u * T) % len;
-            uint32_t steps = (d * len * 2u + T) / (2u * T);
+            uint32_t s0 = (ft_ev[i].t * len * 2u + T) / (2u * T), idx = s0 % len, steps;
+            uint32_t e64 = ((ft_ev[i].t + d) * len * 64u + T - 1u) / T;   /* (BONBLOOP 1.9.2) its end, in 1/64 of a
+                                                       * step: the steps it reaches into, and where in the last (SF_END) */
+            if (e64 <= s0 * 64u)
+                e64 = s0 * 64u + 1u;
+            else if ((e64 - 1u) % 64u < 4u && e64 > s0 * 64u + 64u)
+                e64 -= (e64 - 1u) % 64u + 1u;         /* (into a step by 1/16 or less: no TIE for a hair) */
+            steps = (e64 - 1u) / 64u - s0 + 1u;
             if (t->p[P_VOICE] == V_POLY) {            /* (2.8.3) POLY: on under the notes after it, as held (it used to
                                                        * stop at the next step with notes: a held C1 cut by the scale
                                                        * played over it, Sam on the FM-1). Inside the loop */
                 uint8_t nn = ft_ev[i].note;
-                if (steps > 1u)
-                    span_set(t, idx, &nn, 1u, steps < len - idx ? steps : len - idx);
+                if ((steps > 1u ? span_set(t, idx, &nn, 1u, steps < len - idx ? steps : len - idx) : 1u) == steps)
+                    end_put(t, idx + steps - 1u, (int32_t)((e64 - 1u) % 64u + 1u));
                 continue;
             }
             for (k = 1; k < steps && k < len; k++) {
@@ -1456,6 +1504,8 @@ static void ft_close(void)
                 memset(s, 0, sizeof *s);
                 s->time = ST_TIE;
             }
+            if (k == steps)
+                end_put(t, (idx + steps - 1u) % len, (int32_t)((e64 - 1u) % 64u + 1u));
         }
     t->seq_active = 1;
     song.g[G_BPM] = (int16_t)bpm;
@@ -2690,6 +2740,12 @@ static uint32_t step_vel(const step_t *s, uint32_t i)
     return lvl_vel((s->lvl >> (2u * i)) & 3u, base);
 }
 
+/* (BONBLOOP 1.9.2) when step s's notes end, from where it fired: its own end (SF_END: (nend + 1) / 8 of it), else d */
+static uint32_t step_end(const track_t *t, const step_t *s, uint32_t slen, uint32_t d)
+{
+    return s->flags & SF_END ? (t->nend[(uint32_t)(s - t->step) % NSTEP] + 1u) * (slen / 8u) : d;
+}
+
 /* play one synth step: TIE extends, REST releases, NOTE (re)triggers; a SLIDE on the previous
  * step makes this one legato with a glide (acid style). skip: bit k = note k already sounds
  * from live recording (not triggered, not released here). len: the step's length (units). */
@@ -2703,7 +2759,7 @@ static void seq_step(track_t *t, const step_t *s, uint32_t slen, uint32_t skip)
                                                      * 2.7.2: a legato note next: held to it) */
     if (s->time == ST_TIE) {
         if (t->seq_n) {
-            t->seq_off = gate + slen / 2u;
+            t->seq_off = step_end(t, s, slen, gate + slen / 2u);
             t->seq_hold = (s->flags & SF_SLIDE) != 0 || next_tie;   /* chains hold at any GATE / swing */
         }
         return;
@@ -2740,7 +2796,7 @@ static void seq_step(track_t *t, const step_t *s, uint32_t slen, uint32_t skip)
         for (i = 0; i < s->n; i++)
             if (!((skip >> i) & 1u))
                 t->seq_notes[t->seq_n++] = s->note[i];
-        t->seq_off = step_pure_cont(s) ? gate + slen / 2u : gate;   /* (2.8.3: notes that only go on end as a TIE's do) */
+        t->seq_off = step_end(t, s, slen, step_pure_cont(s) ? gate + slen / 2u : gate);   /* (2.8.3: notes that only go on end as a TIE's do) */
         t->seq_hold = (s->flags & SF_SLIDE) != 0 || next_tie;
         return;
     }
@@ -2781,7 +2837,7 @@ static void seq_step(track_t *t, const step_t *s, uint32_t slen, uint32_t skip)
     for (i = 0; i < s->n; i++)
         if (!((skip >> i) & 1u))
             t->seq_notes[t->seq_n++] = s->note[i];
-    t->seq_off = gate;
+    t->seq_off = s->rat ? gate : step_end(t, s, slen, gate);   /* (ratchets: each hit its GATE) */
     t->seq_hold = !s->rat && ((s->flags & SF_SLIDE) != 0 || next_tie);   /* next step a TIE: keep the notes to it */
 }
 

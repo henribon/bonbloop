@@ -59,7 +59,7 @@ static void reset(uint32_t bpm)
     for (i = 0; i < NTRK; i++)
         steps_clear(&trk[i]);
     memset(&drums, 0, sizeof drums);
-    drums.set = -2;
+    drums.set = 0;                  /* (1.9.2: 0, not looked up yet) */
     nhits = 0;
     blk = 0;
     song.g[G_BPM] = (int16_t)bpm;
@@ -1593,7 +1593,8 @@ static void t_hold2(void)
     enum { N = ST_NOTE, T = ST_TIE, R = ST_REST };
     {   /* note 1 held, note 2 on top and let go first: note 1 goes on to its own end */
         static const want_t W[16] = {{N, 1, 60, 0, 0, 0}, {T}, {T}, {T}, {N, 2, 60, 64, 0, 1}, {T}, {T}, {T},
-                                     {N, 1, 60, 0, 0, 1}, {T}, {T}, {T}, {R}, {R}, {R}, {R}};
+                                     {N, 1, 60, 0, 0, 1}, {T}, {T}, {T}, {T}, {R}, {R}, {R}};   /* (BONBLOOP 1.9.2: let
+                                     * go 0.3 into step 13: held into it, its end there; 1.9.1: back to step 12) */
         int32_t a;
         uint32_t into, slen;
         rec_start16(t);
@@ -1616,7 +1617,7 @@ static void t_hold2(void)
     }
     {   /* note 1 let go first: note 2 goes on alone */
         static const want_t W[12] = {{N, 1, 60, 0, 0, 0}, {T}, {T}, {T}, {N, 2, 60, 64, 0, 1}, {T}, {N, 1, 64, 0, 0, 1}, {T},
-                                     {T}, {T}, {R}, {R}};
+                                     {T}, {T}, {T}, {R}};               /* (1.9.2: step 11 held, to where it was let go) */
         rec_start16(t);
         rec_go_to(t, 0, 0.2); input_on(t, 60, 100);
         rec_go_to(t, 4, 0.3); input_on(t, 64, 100);
@@ -1628,7 +1629,9 @@ static void t_hold2(void)
     }
     {   /* a chord built note by note, all let go together */
         static const want_t W[10] = {{N, 1, 60, 0, 0, 0}, {T}, {N, 2, 60, 64, 0, 1}, {T}, {N, 3, 60, 64, 67, 3}, {T}, {T}, {T},
-                                     {R}, {R}};
+                                     {N, 2, 64, 67, 0, 3}, {R}};        /* (BONBLOOP 1.9.2: let go 0.2 into step 9, the
+                                     * last held key's end: 64 67 go on into it to there; one let go while others are
+                                     * held ends on the nearest step, as before: 60 at step 9) */
         rec_start16(t);
         rec_go_to(t, 0, 0.2); input_on(t, 60, 100);
         rec_go_to(t, 2, 0.3); input_on(t, 64, 100);
@@ -1640,7 +1643,7 @@ static void t_hold2(void)
     }
     {   /* note 2 played late in a step (it goes into the next one, not tied yet) */
         static const want_t W[12] = {{N, 1, 60, 0, 0, 0}, {T}, {T}, {T}, {T}, {N, 2, 60, 64, 0, 1}, {T}, {N, 1, 60, 0, 0, 1},
-                                     {T}, {T}, {R}, {R}};
+                                     {T}, {T}, {T}, {R}};               /* (1.9.2: step 11 held, to where it was let go) */
         rec_start16(t);
         rec_go_to(t, 0, 0.2); input_on(t, 60, 100);
         rec_go_to(t, 4, 0.85); input_on(t, 64, 100);
@@ -1651,7 +1654,8 @@ static void t_hold2(void)
         transport_req = 2; run_block();
     }
     {   /* 2.7.2: LEGATO, a note played over the one held: recorded legato, played back legato (no new attack) */
-        static const want_t W[10] = {{N, 1, 48, 0, 0, 0}, {T}, {T}, {T}, {N, 1, 55, 0, 0, 0}, {T}, {T}, {T}, {R}, {R}};
+        static const want_t W[10] = {{N, 1, 48, 0, 0, 0}, {T}, {T}, {T}, {N, 1, 55, 0, 0, 0}, {T}, {T}, {T}, {T}, {R}};   /*
+                                     * (1.9.2: step 9 held, to where it was let go) */
         uint32_t into, slen, st1;
         rec_start16(t);
         t->p[P_VOICE] = V_LEGATO;

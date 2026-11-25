@@ -39,7 +39,7 @@ static uint16_t pal_bg;                  /* SLOOP 2.7: the background, black unl
 static uint16_t pal_hi = 0xFFFFu;        /* the accent: white unless a theme says (palette_set) */
 static uint16_t pal_arc;                 /* (BONBLOOP 1.7) a knob's lit arc, a gauge, a fader's level: PERI's #3BA488 (a
                                           * green toward Very Peri), else the palette's own (C_GRAY, TE_DIM) */
-static uint8_t pal_peri;                 /* .. the PERI palette is on */
+#define pal_peri 1                       /* .. the PERI palette is on (BONBLOOP 1.9.2: the only one) */
 #define ARC_OF(k) (pal_peri ? pal_arc : TE_DIM[(k) & 3u])   /* a gauge, a fader: PERI's green, else the track's */
 #define KNOB_LIT (pal_peri ? pal_arc : C_GRAY)              /* a knob's lit arc */
 static uint16_t pal_on, pal_onbg;        /* (BONBLOOP 1.8) PERI: what is on or selected (a MUTE, a SOLO, a FILL, the
@@ -48,23 +48,14 @@ static uint16_t pal_on, pal_onbg;        /* (BONBLOOP 1.8) PERI: what is on or s
 #define C_ON (pal_peri ? pal_on : C_WHITE)
 #define C_ONFG (pal_peri ? C_WHITE : C_BLACK)
 #define C_WHITE pal_hi               /* accent only: what is being touched / where we are */
-/* The screen is five steps of one colour, darkest to brightest, plus white.
- * Palettes are picked in the HOME-hold menu (COLOR). */
-typedef struct {
-    const char *name;
-    uint16_t c[5];
-} palette_t;
-static const palette_t PALETTES[] = {
-    {"GREEN", {RGB(0, 40, 12), RGB(0, 84, 30), RGB(16, 140, 54), RGB(56, 200, 92), RGB(120, 255, 146)}},
-    {"AMBER", {RGB(60, 26, 0), RGB(110, 50, 0), RGB(170, 82, 0), RGB(225, 120, 8), RGB(255, 166, 40)}},
-    {"CYAN", {RGB(0, 30, 50), RGB(0, 62, 96), RGB(16, 112, 160), RGB(56, 172, 222), RGB(140, 222, 255)}},
-    {"RED", {RGB(52, 8, 8), RGB(100, 18, 14), RGB(170, 36, 26), RGB(226, 64, 48), RGB(255, 112, 92)}},
-    {"PERI", {RGB(38, 39, 74), RGB(75, 76, 128), RGB(102, 103, 171), RGB(156, 157, 216), RGB(217, 218, 244)}},
-    /* (BONBLOOP 1.7: PERI, Pantone 17-3938 Very Peri #6667AB on black, where MONO was: the default; its tracks, tiles
-     * and dials in Very Peri too, palette_set) */
-};
-#define NPALETTES (sizeof(PALETTES) / sizeof(PALETTES[0]))
-#define PAL_PERI 4u                              /* (BONBLOOP 1.7) the default */
+/* The screen is five steps of one colour, darkest to brightest, plus white. (BONBLOOP 1.9.2) One look only: PERI,
+ * Pantone 17-3938 Very Peri #6667AB on black (1.7's default), its tracks, tiles and dials in Very Peri too, violet for what
+ * is on. SLOOP's GREEN, AMBER, CYAN and RED, MENU > COLOR and your own theme (the editor's Theme page) are gone from the
+ * screen: the settings keep a palette number (0..4, as an older SLOOP reads them) and a theme the editor sent stays in the
+ * backups, neither shown */
+#define NPALETTES 5u                             /* (the palette numbers the settings take) */
+#define PAL_PERI 4u                              /* (the one they are made with) */
+static const uint16_t PERI[5] = {RGB(38, 39, 74), RGB(75, 76, 128), RGB(102, 103, 171), RGB(156, 157, 216), RGB(217, 218, 244)};
 static uint16_t pal[5];
 #define C_LINE pal[0]                /* 1 rules, separators */
 #define C_DIM pal[1]                 /* 2 inactive, empty steps, units */
@@ -73,9 +64,9 @@ static uint16_t pal[5];
 #define C_HI pal[4]                  /* 5 values, curves */
 
 /* SLOOP 2.7: your own theme, made in the web editor (its Theme page): the five steps of the screen and the four
- * tracks' colours, with a name. MENU > COLOR shows it after MONO (theme_on: panel.c lights_word bit 30; the
- * palette number stays a built-in one, the one an older SLOOP shows). Kept in the settings object's side record
- * (project.c, storage.c st_side): an older SLOOP never reads it, and forgets it when it saves its settings. */
+ * tracks' colours, with a name. Kept in the settings object's side record (project.c, storage.c st_side): an older SLOOP
+ * never reads it, and forgets it when it saves its settings. (BONBLOOP 1.9.2: kept, never shown; theme_on, panel.c
+ * lights_word bit 30, kept for an older SLOOP) */
 #define THEME_MAGIC 0x324D4854u                  /* "THM2" (2.7 beta 2: with the accent) */
 #define THEME_MAGIC1 0x314D4854u                 /* "THM1": the first beta's, 36 bytes (its CRC where hi is now),
                                                   * taken with a white accent (black on a light background) */
@@ -92,18 +83,8 @@ typedef struct {
 _Static_assert(sizeof(theme_t) == 40u, "theme layout (the editor's Theme page writes these bytes)");
 static theme_t theme;                            /* the theme there is (theme_valid: project.c theme_check passed) */
 static uint8_t theme_valid, theme_on;
-/* the tracks' colours: full, two thirds, one third (the built-in ones as they always were) */
-static const uint16_t TE_COL_DEF[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
-static const uint16_t TE_MID_DEF[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
-static const uint16_t TE_DIM_DEF[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
-static uint16_t TE_COL[4] = {RGB(40, 124, 255), RGB(30, 204, 112), RGB(255, 198, 24), RGB(255, 98, 26)};
-static uint16_t TE_MID[4] = {RGB(26, 82, 170), RGB(20, 136, 76), RGB(170, 132, 16), RGB(170, 66, 18)};
-static uint16_t TE_DIM[4] = {RGB(14, 40, 86), RGB(10, 66, 38), RGB(86, 66, 8), RGB(86, 32, 8)};
-static uint16_t rgb565_scale(uint32_t c, uint32_t num, uint32_t den)
-{
-    uint32_t r = ((c >> 11) & 31u) * num / den, g = ((c >> 5) & 63u) * num / den, b = (c & 31u) * num / den;
-    return (uint16_t)(r << 11 | g << 5 | b);
-}
+/* the tracks' colours: full, two thirds, one third (BONBLOOP 1.9.2: PERI's, palette_set) */
+static uint16_t TE_COL[4], TE_MID[4], TE_DIM[4];
 static uint32_t st_crc32(const void *p, uint32_t n);   /* storage.c (zlib CRC-32, as the editor's) */
 /* a channel of an RGB565 colour on 0..255 (as the editor reads it: x * 8, x * 4, x * 8) */
 static int32_t rgb565_ch(uint32_t c, uint32_t k)
@@ -151,54 +132,28 @@ static uint16_t rgb565_over(uint32_t c, uint32_t a, uint32_t n)
     bl = ((b & 31u) * (n - a) + (c & 31u) * a) / n;
     return (uint16_t)(r << 11 | g << 5 | bl);
 }
-static int theme_shown(void) { return theme_on && theme_valid; }
-/* (2.7) the greys of the TE-style pages (tiles, empty steps, labels, secondary text) are drawn for black: on a theme's
- * background, each the same share of the way from it toward white (a dark one) or black (a light one). On black: as
- * ever. te_gray() does it for any grey */
-static const uint16_t TE_G_DEF[4] = {RGB(26, 26, 30), RGB(54, 54, 60), RGB(118, 118, 126), RGB(196, 196, 204)};
-static uint16_t te_g[4] = {RGB(26, 26, 30), RGB(54, 54, 60), RGB(118, 118, 126), RGB(196, 196, 204)};
+/* (2.7) the greys of the TE-style pages (tiles, empty steps, labels, secondary text): PERI's (palette_set). te_gray()
+ * took a grey drawn for black to a theme's background: on black, as it is (BONBLOOP 1.9.2: always) */
+static uint16_t te_g[4];
 #define TE_G1 te_g[0]                    /* tiles */
 #define TE_G2 te_g[1]                    /* empty steps, dial tracks */
 #define TE_G3 te_g[2]                    /* labels */
 #define TE_G4 te_g[3]                    /* secondary text */
-static uint16_t te_gray(uint32_t c)
-{
-    uint32_t bg = pal_bg, k, out = 0;
-    static const uint8_t SH[3] = {11, 5, 0}, MX[3] = {31, 63, 31};
-    int light;
-    if (!bg)
-        return (uint16_t)c;
-    light = ((bg >> 11) & 31u) * 2u * 299u + ((bg >> 5) & 63u) * 587u + (bg & 31u) * 2u * 114u > 31500u;
-    for (k = 0; k < 3u; k++) {
-        int32_t m = MX[k], b = (int32_t)((bg >> SH[k]) & (uint32_t)m), x = (int32_t)((c >> SH[k]) & (uint32_t)m);
-        out |= (uint32_t)(b + ((light ? 0 : m) - b) * x / m) << SH[k];
-    }
-    return (uint16_t)out;
-}
+#define te_gray(c) ((uint16_t)(c))
 
-static void palette_set(uint32_t i)              /* built-in palette i, or the theme when it is chosen (2.7) */
+static void palette_set(uint32_t i)              /* (BONBLOOP 1.9.2) PERI, whatever palette number i the settings hold */
 {
+    static const uint16_t G[4] = {RGB(20, 21, 42), RGB(38, 39, 74), RGB(102, 103, 171), RGB(196, 197, 236)};
     uint32_t k;
-    int cu = theme_shown();
-    for (k = 0; k < 5u; k++)
-        pal[k] = cu ? theme.c[k] : PALETTES[i % NPALETTES].c[k];
-    pal_bg = cu ? theme.bg : 0u;
-    pal_hi = cu ? theme.hi : 0xFFFFu;
+    (void)i;
+    for (k = 0; k < 5u; k++)                          /* one colour: values light, fills Very Peri */
+        pal[k] = PERI[k];
+    pal_bg = 0u;
+    pal_hi = 0xFFFFu;
     for (k = 0; k < 4u; k++)
-        te_g[k] = te_gray(TE_G_DEF[k]);
-    for (k = 0; k < 4u; k++) {
-        TE_COL[k] = cu ? theme.trk[k] : TE_COL_DEF[k];
-        TE_MID[k] = cu ? rgb565_scale(theme.trk[k], 2u, 3u) : TE_MID_DEF[k];
-        TE_DIM[k] = cu ? rgb565_scale(theme.trk[k], 1u, 3u) : TE_DIM_DEF[k];
-    }
-    pal_peri = (uint8_t)(!cu && i % NPALETTES == PAL_PERI);
+        TE_COL[k] = RGB(217, 218, 244), TE_MID[k] = RGB(156, 157, 216), TE_DIM[k] = RGB(102, 103, 171), te_g[k] = G[k];
     pal_arc = RGB(59, 164, 136);
     pal_on = RGB(139, 92, 246), pal_onbg = RGB(30, 20, 58);
-    if (pal_peri) {                                   /* (BONBLOOP 1.7) one colour: values light, fills Very Peri */
-        static const uint16_t G[4] = {RGB(20, 21, 42), RGB(38, 39, 74), RGB(102, 103, 171), RGB(196, 197, 236)};
-        for (k = 0; k < 4u; k++)
-            TE_COL[k] = RGB(217, 218, 244), TE_MID[k] = RGB(156, 157, 216), TE_DIM[k] = RGB(102, 103, 171), te_g[k] = G[k];
-    }
 }
 
 static inline uint16_t swap16(uint32_t c) { return (uint16_t)(((c >> 8) & 0xFFu) | ((c & 0xFFu) << 8)); }
@@ -285,47 +240,18 @@ static uint32_t glyph(const felucca_font_t *f, uint32_t ch)
     return ch - f->first;
 }
 
-/* text, alpha-blended onto the background with colour c; returns the end x */
+/* text in colour c; returns the end x. (BONBLOOP 1.9.2) every font is 1 bit a pixel (Pixelify Sans, gen_font.py): the
+ * anti-aliased paths (4 bits, 1.7's 2 bits) went, for the flash */
 static int32_t cv_text(int32_t x, int32_t y, const felucca_font_t *f, const char *s, uint16_t c)
 {
-    uint16_t ramp[16];
-    uint32_t a;
-    for (a = 0; a < 16u; a++)
-        ramp[a] = rgb565_over(c, a, 15u);              /* (on black: c * a / 15, as before) */
     for (; *s; s++) {
-        uint32_t gi = glyph(f, (uint8_t)*s), gx, gy, w, bpr;
-        const uint8_t *gd;
-        w = f->bw[gi];
-        gd = f->data + f->off[gi];
-        if (f->bits == 1u) {                           /* on / off pixels: full colour where a bit is set */
-            uint32_t sw = w >> f->sh;
-            for (gy = 0; gy < f->h; gy++)
-                for (gx = 0; gx < w; gx++) {
-                    uint32_t i = (gy >> f->sh) * sw + (gx >> f->sh);
-                    if ((gd[i >> 3] >> (7u - (i & 7u))) & 1u)
-                        cv_pset(x - f->pad + (int32_t)gx, y + (int32_t)gy, ramp[15]);
-                }
-            x += f->adv[gi];
-            continue;
-        }
-        if (f->bits == 2u) {                           /* (BONBLOOP 1.7) 4 levels: alpha 0, 5, 10, 15 */
-            bpr = ((w >> f->sh) + 3u) / 4u;
-            for (gy = 0; gy < f->h; gy++)
-                for (gx = 0; gx < w; gx++) {
-                    uint32_t sx = gx >> f->sh, v = (gd[(gy >> f->sh) * bpr + sx / 4u] >> (6u - 2u * (sx & 3u))) & 3u;
-                    if (v)
-                        cv_pset(x - f->pad + (int32_t)gx, y + (int32_t)gy, ramp[v * 5u]);
-                }
-            x += f->adv[gi];
-            continue;
-        }
-        bpr = ((w >> f->sh) + 1u) / 2u;
+        uint32_t gi = glyph(f, (uint8_t)*s), gx, gy, w = f->bw[gi], sw = w >> f->sh;
+        const uint8_t *gd = f->data + f->off[gi];
         for (gy = 0; gy < f->h; gy++)
             for (gx = 0; gx < w; gx++) {
-                uint32_t sx = gx >> f->sh, v = gd[(gy >> f->sh) * bpr + sx / 2u];
-                v = (sx & 1u) ? (v & 15u) : (v >> 4);
-                if (v)
-                    cv_pset(x - f->pad + (int32_t)gx, y + (int32_t)gy, ramp[v]);
+                uint32_t i = (gy >> f->sh) * sw + (gx >> f->sh);
+                if ((gd[i >> 3] >> (7u - (i & 7u))) & 1u)
+                    cv_pset(x - f->pad + (int32_t)gx, y + (int32_t)gy, c);
             }
         x += f->adv[gi];
     }

@@ -1373,9 +1373,9 @@ async function editorTheme() {
   const C = E.CMD, T = E.THEME;
   const gfx = readFileSync(join(HERE, "../firmware/src/gfx.c"), "utf8");
   const rgb = (s) => [...s.matchAll(/RGB\((\d+), (\d+), (\d+)\)/g)].map((m) => [+m[1], +m[2], +m[3]]);
-  const pals = [...gfx.matchAll(/\{"(\w+)", \{(RGB[^}]*)\}\}/g)].map((m) => [m[1], rgb(m[2])]);
-  const tdef = rgb((/TE_COL_DEF\[4\] = \{([^}]*)\}/.exec(gfx) || [])[1] || "");
-  ok(js(pals) === js(T.BUILTIN) && js(tdef) === js(T.TRACKS), "theme: the built-in palettes and track colours == gfx.c (PALETTES, TE_COL_DEF)");
+  const peri = rgb((/static const uint16_t PERI\[5\] = \{([^}]*)\}/.exec(gfx) || [])[1] || "");
+  ok(js(peri) === js((T.BUILTIN.find(([n]) => n === "PERI") || [])[1]) && /#define pal_peri 1 /.test(gfx),
+    "theme: BONBLOOP 1.9.2: the FM-1 shows PERI only (gfx.c PERI == the editor's PERI)");
   ok(/#define THEME_MAGIC 0x324D4854u/.test(gfx) && /#define THEME_MAGIC1 0x314D4854u/.test(gfx)
     && /char name\[8\];[^]*uint16_t c\[5\];[^]*uint16_t trk\[4\];[^]*uint16_t bg;[^]*uint16_t hi;[^]*uint16_t rsv;[^]*uint32_t crc;/.test(gfx)
     && /sizeof\(theme_t\) == 40u/.test(gfx) && T.SIZE === 40 && T.MAGIC === 0x324D4854 && T.MAGIC1 === 0x314D4854,
@@ -1480,9 +1480,9 @@ function editorTabs() {
     const hex = [...css.matchAll(/#[0-9a-f]{3,6}\b/gi)].map((m) => m[0].toLowerCase()).filter((c) => c !== "#000");
     ok(!hex.length && /--t1: #287cff; --t2: #1ecc70; --t3: #ffc618; --t4: #ff621a;/.test(html),
       "editor: the track colours of the device (gfx.c TE_COL_DEF), colours only as tokens" + (hex.length ? ` (${hex.join(" ")})` : ""));
-    const te = readFileSync(join(HERE, "../firmware/src/gfx.c"), "utf8");   /* (2.7: TE_COL_DEF, a theme may change them) */
-    ok(/TE_COL_DEF\[4\] = \{RGB\(40, 124, 255\), RGB\(30, 204, 112\), RGB\(255, 198, 24\), RGB\(255, 98, 26\)\}/.test(te),
-      "editor: ... the same four as the firmware's TE_COL");
+    const te = readFileSync(join(HERE, "../firmware/src/gfx.c"), "utf8");   /* (BONBLOOP 1.9.2: one look on the FM-1) */
+    ok(/TE_COL\[k\] = RGB\(217, 218, 244\)/.test(te) && !/TE_COL_DEF/.test(te),
+      "editor: ... SLOOP's four, the editor's own (BONBLOOP 1.9.2: the FM-1 draws every track in PERI's lilac)");
     ok(/SLOOP-FONT\*\/url\(data:font\/ttf;base64,[A-Za-z0-9+\/=]{20000,}\)/.test(html), "editor: the device's Terminus font inlined (tools/gen_webfont.py)");
   }
 }

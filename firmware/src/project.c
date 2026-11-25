@@ -189,9 +189,14 @@ typedef struct {
                                                 * -CEIL << 7 (4 bits) and OUT << 11 (5 bits, two's complement): 0, 0 dB.
                                                 * A 1.7 project has them 0 (the defaults); 1.7 reading a 1.8 one with
                                                 * either set takes the drums' TONE as its maximum */
+    uint8_t nend[NPART][NSTEP * 3u / 8u];      /* (1.9.2) the notes' ends (core.h SF_END, track_t nend), 3 bits a step:
+                                                * after sum, so 1.9.1 reads the record as ever (sum: of what is before
+                                                * it) and saves none (the area stays erased) */
+    uint16_t esum;                             /* (their check: none, a 1.9.1 save or SLOOP's: no step has an end) */
 } bbx_t;
 _Static_assert(BBX_NG <= 10u && G_KREL == G_XTYPE + 9u && G_DRCLIP == G_DRSTY + 3u && G_DROUT == G_DRCLIP + 3u,
                "1.7's and 1.8's globals in the side record");
+_Static_assert(sizeof(bbx_t) <= 192u, "the side record (storage.c ST_SIDE_MAX)");
 static bbx_t bbx_ram[5];                       /* (not .noinit, it is full: after a warm reset persist_boot reads the
                                                 * sections' back from flash) */
 UI_SMALL static bbx_t *bbx_of(const project_t *p)
@@ -199,9 +204,11 @@ UI_SMALL static bbx_t *bbx_of(const project_t *p)
     uintptr_t a = (uintptr_t)p, b = (uintptr_t)proj_slot;
     return &bbx_ram[a >= b && a < b + sizeof proj_slot ? (a - b) / sizeof *p : 4u];
 }
-UI_SMALL static uint16_t bbx_sum(const bbx_t *x) { uint32_t h = proj_hash(x, sizeof *x - 2u); return (uint16_t)(h ^ h >> 16); }
+UI_SMALL static uint16_t bbx_hash(const void *b, uint32_t n) { uint32_t h = proj_hash(b, n); return (uint16_t)(h ^ h >> 16); }
+UI_SMALL static uint16_t bbx_sum(const bbx_t *x) { return bbx_hash(x, __builtin_offsetof(bbx_t, sum)); }
+UI_SMALL static uint16_t bbx_esum(const bbx_t *x) { return (uint16_t)(bbx_hash(x->nend, sizeof x->nend) ^ 0x4E45u); }
 UI_SMALL static int bbx_ok(const bbx_t *x) { return x->magic == BBX_MAGIC && x->sum == bbx_sum(x); }
-UI_SMALL static uint32_t proj_tag(const project_t *p) { return p->sum ^ bbx_of(p)->sum; }   /* (the autosave: a change of
+UI_SMALL static uint32_t proj_tag(const project_t *p) { return p->sum ^ bbx_of(p)->sum ^ (uint32_t)bbx_of(p)->esum << 16; }   /* (the autosave: a change of
                                                          * either) */
 
 /* ---- old formats -> format 5 */
@@ -524,6 +531,7 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
     p->sum = proj_sum(p);
     {
         bbx_t *x = bbx_of(p);                           /* (BONBLOOP 1.2) its extras */
+        uint32_t k;
         memset(x, 0, sizeof *x);
         x->magic = BBX_MAGIC;
         memcpy(x->x, synx, sizeof x->x);
@@ -537,6 +545,10 @@ UI_SMALL static void proj_capture(project_t *p)        /* what is playing now, a
         x->fx[11] = (uint8_t)song.g[G_DRCLIP];
         x->dtone = (uint16_t)((song.g[G_DRTONE] ^ 64) | (-song.g[G_DRCEIL]) << 7 | (song.g[G_DROUT] & 31) << 11);
         x->sum = bbx_sum(x);
+        for (i = 0; i < NPART; i++)                     /* (1.9.2) the notes' ends, 3 bits a step */
+            for (k = 0; k < NSTEP * 3u; k++)
+                x->nend[i][k >> 3] |= (uint8_t)((trk[i].nend[k / 3u] >> (k % 3u) & 1u) << (k & 7u));
+        x->esum = bbx_esum(x);
     }
 }
 
@@ -633,6 +645,18 @@ static void proj_apply(const project_t *p, int all)
                     st->note[j] &= 127u;
             }
         fm6_track_loaded(t);                            /* FM6: the project keeps PTCH, not the patch: its slot's */
+    }
+    {
+        const bbx_t *x = bbx_of(p);                     /* (BONBLOOP 1.9.2) the notes' ends; none: no step has one */
+        int eok = x->esum == bbx_esum(x);
+        for (k = 0; k < NPART; k++) {
+            memset(trk[k].nend, 0, sizeof trk[k].nend);
+            for (i = 0; i < NSTEP * 3u; i++)
+                if (eok)
+                    trk[k].nend[i / 3u] |= (uint8_t)((x->nend[k][i >> 3] >> (i & 7u) & 1u) << (i % 3u));
+                else if (i < NSTEP)
+                    trk[k].step[i].flags &= (uint8_t)~SF_END;
+        }
     }
     for (k = 0; !xok && k < NPART; k++)
         sx_default(&trk[k]);                            /* (BONBLOOP 1.3: no extras: as the sounds start) */

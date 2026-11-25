@@ -501,7 +501,8 @@ int main(void)
         bad += check("1.2: each section its own extras, any other copy the fifth",
                      bbx_of(&proj_slot[0]) == &bbx_ram[0] && bbx_of(&proj_slot[3]) == &bbx_ram[3] && bbx_of(&q) == &bbx_ram[4]);
         bad += check("1.7: the extras (EQ, MIXes, FX > DIST MOD COMP, the master's EQ) fit a side record",
-                     sizeof(bbx_t) == 104u && sizeof(bbx_t) <= 192u);
+                     __builtin_offsetof(bbx_t, sum) + 2u == 104u && sizeof(bbx_t) <= 192u);   /* (1.9.2: the notes' ends after
+                                                                                     * 1.9.1's 104 bytes) */
         song.g[G_XTYPE] = 4, song.g[G_XA] = 99, song.g[G_MTYPE] = 2, song.g[G_MFDBK] = 11;
         song.g[G_KTHR] = -23, song.g[G_KRAT] = 2, song.g[G_KATK] = 0, song.g[G_KREL] = 5;
         song.g[G_DRSTY] = 3, song.g[G_DRPUN] = 1, song.g[G_DRCLIP] = 77, song.g[G_DRTONE] = 20;

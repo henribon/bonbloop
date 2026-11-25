@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.9.1"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.9.2"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -237,6 +237,23 @@ UI_SMALL static uint32_t note_span_set(track_t *t, uint32_t i, uint32_t want)
     return span_set(t, i, s, ns, want);
 }
 
+/* (BONBLOOP 1.9.2) SEQ > NOTES LEN in ms: step i's note to its end, in 1/128 of a step: its steps, then where it ends in
+ * the last (core.h SF_END; none, or a ratchet's: where the GATE ends it, a TIE's half a step later); and as ms */
+UI_SMALL static uint32_t note_u128(const track_t *t, uint32_t i)
+{
+    uint32_t n = note_span(t, i), l = (i + n - 1u) % NSTEP, g = (uint32_t)t->p[P_SGATE];
+    const step_t *s = &t->step[l];
+    if ((s->flags & SF_END) && !(s->time == ST_NOTE && s->rat))
+        g = (t->nend[l] + 1u) * 16u;
+    else if (s->time == ST_TIE)
+        g = g + 64u > 128u ? 128u : g + 64u;
+    return (n - 1u) * 128u + g;
+}
+UI_SMALL static uint32_t note_ms(const track_t *t, uint32_t i)
+{
+    return (div_samples(trk_div(t)) * 100u / 441u * note_u128(t, i) / 128u + 5u) / 10u;   /* (a step in 0.1 ms) */
+}
+
 /* a synth step's velocity as it plays (seq.c step_vel: ACC 127, else its VEL, 96 when 0, through its first note's level) */
 UI_SMALL static uint32_t step_vel_shown(const step_t *st)
 {
@@ -269,10 +286,13 @@ UI_SMALL static int undo_swap(int redo)
         for (i = 0; i < NSTEP; i++) {
             step_t x = t->step[i];
             int8_t m = t->micro[i];
+            uint8_t e = t->nend[i];
             t->step[i] = undo.st[i];
             undo.st[i] = x;
             t->micro[i] = undo.micro[i];                 /* (2.7) and its nudge */
             undo.micro[i] = m;
+            t->nend[i] = undo.nend[i];                   /* (BONBLOOP 1.9.2) and its end */
+            undo.nend[i] = e;
         }
     }
     len = t->p[P_SLEN];
@@ -423,6 +443,7 @@ UI_SMALL static int32_t note_shift(track_t *t, uint32_t i, int32_t dir, int copy
         step_clear(&t->step[i + n - 1u]);
     }
     t->micro[to] = t->micro[i];
+    t->nend[to + n - 1u] = t->nend[i + n - 1u];         /* (BONBLOOP 1.9.2: its end, in its last step, goes with it) */
     step_fill_set(t, to, step_fill(t, i));
     for (j = 0; j < NLOCK; j++)
         if (t->lock[j].step == i) {

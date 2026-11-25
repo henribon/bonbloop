@@ -881,54 +881,37 @@ int main(int argc, char **argv)
             }
             check(ok, "theme (2.7): checked (CRC, the strongest step and the accent standing out from the background, a "
                       "printable name); a first-beta THM1 taken with an accent");
-            ui.menu = 1; ui.menu_sel = MI_COLOR; ui.force = 1; frame();
-            settings.palette = 4; theme_on = 0; palette_set(4);
-            encs[panel.enc[EN_K1]] = 1; frame();      /* no theme: MONO -> GREEN, as ever */
-            ok = settings.palette == 0u && !theme_on;
-            settings.palette = 4; palette_set(4);
-            theme = th; theme_valid = 1;
-            encs[panel.enc[EN_K1]] = 1; frame();      /* MONO -> SUNSET */
-            ok &= theme_on && settings.palette == 4u && pal[0] == th.c[0] && pal[4] == th.c[4] && C_BLACK == th.bg &&
-                  TE_COL[0] == th.trk[0] && TE_COL[3] == th.trk[3] && TE_MID[1] == rgb565_scale(th.trk[1], 2, 3) &&
-                  (lights_word() >> 30 & 1u) && !strcmp(mi_value(MI_COLOR, &(uint16_t){0}), "SUNSET") && C_WHITE == th.hi;
-            ui.force = 1; frame(); ppm("menu-theme");
-            ui.menu = 0; go_home(); ui.force = 1; frame(); frame(); ppm("tracks-theme");   /* (a page in the theme) */
-            open_family(FAM_EDIT); ui.force = 1; frame(); frame(); ppm("edit-theme");
-            studio_open(SC_SONG); ui.force = 1; frame(); frame(); ppm("song-theme");
-            check(PAGES[ui.page].scope == SC_SONG && swap16(screen[179 * 240 + 10]) == th.trk[0] &&
-                  swap16(screen[179 * 240 + 190]) == th.trk[3],
-                  "theme (2.7.2): the SONG screen's sections in the theme's track colours");
-            go_home();
-            {   /* a light theme (the editor's Light <-> dark on GREEN: the five the other way, white, a black accent):
-                 * the same pages, to look at (build/host/*-light.ppm) */
-                theme_t l = th, keep = th;
-                for (k = 0; k < 5; k++)
-                    l.c[k] = PALETTES[0].c[4 - k];
-                l.bg = 0xFFFFu, l.hi = 0u;
-                l.crc = st_crc32(&l, 36u);
-                ok &= theme_check(&l);
-                theme = l; palette_set(settings.palette);
-                ui.menu = 1; ui.menu_sel = MI_COLOR; ui.force = 1; frame(); ppm("menu-theme-light");
-                ui.menu = 0; go_home(); ui.force = 1; frame(); frame(); ppm("tracks-theme-light");
-                open_family(FAM_EDIT); ui.force = 1; frame(); frame(); ppm("edit-theme-light");
+            {   /* (BONBLOOP 1.9.2) one look: PERI, whatever palette number the settings hold, a theme the editor sent
+                 * kept (the backups) but not shown; no MENU > COLOR. (The pages 2.7's theme test went through, frame for
+                 * frame: the tests after it count on the audio's time) */
+                uint32_t i;
+                ui.menu = 1; ui.menu_sel = MI_ZOOM; ui.force = 1; frame();
+                settings.palette = 0; theme = th; theme_valid = 1; theme_on = 1;
+                palette_set(0);
+                frame(); frame();
+                ok = pal[2] == RGB(102, 103, 171) && pal[4] == RGB(217, 218, 244) && C_BLACK == 0u && C_WHITE == 0xFFFFu &&
+                     TE_COL[0] == RGB(217, 218, 244) && TE_COL[3] == RGB(217, 218, 244) && C_ON == RGB(139, 92, 246) &&
+                     KNOB_LIT == RGB(59, 164, 136);
+                for (i = 0; i < MI_COUNT; i++)
+                    ok &= strcmp(MI_NAME[i], "COLOR") != 0;
+                ok &= MS_FIRST[MS_SCREEN] == MI_ZOOM && mi_sec(MI_ACCEL) == MS_SCREEN;
+                ui.force = 1; frame(); ppm("menu-one-look");
+                ui.menu = 0; go_home(); ui.force = 1; frame(); frame(); ppm("tracks-one-look");
+                ok &= swap16(screen[120 * 240 + 120]) != th.bg;
+                open_family(FAM_EDIT); ui.force = 1; frame(); frame();
+                studio_open(SC_SONG); ui.force = 1; frame(); frame();
                 go_home();
-                theme = keep; palette_set(settings.palette);
+                ui.menu = 1; ui.menu_sel = MI_ZOOM; ui.force = 1; frame();
+                ui.menu = 0; go_home(); ui.force = 1; frame(); frame();
+                open_family(FAM_EDIT); ui.force = 1; frame(); frame();
+                go_home();
+                ui.menu = 1; ui.menu_sel = MI_ZOOM; ui.force = 1; frame();
+                frame(); frame();
+                theme_valid = 0; theme_on = 0; settings.palette = pal0; palette_set(pal0);
+                ui.menu_sel = MI_USB; ui.force = 1; frame();      /* (back to AUDIO) */
             }
-            ui.menu = 1; ui.menu_sel = MI_COLOR; ui.force = 1; frame();
-            lights_from_word(lights_word());
-            ok &= theme_on == 1u;
-            encs[panel.enc[EN_K1]] = 1; frame();      /* SUNSET -> GREEN */
-            ok &= !theme_on && settings.palette == 0u && pal[4] == PALETTES[0].c[4] && TE_COL[0] == TE_COL_DEF[0] && C_BLACK == 0u &&
-                  C_WHITE == 0xFFFFu &&
-                  TE_DIM[2] == TE_DIM_DEF[2];
-            encs[panel.enc[EN_K1]] = -1; frame();     /* back: SUNSET */
-            ok &= theme_on && pal[2] == th.c[2];
-            theme_valid = 0;                          /* (gone: the editor removed it) */
-            palette_set(settings.palette);
-            ok &= pal[4] == PALETTES[settings.palette].c[4] && strcmp(mi_value(MI_COLOR, &(uint16_t){0}), "SUNSET");
-            theme_on = 0; settings.palette = pal0; palette_set(pal0);
-            ui.menu_sel = MI_USB; ui.force = 1; frame();      /* (back to AUDIO) */
-            check(ok, "MENU > COLOR (2.7): your theme after MONO, by its name; its colours, background and the tracks'; bit 30");
+            check(ok, "1.9.2: one look, PERI (Very Peri on black): any palette number, a theme from the editor kept but not "
+                      "shown; no MENU > COLOR");
         }
         {   /* 2.7: the page counter counts the pages SELECT walks (SEQ: STEP 1/2, PATTERN 2/2; SONG not counted) */
             uint32_t n, k1, n1, k2, n2, k3 = 0, n3 = 0, menu0 = ui.menu, sel0 = ui.menu_sel;
@@ -1143,6 +1126,14 @@ int main(int argc, char **argv)
                 fm1_ms = ms0;
                 check(ok && f == (sc & ~mk), "GLO > SCALE: LOW glow + marks dim; MID dim + marks full; MAX full (D4 played "
                       "dark, F3 played lit), the marks blinking");
+                {   /* (1.9.2) a layer held (FX to play, SEQ, ARP ...): the keys show the layer, not the scale */
+                    uint8_t ly = ui.layer;
+                    ui.layer = LY_FX;
+                    guide_layers(0u, &f, &d, &g);
+                    ok = !guide_keys(0) && !f && !d && !g;
+                    ui.layer = ly;
+                    check(ok && guide_keys(0) == sc, "1.9.2 GLO > SCALE: FX held: no scale light; let go: back");
+                }
             }
             song.sel = TRK_DRUM;
             check(!guide_keys(0), "GLO > SCALE: the drum track lights no scale");
@@ -1193,12 +1184,12 @@ int main(int argc, char **argv)
     {   /* the menu in sections (2.4): SELECT the section, KNOB 1..3 its rows, PRESETS the cursor, OCT+ opens */
         uint32_t sec;
         ui.menu = 1; ui.menu_sel = 0; ui.force = 1; frame(); ppm("menu-screen");
-        check(mi_sec(ui.menu_sel) == MS_SCREEN, "menu: opens on SCREEN (COLOR, ZOOM, KNOB ACCEL)");
-        encs[panel.enc[EN_K3]] = -1; frame();               /* (2.7) row 3: KNOB ACCEL, left OFF */
+        check(mi_sec(ui.menu_sel) == MS_SCREEN, "menu: opens on SCREEN (ZOOM, KNOB ACCEL; 1.9.2: no COLOR)");
+        encs[panel.enc[EN_K2]] = -1; frame();               /* (2.7) row 2 (1.9.2): KNOB ACCEL, left OFF */
         check(ui.menu_sel == MI_ACCEL && knob_accel_off == 1u && (lights_word() >> 27 & 1u),
-              "menu SCREEN: KNOB 3 left: KNOB ACCEL OFF, saved with the settings (bit 27)");
-        encs[panel.enc[EN_K3]] = 1; frame();
-        check(knob_accel_off == 0u && !(lights_word() >> 27 & 1u), "menu SCREEN: KNOB 3 right: KNOB ACCEL ON");
+              "menu SCREEN: KNOB 2 left: KNOB ACCEL OFF, saved with the settings (bit 27)");
+        encs[panel.enc[EN_K2]] = 1; frame();
+        check(knob_accel_off == 0u && !(lights_word() >> 27 & 1u), "menu SCREEN: KNOB 2 right: KNOB ACCEL ON");
         lights_from_word(0);
         check(knob_accel_off == 0u, "menu SCREEN: a settings word from before 2.7 reads KNOB ACCEL ON");
         {   /* (2.7.1) the SEQ section: STEP ADVANCE (ON), DRUM PREVIEW (OFF); between AUDIO and SYSTEM */
@@ -1621,14 +1612,27 @@ int main(int argc, char **argv)
         open_family(FAM_SEQ); frame();
         check(!strcmp(PAGES[ui.page].title, "NOTES"), "SEQ: the NOTES page first (2.7.2: STEP before)");
         ui.cursor = 4; ui.force = 1; frame();
-        K(EN_K3, 1); K(EN_K3, 1);
+        knob_accel_off = 1;                               /* (BONBLOOP 1.9.2: LEN in 1/8 steps, shown in ms) */
+        {
+            int16_t bpm = song.g[G_BPM];
+            song.g[G_BPM] = 120;
+            K(EN_K3, 1);
+            check(note_len(&trk[0], 4) == 1u && (trk[0].step[4].flags & SF_END) && trk[0].nend[4] == 4u &&
+                  note_ms(&trk[0], 4) == 78u, "1.9.2 NOTES, KNOB 3 one detent: the end 1/8 of a step later (GATE 50 % -> 5/8: 78 ms at 120)");
+            ui.force = 1; frame(); ppm("page-notes-len-ms");
+            song.g[G_BPM] = bpm;
+        }
+        K(EN_K3, 12);
         check(note_len(&trk[0], 4) == 3u && trk[0].step[5].time == ST_TIE && trk[0].step[6].time == ST_TIE &&
-              trk[0].step[7].time != ST_TIE, "STEP page, KNOB 3 on a note: LEN 1 -> 3 (two TIEs after it)");
+              trk[0].step[7].time != ST_TIE && (trk[0].step[6].flags & SF_END) && trk[0].nend[6] == 0u,
+              "STEP page, KNOB 3 on a note: LEN 5/8 -> 2 1/8 steps (two TIEs after it, it ends 1/8 into the last)");
         ui.force = 1; frame(); ppm("page-step-len");
         K(EN_K3, -1);
-        check(note_len(&trk[0], 4) == 2u && trk[0].step[6].time == ST_REST, "KNOB 3 back: LEN 2 (its last TIE a REST)");
+        check(note_len(&trk[0], 4) == 2u && trk[0].step[6].time == ST_REST && trk[0].nend[5] == 7u,
+              "KNOB 3 back: LEN 2 (its last TIE a REST, it ends with the step before)");
         trk[0].step[5].n = 1, trk[0].step[5].note[0] = 64;   /* a TIE holding a note (TIME, or an older SLOOP) */
-        K(EN_K3, -1);
+        K(EN_K3, -8);
+        knob_accel_off = 0;
         check(note_len(&trk[0], 4) == 1u && trk[0].step[5].time == ST_REST && trk[0].step[5].n == 1u &&
               trk[0].step[5].note[0] == 64u, "LEN shorter over a TIE holding a note: a REST, the note kept (as TIME)");
         go_home(); frames(16);
@@ -2093,7 +2097,9 @@ int main(int argc, char **argv)
         encs[panel.enc[EN_K2]] = 1; frame();
         check(t->step[4].note[0] == 60u && t->step[4].note[1] == 65u && t->step[4].note[2] == 67u,
               "NOTES: KNOB 2 changes that note's pitch only (E4 -> F4, the chord's others stay)");
-        encs[panel.enc[EN_K3]] = 2; frame();
+        knob_accel_off = 1;
+        encs[panel.enc[EN_K3]] = 13; frame();             /* (1.9.2: 1/8 of a step a detent: 4/8 -> 17/8) */
+        knob_accel_off = 0;
         check(note_len(t, 4) == 3u && t->step[5].time == ST_TIE && t->step[6].time == ST_TIE, "NOTES: KNOB 3 its length (3 steps: two TIEs)");
         encs[panel.enc[EN_K4]] = 1; frame();
         ok = note_force(&t->step[4], 1) == 3u && ((t->step[4].lvl >> 2) & 3u) == LV_HARD && !(t->step[4].flags & SF_ACCENT);

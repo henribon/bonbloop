@@ -1,25 +1,26 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * Copyright (C) 2026 Leo Kuroshita (@kurogedelic), Hügelton Instruments */
-/* SLOOP menu (HOME held), in sections as the pages are (2.4): SCREEN (COLOR, ZOOM, KNOB ACCEL (2.7)), LIGHTS (LIGHTS, KEYS, NOTES),
+/* SLOOP menu (HOME held), in sections as the pages are (2.4): SCREEN (ZOOM, KNOB ACCEL (2.7); BONBLOOP 1.9.2: no COLOR,
+ * one look, gfx.c PERI), LIGHTS (LIGHTS, KEYS, NOTES),
  * AUDIO (LOWCUT, USB AUDIO, USB SERIAL (FELUCCA_CDC builds only), USB RATE (2.7 beta)), SEQ (2.7.1: STEP ADVANCE, DRUM PREVIEW), SYSTEM (2ND CORE (dualcore), HARDWARE CALIBRATION, LEARN CLEAR (2.6), ABOUT).
  * SELECT goes to the section before / after (stopping at the ends), KNOB 1..4 set the section's settings in order (the knob's colour marks
  * its row), PRESETS moves the cursor; OCT+ steps the cursor's setting round or opens it (CALIBRATION, ABOUT),
  * OCT- closes (from ABOUT: back to the section). */
 /* ------------------------------------------------------------ menu --- */
 /* (2.7: USB SERIAL only in a build with the serial console, FELUCCA_CDC=1: the FM-1's build has none) */
-enum { MI_COLOR, MI_ZOOM, MI_ACCEL, MI_LIGHTS, MI_KEYS, MI_NOTES, MI_LOWCUT, MI_USB,
+enum { MI_ZOOM, MI_ACCEL, MI_LIGHTS, MI_KEYS, MI_NOTES, MI_LOWCUT, MI_USB,
 #if FELUCCA_CDC
        MI_SERIAL,
 #endif
        MI_RATE, MI_FRESO, MI_ADV, MI_DPREV, MI_CPU1, MI_PANEL, MI_LCLEAR, MI_ABOUT, MI_COUNT };
-static const char *const MI_NAME[MI_COUNT] = {"COLOR", "ZOOM", "KNOB ACCEL", "LIGHTS", "KEYS", "NOTES", "SPEAKER LOWCUT", "USB AUDIO",
+static const char *const MI_NAME[MI_COUNT] = {"ZOOM", "KNOB ACCEL", "LIGHTS", "KEYS", "NOTES", "SPEAKER LOWCUT", "USB AUDIO",
 #if FELUCCA_CDC
                                               "USB SERIAL",
 #endif
                                               "USB RATE", "FILTER RESO", "STEP ADVANCE", "DRUM PREVIEW", "2ND CORE", "HARDWARE CALIBRATION", "MIDI LEARN CLEAR", "ABOUT"};
 enum { MS_SCREEN, MS_LIGHTS, MS_AUDIO, MS_SEQ, MS_SYSTEM, MS_COUNT };   /* (2.7.1: SEQ) */
 static const char *const MS_NAME[MS_COUNT] = {"SCREEN", "LIGHTS", "AUDIO", "SEQ", "SYSTEM"};   /* (AUDIO: and USB) */
-static const uint8_t MS_FIRST[MS_COUNT + 1] = {MI_COLOR, MI_LIGHTS, MI_LOWCUT, MI_ADV, MI_CPU1, MI_COUNT};   /* rows of each */
+static const uint8_t MS_FIRST[MS_COUNT + 1] = {MI_ZOOM, MI_LIGHTS, MI_LOWCUT, MI_ADV, MI_CPU1, MI_COUNT};   /* rows of each */
 
 UI_SMALL static int mi_cpu1_have(void)                      /* the second core is running (cpu1.c; the host tests have no cpu1.c) */
 {
@@ -48,16 +49,6 @@ UI_SMALL static const char *mi_value(uint32_t i, uint16_t *c)
 {
     *c = C_HI;
     switch (i) {
-    case MI_COLOR:                                    /* (2.7) your theme, by its name */
-        if (theme_shown()) {
-            static char b[9];
-            uint32_t k;
-            for (k = 0; k < 8u && theme.name[k]; k++)
-                b[k] = theme.name[k];
-            b[k] = 0;
-            return k ? b : "MY THEME";
-        }
-        return PALETTES[settings.palette % NPALETTES].name;
     case MI_ZOOM: return settings.zoom ? "ON" : "OFF";
     case MI_ACCEL: return knob_accel_off ? "OFF" : "ON";   /* (2.7) the knobs speed up with a fast turn */
     case MI_ADV: return step_adv_off ? "OFF" : "ON";      /* (2.7.1) the STEP page's cursor moves on when the keys are let go */
@@ -110,7 +101,7 @@ UI_SMALL static void draw_menu(void)
     uint32_t i, pass, sec = mi_sec(ui.menu_sel % MI_COUNT);
     uint32_t sig = ui.menu * 7u + ui.menu_sel * 131u + settings.palette * 1009u + settings.lowcut * 7919u +
                    settings.zoom * 104729u + lights_lvl * 1299709u + lights_keys * 15485863u + ml_count() * 2654435u +
-                   lights_notes * 32452843u + usb_full * 49979687u + usb_serial * 86028121u + usb_rate * 15486719u + theme_shown() * 32452867u + theme.crc + cpu1_off * 122949829u +
+                   lights_notes * 32452843u + usb_full * 49979687u + usb_serial * 86028121u + usb_rate * 15486719u + cpu1_off * 122949829u +
                    knob_accel_off * 179424673u + drum_preview * 236887691u + step_adv_off * 373587883u + flt_reso * 512927357u;
     if (!ui.force && sig == ui.menu_sig)
         return;
@@ -186,11 +177,6 @@ UI_SMALL static void draw_menu(void)
                 } else {
                     xv = cv_text(14, y + 24, &FONT_S, "OCT+ OPENS", cur ? C_WHITE : C_DIM);
                 }
-                if (i == MI_COLOR) {                    /* the palette's colours */
-                    uint32_t q;
-                    for (q = 0; q < 5u; q++)
-                        cv_rect(xv + 10 + (int32_t)q * 14, y + 28, 10, 10, pal[q]);
-                }
                 if (i == MI_RATE && usb_rate != usb_rate_now())
                     cv_text(xv + 8, y + 30, &FONT_S, "RESTART", C_AMB);   /* (usb.c: at the next start) */
 #if FELUCCA_CDC
@@ -233,18 +219,6 @@ UI_SMALL static void menu_close(void)
 UI_SMALL static void mi_set(uint32_t i, int32_t s)
 {
     switch (i) {
-    case MI_COLOR: {                                   /* both ways round; OCT+ the next. 2.7: your theme after MONO
-                                                        * (the palette number stays the last built-in one: an older
-                                                        * SLOOP shows that) */
-        uint32_t n = NPALETTES + (theme_valid ? 1u : 0u), at = theme_shown() ? NPALETTES : settings.palette % NPALETTES;
-        at = (at + (s < 0 ? n - 1u : 1u)) % n;
-        theme_on = (uint8_t)(at == NPALETTES);
-        if (!theme_on)
-            settings.palette = at;
-        palette_set(settings.palette);
-        ui.force = 1;
-        break;
-    }
     case MI_ACCEL:                                     /* (2.7) right ON, left OFF; OCT+ toggles (ui_input.c accel) */
         knob_accel_off = (uint8_t)(s > 0 ? 0u : s < 0 ? 1u : !knob_accel_off);
         break;

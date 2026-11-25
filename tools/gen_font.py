@@ -229,6 +229,7 @@ def main(out):
             continue
         data, offs = [], []
         one = all(v in (0, 15) for _, _, g in glyphs for v in g)   # on / off only: 1 bit a pixel
+        assert one, "BONBLOOP 1.9.2: gfx.c cv_text draws 1-bit fonts only (no anti-aliased path left)"
         two = not one and ttf.startswith("InterTight")             # (BONBLOOP 1.7) 2 bits a pixel, 4 levels
         for adv, bw, g in glyphs:
             offs.append(len(data))

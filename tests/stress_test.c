@@ -27,8 +27,8 @@ static void scheck(int ok, const char *what) { if (!ok) { printf("FAIL %s\n", wh
 static double st_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec * 1e9 + t.tv_nsec; }
 
 /* ---- font ---- */
-static uint8_t big_data[96 * 32 * 32 / 2 + 64];   /* the old FONT_L: S enlarged and stored (reference only; 1.7: all
-                                                 * 96 glyphs, up to 32 px wide at 2x) */
+static uint8_t big_data[96 * 32 * 32 / 8 + 64];   /* the old FONT_L: S enlarged and stored (reference only; 1.9.2: at
+                                                 * 1 bit a pixel, the only kind cv_text draws) */
 static uint16_t big_off[96];
 static felucca_font_t FONT_L2X;
 
@@ -36,30 +36,21 @@ static void font_ref_build(void)
 {
     uint32_t gi, o = 0;
     for (gi = 0; gi <= (uint32_t)(FONT_S.last - FONT_S.first) && gi < 96u; gi++) {
-        uint32_t ws = FONT_S.bw[gi], wb = FONT_L.bw[gi], bs = (ws + 1u) / 2u, bb = (wb + 1u) / 2u, x, y;
+        uint32_t ws = FONT_S.bw[gi], wb = FONT_L.bw[gi], x, y;
         const uint8_t *s = FONT_S.data + FONT_S.off[gi];
         big_off[gi] = (uint16_t)o;
         for (y = 0; y < 32u; y++)
             for (x = 0; x < wb; x++) {
-                uint32_t sx = x / 2u, v;
-                if (FONT_S.bits == 1u) {                  /* (2.6: S at 1 bit a pixel) */
-                    uint32_t i = (y / 2u) * ws + sx;
-                    v = (s[i >> 3] >> (7u - (i & 7u))) & 1u ? 15u : 0u;
-                } else if (FONT_S.bits == 2u) {           /* (BONBLOOP 1.7: 2 bits a pixel, the first look) */
-                    v = ((s[(y / 2u) * ((ws + 3u) / 4u) + sx / 4u] >> (6u - 2u * (sx & 3u))) & 3u) * 5u;
-                } else {
-                    v = s[(y / 2u) * bs + sx / 2u];
-                    v = (sx & 1u) ? (v & 15u) : (v >> 4);
-                }
-                if (x & 1u) big_data[o + y * bb + x / 2u] |= (uint8_t)v;
-                else big_data[o + y * bb + x / 2u] = (uint8_t)(v << 4);
+                uint32_t i = (y / 2u) * ws + x / 2u, k = y * wb + x;   /* (S at 1 bit a pixel, its pixel doubled) */
+                if ((s[i >> 3] >> (7u - (i & 7u))) & 1u)
+                    big_data[o + (k >> 3)] |= (uint8_t)(0x80u >> (k & 7u));
             }
-        o += 32u * bb;
+        o += (32u * wb + 7u) / 8u;
         assert(o <= sizeof big_data);
     }
     FONT_L2X = FONT_L;
     FONT_L2X.sh = 0;
-    FONT_L2X.bits = 0;                                /* (the reference: 4-bit, stored at 2x) */
+    FONT_L2X.bits = 1;                                /* (the reference: 1-bit, stored at 2x) */
     FONT_L2X.off = big_off;
     FONT_L2X.data = big_data;
 }

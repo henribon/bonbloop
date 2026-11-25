@@ -39,7 +39,7 @@ static uint32_t drum_kit(void) { return (uint32_t)clamp(TDRUM->p[P_E0], 0, DRUM_
 static struct {
     voice_t v[NDRUM];
     uint32_t age;
-    int16_t set;                 /* SMP_SETS index of "PERC" (GM map), -1 = none */
+    int16_t set;                 /* SMP_SETS index of "PERC" (GM map) + 2; 1 = none, 0 = not looked up (drum_set) */
     int32_t tail;                /* declick: the last output of cut voices, decaying */
     int32_t peak;                /* largest |output| since the UI last looked (TRACKS meter) */
     uint8_t kit[NDRUM];
@@ -52,7 +52,7 @@ static struct {
     int32_t a0, a1;              /* the drum track's mute / solo attenuation over this block (fx.c), Q15, 0 = heard */
     int32_t glv, ggl, ggr;       /* (2.7) LEVEL and PAN as last mixed: a change glides (~3 ms, fx.c mix_glide) */
     uint8_t gon;
-} drums = {.set = -2};
+} drums;
 
 static int32_t ds_buf[CTL];
 
@@ -68,13 +68,14 @@ static int32_t mix_glide(int32_t from, int32_t to)
 static int32_t drum_set(void)
 {
     uint32_t i;
-    if (drums.set == -2) {
-        drums.set = -1;
+    if (!drums.set) {                                   /* (BONBLOOP 1.9.2: kept + 2, so 0 is "not looked up yet" and
+                                                         * the struct starts zero: .bss, 1.8 KB of flash less) */
+        drums.set = 1;
         for (i = 0; i < SMP_NSETS; i++)
             if (str_eq(SMP_SETS[i].name, "PERC"))
-                drums.set = (int16_t)i;
+                drums.set = (int16_t)(i + 2u);
     }
-    return drums.set;
+    return drums.set - 2;
 }
 
 /* ------------------------------------------------------------ lanes --- */

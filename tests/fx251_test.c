@@ -280,7 +280,7 @@ static void t_mutes(void)
     uint32_t i, on, off, sn;
     setup();
     memset(&drums, 0, sizeof drums);
-    drums.set = -2;
+    drums.set = 0;                  /* (1.9.2: 0, not looked up yet) */
     for (i = 0; i < 16u; i++) {
         dstep_set(&TDRUM->dstep[i], 0, LV_NORM, i == 4u ? 1u : 0u);   /* the kick on every step, a ratchet on 5 */
         dstep_set(&TDRUM->dstep[i], 2, LV_NORM, 0);                   /* the snare too */
