@@ -16,6 +16,17 @@ cima, com a sua própria cara:
 
 Licença: GPL-3.0-only, como o SLOOP e o Felucca (ver `LICENSE` e `LICENSING.md`).
 
+**Versão 1.0** — o **primeiro lançamento oficial**. Junta tudo o que veio nas versões de desenvolvimento abaixo e traz:
+**o nível de cada efeito no KNOB 1** de todas as páginas de efeito do modo synth — **MIX** (seco / molhado) no DRIVE,
+no PHASER e no DJ FILT, **SEND** no CHORUS, no DELAY e no REVERB —, o **mesmo valor** do fader daquele efeito no **FX
+MIX** (ver *O nível de cada efeito: MIX e SEND*). O DST do DRIVE passou a se chamar **DRIVE** e o PUNSH foi para a
+página **DRIVE 2**; o EQ não tem mais MIX, e os MIX de retorno do chorus, do delay e do reverb saíram. Um **LOAD** ou
+um **NEW** fica guardado na hora: desligou logo depois, o FM-1 volta com ele (antes podia voltar o projeto de antes).
+E o estilo do **barquinho** (o logo do SLOOP) saiu do visualizador: agora são 11.
+
+*Antes da 1.0, o BONBLOOP passou por versões de desenvolvimento (1.1 a 1.9.2), não lançadas oficialmente; as notas de
+cada uma ficam aqui como histórico.*
+
 **Versão 1.9.2** — a página **CLIP** tem a cara de um *soft clipper*: a **curva de transferência** (entrada × saída
 em dB, desenhada pelo próprio código do clipper), o **teto** e os medidores **IN / OUT**. **OCT- + OCT+** numa página
 de efeito **volta aquele efeito ao padrão** (ver *Voltar um efeito ao padrão*). E o **NEW** (SAVE → TOOLS) agora zera
@@ -140,17 +151,18 @@ grupo; o **SELECT** percorre todas as páginas que estão à mostra.
 | | OSC1 LFO · OSC2 LFO · OSC3 LFO | RATE · DEPTH · DEST (POS / PITCH / LVL) — **o LFO de cada oscilador** (1.2) |
 | **FX** | FX CHAIN | SLOT1 · SLOT2 · SLOT3 · SLOT4 — **a sua cadeia de efeitos** (1.2) |
 | | CHAIN 2 | SLOT5 · SLOT6 · SLOT7 |
-| | FX MIX | **um fader por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER, FILTER e EQ o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio |
+| | FX MIX | **um fader por efeito da cadeia, na ordem dela** (1.7): DRIVE, PHASER e FILTER o MIX (seco / molhado), CHORUS, DELAY e REVERB o envio. É **o mesmo valor do KNOB 1 da página de cada efeito**: mexeu num, mexeu no outro (1.0). O EQ não tem MIX (soa sempre inteiro) |
 | | FX MIX 2 | os efeitos dos slots 5 a 7 (só aparece com 5 efeitos ou mais) |
-| | DRIVE | DST · STYLE (A E N T P) · TONE · PUNSH |
+| | DRIVE | **MIX** (seco / molhado, o do FX MIX) · **DRIVE** (o quanto distorce; 0 desliga; era o DST) · STYLE (A E N T P) · TONE |
+| | DRIVE 2 | PUNSH (1.0: saiu da página DRIVE para o MIX caber) |
 | | PHASER | MIX · RATE · DEPTH · FDBK |
-| | DJ FILT | FILT (filtro DJ do track) |
+| | DJ FILT | **MIX** (o do FX MIX) · FILT (filtro DJ do track) |
 | | EQ 1 | LOW (Hz) · GAIN · MID1 (Hz) · GAIN — com a curva (1.5) |
 | | EQ 2 | MID2 (Hz) · GAIN · HIGH (Hz) · GAIN — com a curva |
-| | CHORUS | MOD (envio) · CRT · CDP · **MIX** (o retorno, 1.6) — o TYPE (chorus / flanger / phaser) fica em FX → MOD |
+| | CHORUS | **SEND** (o envio, o do FX MIX) · CRT · CDP — o TYPE (chorus / flanger / phaser) fica em FX → MOD |
 | | DELAY | DLY (envio) · TIME (1/2 … 1/32T, ou os ms no MODE MS) · FDBK · **MODE** (SYNC / MS) |
-| | DELAY 2 | COLR · MIX |
-| | REVERB | REV (envio) · SIZE · DAMP · **MIX** (o retorno, 1.6) |
+| | DELAY 2 | COLR |
+| | REVERB | **SEND** (o envio, o do FX MIX) · SIZE · DAMP |
 | **SAVE** | PRESET | SLOT · LOAD · ERASE · SAVE — **salvar o som** (1.7) |
 
 As páginas de cada efeito **só aparecem quando ele está na cadeia** (ver abaixo).
@@ -426,10 +438,19 @@ para confirmar) cola nela. De uma track de synth para outra de synth, da bateria
 tela avisa *DRUMS / SYNTH: NO*). Os locks só vão junto se a outra track tiver o mesmo engine. **EDIT + OCT−** desfaz o
 PASTE.
 
-### MIX do reverb e do chorus (1.6)
+### O nível de cada efeito: MIX e SEND (1.0)
 
-Reverb e chorus são envios: a quantidade em cada track é o som molhado, e o seco fica inteiro. O **MIX** de cada um
-(nas páginas REVERB / CHORUS do modo synth) é o nível do retorno, como o MIX do delay.
+No modo synth, **o KNOB 1 de toda página de efeito é o nível dele**, e é **o mesmo valor** do fader daquele efeito no
+**FX MIX** (mexeu num, o outro acompanha):
+
+- **DRIVE, PHASER e DJ FILT** são efeitos de inserção: o KNOB 1 é o **MIX** (seco / molhado). No DRIVE, o KNOB 2
+  **DRIVE** é *quanto* distorce; o MIX é *quanto da distorção* aparece.
+- **CHORUS, DELAY e REVERB** são envios: o KNOB 1 é o **SEND**, quanto deste track vai para o efeito. O retorno deles
+  ficou fixo (o chorus e o reverb inteiros, o delay no nível de sempre do SLOOP): só há um nível para mexer.
+- O **EQ** não tem MIX: soa sempre inteiro (um EQ meio seco quase nunca é útil).
+
+Da 1.6 à 1.9.2 o chorus, o delay e o reverb tinham também um MIX de retorno nas páginas deles, e o DRIVE chamava a
+distorção de DST: dois "níveis" com nomes parecidos para coisas diferentes.
 
 ### REC em tempo real (1.5)
 
@@ -553,6 +574,8 @@ mexer na escala de lá podia travar as teclas pretas).
 - Um projeto com um track em WAVE (engine 12), aberto num SLOOP oficial, cai no som padrão daquele track.
 - Um projeto da 1.9.2 aberto na 1.9.1 ou no SLOOP abre igual, só as notas com fim próprio (*O fim da nota em ms*)
   acabam no GATE do padrão.
+- Na 1.0 os retornos do chorus e do reverb ficam inteiros e o do delay no nível padrão: um projeto em que esses MIX
+  estavam mais baixos toca esses efeitos mais alto (com os valores padrão, nada muda).
 - O editor web lê a lista de engines do próprio aparelho, então o WAVE aparece nele (com os números brutos).
 - A identidade do pacote é **`FM-1_962`** (1.7), só do BONBLOOP, em todas as versões (até a 1.7 era `FM-1_900`, a do
   SLOOP, que vários firmwares dividem). Instala por cima do SLOOP e de qualquer versão anterior, pelo mesmo instalador.
@@ -575,9 +598,10 @@ python tools/build_windows.py --distro Ubuntu --toolchain /root/.jieli/toolchain
 python tools/fm1_install.py build/felucca.fwsc
 ```
 
-Tamanho do 1.9.2: 578.820 de 581.564 bytes de flash (2,7 KB livres; para caber, o desenho de texto ficou só com o
+Tamanho do 1.0: 577.512 de 581.564 bytes de flash (4,0 KB livres; para caber, o desenho de texto ficou só com o
 caminho de 1 bit, a Pixelify Sans, 1 bit por pixel, ocupa bem menos que a Terminus; o estado da bateria começa
-zerado, sem ocupar flash com o valor inicial; e uma paleta só); RAM 60.908 de 98.304 bytes, pool igual ao do SLOOP.
+zerado, sem ocupar flash com o valor inicial; uma paleta só; e sem o estilo do barquinho); RAM 60.924 de 98.304
+bytes, pool igual ao do SLOOP.
 Para caber, a 1.7 encurtou mais duas caudas já baixas do VIBES (D4 a partir de 0,9 s, abaixo de −37 dB; B4 a partir de
 0,93 s, abaixo de −27 dB).
 

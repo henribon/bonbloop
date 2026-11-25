@@ -108,6 +108,36 @@ static void key_check(const char *when)
         check(a == c, b);
     }
 }
+/* (BONBLOOP 1.0) a project LOADed (or a NEW one), played a moment, stopped, the FM-1 switched off at once: it is the
+ * one that comes back. Up to 1.9.2 the working project reached the flash only after 20 s between two autosaves and
+ * 2.5 s of a quiet panel: the project from before the LOAD came back */
+static void load_then_off(void)
+{
+    uint32_t i;
+    int ok;
+    boot_as_main();
+    for (i = 0; i < 40; i++) ui_frame();
+    memset(&trk[0].step[0], 0, sizeof trk[0].step[0]);
+    trk[0].step[0].time = ST_NOTE, trk[0].step[0].n = 1, trk[0].step[0].note[0] = 72;
+    project_save(0);                              /* section A: C5 on step 1 */
+    trk[0].step[0].note[0] = 60;                  /* the working project: C4 there */
+    persist_flush_now();
+    ok = trk[0].step[0].note[0] == 60;
+    project_load(0);
+    ok &= trk[0].step[0].note[0] == 72;
+    transport_req = 1;
+    for (i = 0; i < 60; i++) ui_frame();          /* PLAY, about a second */
+    ok &= song.playing != 0;
+    transport_req = 2;
+    for (i = 0; i < 4; i++) { ui_input_ms = fm1_ms; ui_frame(); }   /* STOP, the panel just touched */
+    boot_as_main();                               /* switched off and on */
+    check(ok && trk[0].step[0].time == ST_NOTE && trk[0].step[0].note[0] == 72,
+          "1.0: LOAD, PLAY, STOP, switched off at once: the loaded project comes back");
+    project_new();                                /* NEW, switched off at once: the new, empty one */
+    for (i = 0; i < 4; i++) { ui_input_ms = fm1_ms; ui_frame(); }
+    boot_as_main();
+    check(trk[0].step[0].time != ST_NOTE || !trk[0].step[0].n, "1.0: NEW, switched off at once: the new project comes back");
+}
 int main(void)
 {
     uint32_t i;
@@ -142,6 +172,7 @@ int main(void)
         check(trk[0].step[0].time == ST_NOTE && trk[0].step[0].note[0] == 48, "... and keeps its pattern");
         key_check("over Clipper's working project");
     }
+    load_then_off();                              /* 4. (BONBLOOP 1.0) */
     printf("boot_sound: %d failed\n", fails);
     return fails != 0;
 }

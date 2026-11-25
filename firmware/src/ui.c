@@ -3,7 +3,7 @@
 /* Felucca user interface. Four columns map to KNOB 1..4. Rendering is lazy:
  * every element remembers what it last drew and is redrawn only on change. */
 #ifndef FELUCCA_VERSION
-#define FELUCCA_VERSION "BONBLOOP 1.9.2"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
+#define FELUCCA_VERSION "BONBLOOP 1.0"  /* SLOOP 2.8.5 + the SYNTH MODE (3 oscillators, wavetables, FX), for the FM-1 (based on SLOOP and Felucca) */
 #endif
 static void project_save(uint32_t slot);
 static void arrangement_save(void);
@@ -526,8 +526,8 @@ UI_SMALL static void note_name(char *b, uint32_t n)
  * nothing of it is saved, the sound is the track's like any other */
 static uint8_t syn_mode;
 static uint8_t syn_splash;                       /* frames "SYNTH MODE" stays over the wavetable as the mode starts */
-static const uint8_t SYN_GRP[5] = {0, 7, 11, 17, 30};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end
-                                                         * (1.7: then PRESET, SAVE's) */
+static const uint8_t SYN_GRP[5] = {0, 7, 11, 17, 31};  /* FAM_SYN's pages from page_first: EDIT, ENV, LFO, FX's, the end
+                                                         * (1.7: then PRESET, SAVE's; BONBLOOP 1.0: + DRIVE 2) */
 static const uint8_t SYN_BTN[4] = {B_EDIT, B_ENV, B_LFO, B_FX};
 UI_SMALL static int syn_group_of(uint32_t fam)
 {

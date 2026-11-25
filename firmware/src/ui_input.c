@@ -556,6 +556,7 @@ UI_SMALL static void project_new(void)
     song.octave = 0;
     sync_reload = 1;
     ui.force = 1;
+    autosave_req = 1;                                   /* (BONBLOOP 1.0: kept in flash as soon as it has stopped) */
 }
 
 /* (BONBLOOP 1.9.2) OCT- + OCT+ on an effect's page (FX's pages, the synth's effect pages): that effect's values back to

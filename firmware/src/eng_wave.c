@@ -137,7 +137,8 @@ static const uint8_t SXF[SX_N][3] = {   /* word, shift, bits | SXS. w[3]: 16 bit
 static const param_desc_t SXD[SX_N] = {SXD_LFO, SXD_LFO, SXD_LFO, SXD_ENV, SXD_ENV, SXD_SLOT("SLOT1"), SXD_SLOT("SLOT2"),
                                        SXD_SLOT("SLOT3"), SXD_SLOT("SLOT4"), SXD_SLOT("SLOT5"), SXD_SLOT("SLOT6"),
                                        SXD_SLOT("SLOT7"), SXD_EQ("LOW"), SXD_EQ("MID1"), SXD_EQ("MID2"), SXD_EQ("HIGH"),
-                                       {"DRIVE", F_PCT, 0, 15, 15, 0, 0}, {"FILTR", F_PCT, 0, 15, 15, 0, 0},
+                                       {"MIX", F_PCT, 0, 15, 15, 0, 0}, {"MIX", F_PCT, 0, 15, 15, 0, 0},   /* (1.0: on DRIVE
+                                                       * and DJ FILT as MIX; FX MIX names them by their effect) */
                                        {"EQ", F_PCT, 0, 15, 15, 0, 0}, {"PHASR", F_PCT, 0, 127, 127, 0, 0},
                                        {"DRIVE", F_PCT, 0, 63, 0, 0, 0}, {"CEIL", F_INT, -12, 0, 0, 0, "dB"},
                                        {"OUT", F_INT, -12, 6, 0, 0, "dB"}, {"SHAPE", F_ENUM, 0, 2, 0, N_CLSHP, 0}};
